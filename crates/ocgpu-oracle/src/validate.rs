@@ -249,8 +249,7 @@ fn validate_hip_runtime_profile_ledger(
     if profiles.len() != expected_profiles.len() {
         errors.push("HIP runtime-profile ledger must contain exactly profiles 7/6/5".to_owned());
     }
-    for (profile, (major, flag, minimum, linux_raw_floor)) in
-        profiles.iter().zip(expected_profiles)
+    for (profile, (major, flag, minimum, linux_raw_floor)) in profiles.iter().zip(expected_profiles)
     {
         let windows = profile.get("windows");
         let linux = profile.get("linux");
@@ -278,7 +277,9 @@ fn validate_hip_runtime_profile_ledger(
                 .and_then(JsonValue::as_i64)
                 != linux_raw_floor
         {
-            errors.push(format!("HIP {major} runtime-profile interval is stale or unsafe"));
+            errors.push(format!(
+                "HIP {major} runtime-profile interval is stale or unsafe"
+            ));
         }
     }
 
@@ -303,10 +304,15 @@ fn validate_hip_runtime_profile_ledger(
         );
     }
     if releases.len() != 7 {
-        errors.push("HIP profile ledger must retain all seven reviewed release observations".to_owned());
+        errors.push(
+            "HIP profile ledger must retain all seven reviewed release observations".to_owned(),
+        );
     }
     for release in releases {
-        let id = release.get("id").and_then(JsonValue::as_str).unwrap_or("<unknown>");
+        let id = release
+            .get("id")
+            .and_then(JsonValue::as_str)
+            .unwrap_or("<unknown>");
         let hashes = [
             "hip_archive_sha256",
             "hip_header_sha256",

@@ -45,8 +45,7 @@ const CUDA_VENDOR_PATH: &str = "oracle/vendor/cuda/13.3-13030.json";
 const HIP_VENDOR_GENERAL_PATH: &str = "oracle/vendor/hip/general-7.14.60850.json";
 const HIP_VENDOR_WINDOWS_PATH: &str = "oracle/vendor/hip/windows-7.2.0.json";
 const HIP_RUNTIME_PROFILES_PATH: &str = "oracle/vendor/hip/runtime-profiles.json";
-const HIP_RUNTIME_DECLARATIONS_PATH: &str =
-    "oracle/vendor/hip/runtime-profile-declarations.json";
+const HIP_RUNTIME_DECLARATIONS_PATH: &str = "oracle/vendor/hip/runtime-profile-declarations.json";
 const HIP_GENERATED_PROFILES_PATH: &str = "crates/ocgpu-hip/src/generated_profiles.rs";
 const VENDOR_FUNCTION_UNION_PATH: &str = "oracle/vendor/function-union.json";
 
@@ -725,11 +724,22 @@ struct HipRuntimeDeclarations {
 struct HipRuntimeDeclarationSnapshot {
     release_id: String,
     source_inventory_id: String,
-    source_header_sha256: String,
+    source_inventory_platforms: Vec<String>,
+    source_header_artifact: HipProfileSourceArtifact,
     target_abi: HipTargetAbi,
     functions: Vec<HipDeclaration>,
     transitive_types: Vec<HipTypeDeclaration>,
-    device_attributes: Vec<HipDeviceAttribute>,
+    device_attributes: Vec<HipDeclarationDeviceAttribute>,
+}
+
+#[derive(Deserialize)]
+#[serde(deny_unknown_fields)]
+struct HipProfileSourceArtifact {
+    role: String,
+    url: String,
+    sha256: String,
+    revision: String,
+    path: String,
 }
 
 #[derive(Deserialize)]
@@ -756,6 +766,16 @@ struct HipDeclaration {
 struct HipTypeDeclaration {
     name: String,
     kind: String,
+    normalized_signature: String,
+    signature_hash: String,
+    platforms: Vec<String>,
+}
+
+#[derive(Deserialize)]
+#[serde(deny_unknown_fields)]
+struct HipDeclarationDeviceAttribute {
+    name: String,
+    value: i64,
     normalized_signature: String,
     signature_hash: String,
     platforms: Vec<String>,
@@ -978,11 +998,7 @@ pub fn run(workspace_root: &Path, mode: Mode) -> Result<Report, Error> {
     validate_oracle_coverage(workspace_root, &manifest)?;
     let hip_profiles = read_hip_runtime_profiles(workspace_root)?;
     let hip_declarations = read_hip_runtime_declarations(workspace_root)?;
-    validate_hip_runtime_profiles(
-        &manifest,
-        &hip_profiles,
-        &hip_declarations,
-    )?;
+    validate_hip_runtime_profiles(&manifest, &hip_profiles, &hip_declarations)?;
 
     let rust_source = format_rust(&render_rust(&manifest)?)?;
     let layout_test = format_rust(&render_layout_test(&manifest)?)?;
@@ -998,8 +1014,7 @@ pub fn run(workspace_root: &Path, mode: Mode) -> Result<Report, Error> {
     let loader_inventory = render_loader_inventory(&manifest)?;
     let cuda_symbols = format_rust(&render_symbol_descriptors(&manifest, "cuda")?)?;
     let hip_symbols = format_rust(&render_symbol_descriptors(&manifest, "hip")?)?;
-    let hip_runtime_profiles =
-        format_rust(&render_hip_runtime_profiles(&manifest, &hip_profiles)?)?;
+    let hip_runtime_profiles = format_rust(&render_hip_runtime_profiles(&manifest, &hip_profiles))?;
     let export_shims = format_rust(&render_export_shims(&manifest))?;
     let def = render_def();
     let map = render_map();

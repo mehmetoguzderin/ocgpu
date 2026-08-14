@@ -1181,7 +1181,7 @@ fn collect_enum(
     let Some(children) = node.get("inner").and_then(Value::as_array) else {
         return;
     };
-    let mut previous_numeric_value = None;
+    let mut previous_numeric_value: Option<i64> = None;
     for variant in children {
         if variant.get("kind").and_then(Value::as_str) != Some("EnumConstantDecl") {
             continue;
@@ -1206,10 +1206,7 @@ fn collect_enum(
         let signature = format!("enum-value {name}={value}");
         let mut entry = base_entry(request, ItemKind::EnumValue, name, signature, None, None);
         entry.numeric_value = numeric_value;
-        entries.insert(
-            (ItemKind::EnumValue, name.to_owned()),
-            entry,
-        );
+        entries.insert((ItemKind::EnumValue, name.to_owned()), entry);
         previous_numeric_value = numeric_value;
     }
 }

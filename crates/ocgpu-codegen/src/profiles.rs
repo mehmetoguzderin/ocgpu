@@ -344,7 +344,9 @@ pub(super) fn validate_hip_runtime_profiles(
         || declarations.provenance.trim().is_empty()
         || declarations.snapshots.len() != releases.len()
     {
-        return Err(invalid("committed per-release declaration evidence is stale"));
+        return Err(invalid(
+            "committed per-release declaration evidence is stale",
+        ));
     }
     let expected_type_facts = [
         (
@@ -409,20 +411,75 @@ pub(super) fn validate_hip_runtime_profiles(
         .zip(releases)
         .zip(&ledger.reviewed_releases)
     {
-        let expected_platforms: &[&str] = match release {
-            "hip-7.2.53210" => &["x86_64-pc-windows-msvc"],
-            "hip-7.14.60850" => {
-                &["aarch64-unknown-linux-gnu", "x86_64-unknown-linux-gnu"]
-            }
-            _ => &[
-                "aarch64-unknown-linux-gnu",
-                "x86_64-pc-windows-msvc",
-                "x86_64-unknown-linux-gnu",
-            ],
+        let (expected_inventory_id, expected_header_role, expected_platforms): (
+            &str,
+            &str,
+            &[&str],
+        ) = match release {
+            "hip-5.7.31541" | "hip-5.7.31921" => (
+                "hip-profile-5.7.1-review",
+                "authoritative-hip-header",
+                &[
+                    "aarch64-unknown-linux-gnu",
+                    "x86_64-pc-windows-msvc",
+                    "x86_64-unknown-linux-gnu",
+                ],
+            ),
+            "hip-6.1.40093" => (
+                "hip-profile-6.1.2-review",
+                "authoritative-hip-header",
+                &[
+                    "aarch64-unknown-linux-gnu",
+                    "x86_64-pc-windows-msvc",
+                    "x86_64-unknown-linux-gnu",
+                ],
+            ),
+            "hip-6.2.41134" => (
+                "hip-profile-6.2.4-review",
+                "authoritative-hip-header",
+                &[
+                    "aarch64-unknown-linux-gnu",
+                    "x86_64-pc-windows-msvc",
+                    "x86_64-unknown-linux-gnu",
+                ],
+            ),
+            "hip-6.4.43484" => (
+                "hip-profile-6.4.2-review",
+                "authoritative-hip-header",
+                &[
+                    "aarch64-unknown-linux-gnu",
+                    "x86_64-pc-windows-msvc",
+                    "x86_64-unknown-linux-gnu",
+                ],
+            ),
+            "hip-7.2.53210" => (
+                "hip-profile-7.2.53210-review",
+                "authoritative-hip-header",
+                &[
+                    "aarch64-unknown-linux-gnu",
+                    "x86_64-pc-windows-msvc",
+                    "x86_64-unknown-linux-gnu",
+                ],
+            ),
+            "hip-7.14.60850" => (
+                "hip-profile-7.14.60850-review",
+                "semantic-hip-header",
+                &["aarch64-unknown-linux-gnu", "x86_64-unknown-linux-gnu"],
+            ),
+            _ => unreachable!(),
         };
         if snapshot.release_id != release
-            || snapshot.source_inventory_id.trim().is_empty()
-            || snapshot.source_header_sha256 != ledger_release.hip_header_sha256
+            || snapshot.source_inventory_id != expected_inventory_id
+            || snapshot
+                .source_inventory_platforms
+                .iter()
+                .map(String::as_str)
+                .ne(expected_platforms.iter().copied())
+            || snapshot.source_header_artifact.role != expected_header_role
+            || snapshot.source_header_artifact.url != ledger_release.hip_archive_url
+            || snapshot.source_header_artifact.sha256 != ledger_release.hip_header_sha256
+            || snapshot.source_header_artifact.path != ledger_release.hip_header_path
+            || snapshot.source_header_artifact.revision.trim().is_empty()
             || snapshot.target_abi.pointer_width_bits != 64
             || snapshot.target_abi.size_t_width_bits != 64
             || snapshot.target_abi.enum_width_bits != 32
@@ -442,16 +499,14 @@ pub(super) fn validate_hip_runtime_profiles(
             .map(|entry| (entry.name.as_str(), entry))
             .collect::<BTreeMap<_, _>>();
         if function_map.len() != 27
-            || function_map
-                .values()
-                .any(|entry| {
-                    entry.normalized_signature.trim().is_empty()
-                        || entry
-                            .platforms
-                            .iter()
-                            .map(String::as_str)
-                            .ne(expected_platforms.iter().copied())
-                })
+            || function_map.values().any(|entry| {
+                entry.normalized_signature.trim().is_empty()
+                    || entry
+                        .platforms
+                        .iter()
+                        .map(String::as_str)
+                        .ne(expected_platforms.iter().copied())
+            })
         {
             return Err(invalid(format!(
                 "{release} function declaration/platform evidence is stale"
@@ -465,9 +520,7 @@ pub(super) fn validate_hip_runtime_profiles(
             || bootstrap.signature_hash
                 != "sha256:6368151ecb11fe275166ad51aec2aa82ff0e50607cdd47f260bca92f2c1ae90f"
         {
-            return Err(invalid(format!(
-                "{release} bootstrap declaration is stale"
-            )));
+            return Err(invalid(format!("{release} bootstrap declaration is stale")));
         }
         for (actual, expected) in snapshot.transitive_types.iter().zip(expected_type_facts) {
             if (
@@ -488,17 +541,28 @@ pub(super) fn validate_hip_runtime_profiles(
                 )));
             }
         }
-        if snapshot
+        for (actual, expected) in snapshot
             .device_attributes
             .iter()
             .zip(&ledger.device_attributes)
-            .any(|(actual, expected)| {
-                actual.name != expected.name || actual.value != expected.value
-            })
         {
-            return Err(invalid(format!(
-                "{release} device-attribute evidence is stale"
-            )));
+            validate_hash(&actual.signature_hash, &actual.name)?;
+            if actual.name != expected.name
+                || actual.value != expected.value
+                || !actual
+                    .normalized_signature
+                    .starts_with(&format!("enum-value {}=", actual.name))
+                || actual
+                    .platforms
+                    .iter()
+                    .map(String::as_str)
+                    .ne(expected_platforms.iter().copied())
+            {
+                return Err(invalid(format!(
+                    "{release} device-attribute {} evidence is stale",
+                    expected.name
+                )));
+            }
         }
         declaration_functions.insert(release, function_map);
     }
@@ -589,10 +653,7 @@ pub(super) fn validate_hip_runtime_profiles(
                 .get(release.as_str())
                 .and_then(|functions| functions.get(adapter.name.as_str()))
                 .ok_or_else(|| {
-                    invalid(format!(
-                        "{release} compact snapshot lacks {}",
-                        adapter.name
-                    ))
+                    invalid(format!("{release} compact snapshot lacks {}", adapter.name))
                 })?;
             if declaration.normalized_signature != actual.normalized_signature
                 || declaration.signature_hash != actual.signature_hash
@@ -705,7 +766,7 @@ fn platform_source(profile: &HipPlatformProfile) -> String {
 pub(super) fn render_hip_runtime_profiles(
     manifest: &ApiManifest,
     ledger: &HipRuntimeProfiles,
-) -> Result<String, Error> {
+) -> String {
     let common = manifest
         .functions
         .iter()
@@ -761,5 +822,5 @@ pub(super) fn render_hip_runtime_profiles(
         .expect("String write");
     }
     output.push_str("];\n");
-    Ok(output)
+    output
 }
