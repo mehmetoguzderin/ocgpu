@@ -17,10 +17,11 @@ compatible display/compute driver that supplies one of these libraries:
 | HIP 5 | `libamdhip64.so.5` | `amdhip64.dll` |
 
 Linux also tries unversioned `libamdhip64.so` after the versioned candidates.
-Whichever library is found must report the same HIP major as the candidate
-profile. A filename/runtime mismatch or an unsupported future major is an ABI
-mismatch, not backend absence; a runtime older than the supported HIP 5 range
-is reported as too old.
+A versioned library must report the same HIP major as its candidate profile;
+the unversioned fallback is classified solely by its supported
+runtime-reported version. A filename/runtime mismatch or an unsupported future
+major is an ABI mismatch, not backend absence; a runtime older than the
+supported HIP 5 range is reported as too old.
 
 Common-profile support starts at the exact runtime-reported floors below. Later
 minor and patch releases within the same major are accepted; earlier builds and
@@ -37,7 +38,7 @@ The exhaustive raw-inventory floors are separate: general/Linux requires
 runtimes below those raw floors expose the reviewed common/profile subset and
 leave the other current-layout slots null.
 
-Default lookup never searches the current working directory. The Rust-only
+Default top-level runtime lookup never searches CWD. The Rust-only
 `explicit-library-path` feature provides unsafe
 `Driver::<B>::load_from_absolute` for an absolute path. Its caller must trust
 the library and dependency closure, constructors, exact vendor ABI, and file

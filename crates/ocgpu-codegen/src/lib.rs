@@ -726,6 +726,7 @@ struct HipRuntimeDeclarationSnapshot {
     source_inventory_id: String,
     source_inventory_platforms: Vec<String>,
     source_header_artifact: HipProfileSourceArtifact,
+    source_clr_artifact: HipProfileSourceArtifact,
     target_abi: HipTargetAbi,
     functions: Vec<HipDeclaration>,
     transitive_types: Vec<HipTypeDeclaration>,
@@ -4557,10 +4558,18 @@ mod tests {
             .expect("HIP device pointer type exists");
         assert_eq!(device_pointer.kind, "alias");
         assert_eq!(device_pointer.rust_type.as_deref(), Some("*mut c_void"));
-        assert!(device_pointer
+        let vendor_variants = device_pointer
             .oracle_variants
             .iter()
-            .all(|variant| variant.oracle_kind == "opaque_handle"));
+            .filter(|variant| variant.oracle_source.starts_with("hip-"))
+            .collect::<Vec<_>>();
+        assert_eq!(vendor_variants.len(), 2);
+        assert!(
+            vendor_variants
+                .iter()
+                .all(|variant| variant.oracle_kind == "opaque_handle"
+                    && variant.oracle_signature.ends_with("=void*"))
+        );
 
         for (symbol, index) in [("hipMemcpyHtoD", 0_usize), ("hipMemcpyDtoH", 1_usize)] {
             let raw = manifest

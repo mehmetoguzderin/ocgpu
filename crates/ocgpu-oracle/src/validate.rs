@@ -203,6 +203,7 @@ pub fn validate_repository(repository_root: &Path) -> Result<ValidationSummary, 
     }
 }
 
+#[allow(clippy::too_many_lines)]
 fn validate_hip_runtime_profile_ledger(
     repository_root: &Path,
     errors: &mut Vec<String>,
@@ -303,6 +304,42 @@ fn validate_hip_runtime_profile_ledger(
                 .to_owned(),
         );
     }
+    let semantic_reviews = root
+        .get("semantic_reviews")
+        .and_then(JsonValue::as_array)
+        .map_or(&[][..], Vec::as_slice);
+    let mut semantic_operations = BTreeSet::new();
+    let mut duplicate_semantic_operation = false;
+    for review in semantic_reviews {
+        let operations = review
+            .get("operations")
+            .and_then(JsonValue::as_array)
+            .map_or(&[][..], Vec::as_slice);
+        if operations.is_empty()
+            || review
+                .get("finding")
+                .and_then(JsonValue::as_str)
+                .is_none_or(str::is_empty)
+            || review
+                .get("proof")
+                .and_then(JsonValue::as_str)
+                .is_none_or(str::is_empty)
+        {
+            errors.push("HIP semantic review evidence is incomplete".to_owned());
+        }
+        for operation in operations.iter().filter_map(JsonValue::as_str) {
+            duplicate_semantic_operation |= !semantic_operations.insert(operation);
+        }
+    }
+    if semantic_reviews.len() != 7
+        || duplicate_semantic_operation
+        || semantic_operations != function_names
+    {
+        errors.push(
+            "HIP semantic review operation union must equal all 26 common operations exactly"
+                .to_owned(),
+        );
+    }
     if releases.len() != 7 {
         errors.push(
             "HIP profile ledger must retain all seven reviewed release observations".to_owned(),
@@ -334,11 +371,309 @@ fn validate_hip_runtime_profile_ledger(
             }
         }
     }
+    let mut declaration_function_names = function_names
+        .iter()
+        .map(|name| (*name).to_owned())
+        .collect::<BTreeSet<_>>();
+    declaration_function_names.insert("hipRuntimeGetVersion".to_owned());
+    let attribute_values = attributes
+        .iter()
+        .filter_map(|entry| {
+            Some((
+                entry.get("name")?.as_str()?.to_owned(),
+                entry.get("value")?.as_i64()?,
+            ))
+        })
+        .collect::<BTreeMap<_, _>>();
+    validate_hip_runtime_declarations(
+        repository_root,
+        releases,
+        &declaration_function_names,
+        &attribute_values,
+        errors,
+    );
     HipProfileCounts {
         profiles: profiles.len(),
         common_functions: function_names.len(),
         device_attributes: attribute_names.len(),
     }
+}
+
+#[allow(clippy::too_many_lines)]
+fn validate_hip_runtime_declarations(
+    repository_root: &Path,
+    releases: &[JsonValue],
+    expected_functions: &BTreeSet<String>,
+    expected_attributes: &BTreeMap<String, i64>,
+    errors: &mut Vec<String>,
+) {
+    let path = repository_root.join("oracle/vendor/hip/runtime-profile-declarations.json");
+    let Some(document) = read_json_value(&path, errors) else {
+        return;
+    };
+    let Some(root) = document.as_object() else {
+        errors.push(format!("{} must contain a JSON object", path.display()));
+        return;
+    };
+    if root.get("schema_version").and_then(JsonValue::as_u64) != Some(1)
+        || root
+            .get("spdx_license_identifier")
+            .and_then(JsonValue::as_str)
+            != Some("CC0-1.0")
+        || root.get("inventory_id").and_then(JsonValue::as_str)
+            != Some("hip-runtime-profile-declarations")
+        || root
+            .get("provenance")
+            .and_then(JsonValue::as_str)
+            .is_none_or(str::is_empty)
+    {
+        errors.push("HIP runtime-profile declaration metadata is stale".to_owned());
+    }
+    let snapshots = root
+        .get("snapshots")
+        .and_then(JsonValue::as_array)
+        .map_or(&[][..], Vec::as_slice);
+    let expected = [
+        (
+            "hip-5.7.31541",
+            "hip-profile-5.7.0-review",
+            "authoritative-hip-header",
+            &[
+                "aarch64-unknown-linux-gnu",
+                "x86_64-pc-windows-msvc",
+                "x86_64-unknown-linux-gnu",
+            ][..],
+        ),
+        (
+            "hip-5.7.31921",
+            "hip-profile-5.7.1-review",
+            "authoritative-hip-header",
+            &[
+                "aarch64-unknown-linux-gnu",
+                "x86_64-pc-windows-msvc",
+                "x86_64-unknown-linux-gnu",
+            ][..],
+        ),
+        (
+            "hip-6.1.40093",
+            "hip-profile-6.1.2-review",
+            "authoritative-hip-header",
+            &[
+                "aarch64-unknown-linux-gnu",
+                "x86_64-pc-windows-msvc",
+                "x86_64-unknown-linux-gnu",
+            ][..],
+        ),
+        (
+            "hip-6.2.41134",
+            "hip-profile-6.2.4-review",
+            "authoritative-hip-header",
+            &[
+                "aarch64-unknown-linux-gnu",
+                "x86_64-pc-windows-msvc",
+                "x86_64-unknown-linux-gnu",
+            ][..],
+        ),
+        (
+            "hip-6.4.43484",
+            "hip-profile-6.4.2-review",
+            "authoritative-hip-header",
+            &[
+                "aarch64-unknown-linux-gnu",
+                "x86_64-pc-windows-msvc",
+                "x86_64-unknown-linux-gnu",
+            ][..],
+        ),
+        (
+            "hip-7.2.53210",
+            "hip-profile-7.2.53210-review",
+            "authoritative-hip-header",
+            &[
+                "aarch64-unknown-linux-gnu",
+                "x86_64-pc-windows-msvc",
+                "x86_64-unknown-linux-gnu",
+            ][..],
+        ),
+        (
+            "hip-7.14.60850",
+            "hip-profile-7.14.60850-review",
+            "semantic-hip-header",
+            &["aarch64-unknown-linux-gnu", "x86_64-unknown-linux-gnu"][..],
+        ),
+    ];
+    if snapshots.len() != expected.len() || releases.len() != expected.len() {
+        errors.push("HIP runtime-profile declaration release set is incomplete".to_owned());
+        return;
+    }
+
+    for ((snapshot, release), (id, inventory_id, header_role, platforms)) in
+        snapshots.iter().zip(releases).zip(expected)
+    {
+        let release_id = release.get("id").and_then(JsonValue::as_str);
+        let header = snapshot.get("source_header_artifact");
+        let clr = snapshot.get("source_clr_artifact");
+        let snapshot_platforms = json_string_values(snapshot.get("source_inventory_platforms"));
+        if release_id != Some(id)
+            || snapshot.get("release_id").and_then(JsonValue::as_str) != Some(id)
+            || snapshot
+                .get("source_inventory_id")
+                .and_then(JsonValue::as_str)
+                != Some(inventory_id)
+            || snapshot_platforms.as_slice() != platforms
+            || header
+                .and_then(|value| value.get("role"))
+                .and_then(JsonValue::as_str)
+                != Some(header_role)
+            || header.and_then(|value| value.get("url")) != release.get("hip_archive_url")
+            || header.and_then(|value| value.get("sha256")) != release.get("hip_header_sha256")
+            || header.and_then(|value| value.get("path")) != release.get("hip_header_path")
+            || header
+                .and_then(|value| value.get("revision"))
+                .and_then(JsonValue::as_str)
+                .is_none_or(str::is_empty)
+            || clr
+                .and_then(|value| value.get("role"))
+                .and_then(JsonValue::as_str)
+                != Some("supporting-clr-source")
+            || clr.and_then(|value| value.get("url")) != release.get("clr_archive_url")
+            || clr.and_then(|value| value.get("sha256")) != release.get("clr_archive_sha256")
+            || clr
+                .and_then(|value| value.get("path"))
+                .and_then(JsonValue::as_str)
+                != Some("hipamd/include")
+            || clr
+                .and_then(|value| value.get("revision"))
+                .and_then(JsonValue::as_str)
+                .is_none_or(str::is_empty)
+        {
+            errors.push(format!(
+                "{id} compact declaration source/header/platform binding is stale"
+            ));
+        }
+
+        let target_abi = snapshot.get("target_abi");
+        if target_abi
+            .and_then(|value| value.get("pointer_width_bits"))
+            .and_then(JsonValue::as_u64)
+            != Some(64)
+            || target_abi
+                .and_then(|value| value.get("size_t_width_bits"))
+                .and_then(JsonValue::as_u64)
+                != Some(64)
+            || target_abi
+                .and_then(|value| value.get("enum_width_bits"))
+                .and_then(JsonValue::as_u64)
+                != Some(32)
+            || target_abi
+                .and_then(|value| value.get("success_value"))
+                .and_then(JsonValue::as_i64)
+                != Some(0)
+            || target_abi
+                .and_then(|value| value.get("null_pointer_sentinel"))
+                .and_then(JsonValue::as_str)
+                != Some("all-bits-zero")
+        {
+            errors.push(format!("{id} compact target ABI facts are stale"));
+        }
+
+        let functions = snapshot
+            .get("functions")
+            .and_then(JsonValue::as_array)
+            .map_or(&[][..], Vec::as_slice);
+        let function_names = functions
+            .iter()
+            .filter_map(|entry| entry.get("name").and_then(JsonValue::as_str))
+            .map(str::to_owned)
+            .collect::<BTreeSet<_>>();
+        if functions.len() != 27 || &function_names != expected_functions {
+            errors.push(format!("{id} compact function declaration set is stale"));
+        }
+        for entry in functions {
+            validate_compact_declaration_entry(id, entry, platforms, errors);
+        }
+
+        let types = snapshot
+            .get("transitive_types")
+            .and_then(JsonValue::as_array)
+            .map_or(&[][..], Vec::as_slice);
+        if types.len() != 9 {
+            errors.push(format!("{id} compact transitive type set is stale"));
+        }
+        for entry in types {
+            validate_compact_declaration_entry(id, entry, platforms, errors);
+        }
+
+        let attributes = snapshot
+            .get("device_attributes")
+            .and_then(JsonValue::as_array)
+            .map_or(&[][..], Vec::as_slice);
+        let attribute_values = attributes
+            .iter()
+            .filter_map(|entry| {
+                Some((
+                    entry.get("name")?.as_str()?.to_owned(),
+                    entry.get("value")?.as_i64()?,
+                ))
+            })
+            .collect::<BTreeMap<_, _>>();
+        if attributes.len() != 32 || &attribute_values != expected_attributes {
+            errors.push(format!("{id} compact device-attribute values are stale"));
+        }
+        for entry in attributes {
+            validate_compact_declaration_entry(id, entry, platforms, errors);
+            let name = entry.get("name").and_then(JsonValue::as_str).unwrap_or("");
+            if !entry
+                .get("normalized_signature")
+                .and_then(JsonValue::as_str)
+                .is_some_and(|signature| signature.starts_with(&format!("enum-value {name}=")))
+            {
+                errors.push(format!("{id} attribute {name} declaration is malformed"));
+            }
+        }
+    }
+}
+
+fn validate_compact_declaration_entry(
+    release: &str,
+    entry: &JsonValue,
+    expected_platforms: &[&str],
+    errors: &mut Vec<String>,
+) {
+    let name = entry.get("name").and_then(JsonValue::as_str).unwrap_or("");
+    let signature = entry
+        .get("normalized_signature")
+        .and_then(JsonValue::as_str)
+        .unwrap_or("");
+    let hash = entry
+        .get("signature_hash")
+        .and_then(JsonValue::as_str)
+        .unwrap_or("");
+    let platforms = json_string_values(entry.get("platforms"));
+    if name.is_empty()
+        || signature.is_empty()
+        || !is_canonical_sha256(hash)
+        || hash != sha256(signature)
+        || platforms.as_slice() != expected_platforms
+    {
+        errors.push(format!(
+            "{release} compact declaration {name} has stale signature/platform evidence"
+        ));
+    }
+}
+
+fn json_string_values(value: Option<&JsonValue>) -> Vec<&str> {
+    value
+        .and_then(JsonValue::as_array)
+        .map_or(&[][..], Vec::as_slice)
+        .iter()
+        .filter_map(JsonValue::as_str)
+        .collect()
+}
+
+fn is_canonical_sha256(value: &str) -> bool {
+    value.len() == 71
+        && value.starts_with("sha256:")
+        && value[7..].bytes().all(|byte| byte.is_ascii_hexdigit())
 }
 
 fn validate_inventory_set(inventories: &[Inventory], errors: &mut Vec<String>) {

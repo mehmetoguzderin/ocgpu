@@ -146,6 +146,21 @@ and provenance change before replacing a committed snapshot. Running the same
 script locally requires PowerShell, Python 3, Clang, and network access and does
 not alter ordinary offline build inputs.
 
+HIP 5/6/7 compatibility evidence has a separate maintainer-only freshness
+command:
+
+```powershell
+.github/scripts/verify-hip-runtime-profiles.ps1
+```
+
+It downloads the exact HIP and CLR archives pinned by the profile ledger,
+verifies archive and reviewed-member hashes, independently extracts the common
+declarations, transitive types, and device-attribute values for every reviewed
+release and target, then compares the result with the committed compact
+snapshot. Pass `-ArchiveDirectory` to use a prepopulated verified archive cache.
+Only an intentional, reviewed evidence update should use `-Update`; ordinary
+builds and checks consume committed files and remain offline.
+
 ## Source hygiene
 
 Every independently authored or generated source-like file carries

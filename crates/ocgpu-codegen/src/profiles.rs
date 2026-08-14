@@ -416,7 +416,16 @@ pub(super) fn validate_hip_runtime_profiles(
             &str,
             &[&str],
         ) = match release {
-            "hip-5.7.31541" | "hip-5.7.31921" => (
+            "hip-5.7.31541" => (
+                "hip-profile-5.7.0-review",
+                "authoritative-hip-header",
+                &[
+                    "aarch64-unknown-linux-gnu",
+                    "x86_64-pc-windows-msvc",
+                    "x86_64-unknown-linux-gnu",
+                ],
+            ),
+            "hip-5.7.31921" => (
                 "hip-profile-5.7.1-review",
                 "authoritative-hip-header",
                 &[
@@ -480,6 +489,11 @@ pub(super) fn validate_hip_runtime_profiles(
             || snapshot.source_header_artifact.sha256 != ledger_release.hip_header_sha256
             || snapshot.source_header_artifact.path != ledger_release.hip_header_path
             || snapshot.source_header_artifact.revision.trim().is_empty()
+            || snapshot.source_clr_artifact.role != "supporting-clr-source"
+            || snapshot.source_clr_artifact.url != ledger_release.clr_archive_url
+            || snapshot.source_clr_artifact.sha256 != ledger_release.clr_archive_sha256
+            || snapshot.source_clr_artifact.path != "hipamd/include"
+            || snapshot.source_clr_artifact.revision.trim().is_empty()
             || snapshot.target_abi.pointer_width_bits != 64
             || snapshot.target_abi.size_t_width_bits != 64
             || snapshot.target_abi.enum_width_bits != 32
@@ -696,16 +710,34 @@ pub(super) fn validate_hip_runtime_profiles(
             )));
         }
     }
+    if ledger.semantic_reviews.len() != 7 {
+        return Err(invalid("expected seven complete semantic review groups"));
+    }
+    let mut semantic_operations = BTreeSet::new();
+    for review in &ledger.semantic_reviews {
+        if review.operations.is_empty()
+            || review.finding.trim().is_empty()
+            || review.proof.trim().is_empty()
+        {
+            return Err(invalid("semantic review evidence is incomplete"));
+        }
+        for operation in &review.operations {
+            if !semantic_operations.insert(operation.as_str()) {
+                return Err(invalid(format!(
+                    "semantic operation {operation} is reviewed more than once"
+                )));
+            }
+        }
+    }
+    if semantic_operations != exact_names {
+        return Err(invalid(
+            "semantic review operation union differs from the common HIP ABI",
+        ));
+    }
     if attributes.len() != 32
         || ledger.transitive_abi_facts.len() < 8
         || ledger.transitive_abi_facts.iter().any(|fact| {
             fact.fact.trim().is_empty() || fact.proof.trim().is_empty() || fact.expected.is_null()
-        })
-        || ledger.semantic_reviews.len() < 5
-        || ledger.semantic_reviews.iter().any(|review| {
-            review.operations.is_empty()
-                || review.finding.trim().is_empty()
-                || review.proof.trim().is_empty()
         })
         || ledger.library_naming_evidence.len() != 6
         || ledger.library_naming_evidence.iter().any(|evidence| {

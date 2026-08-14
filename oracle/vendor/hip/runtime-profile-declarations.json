@@ -6,7 +6,7 @@
     "snapshots":  [
                       {
                           "release_id":  "hip-5.7.31541",
-                          "source_inventory_id":  "hip-profile-5.7.1-review",
+                          "source_inventory_id":  "hip-profile-5.7.0-review",
                           "source_inventory_platforms":  [
                                                              "aarch64-unknown-linux-gnu",
                                                              "x86_64-pc-windows-msvc",
@@ -16,9 +16,16 @@
                                                          "role":  "authoritative-hip-header",
                                                          "url":  "https://github.com/ROCm/HIP/archive/80681169ae20de8f8025b4fad799204c3ae7de50.zip",
                                                          "sha256":  "sha256:c3081f64a2821a17e40ccb6fdd6dda19e38a69aacb6882ed9526e4ce26f1ab09",
-                                                         "revision":  "rocm-5.7.1",
+                                                         "revision":  "rocm-5.7.0",
                                                          "path":  "include/hip/hip_runtime_api.h"
                                                      },
+                          "source_clr_artifact":  {
+                                                      "role":  "supporting-clr-source",
+                                                      "url":  "https://github.com/ROCm/clr/archive/d1770ee1baf5ede2e723490024d5038e95df85b6.zip",
+                                                      "sha256":  "sha256:56424963b77761088c00bcb7c229697b31ec3618354fafe9da5ec436c0b311ff",
+                                                      "revision":  "rocm-5.7.0 tag object 49e585e23762140bd7602d64e841697174eb6e22 / peeled commit d1770ee1baf5ede2e723490024d5038e95df85b6",
+                                                      "path":  "hipamd/include"
+                                                  },
                           "target_abi":  {
                                              "pointer_width_bits":  64,
                                              "size_t_width_bits":  64,
@@ -769,6 +776,13 @@
                                                          "revision":  "rocm-5.7.1",
                                                          "path":  "include/hip/hip_runtime_api.h"
                                                      },
+                          "source_clr_artifact":  {
+                                                      "role":  "supporting-clr-source",
+                                                      "url":  "https://github.com/ROCm/clr/archive/1949b1621a802ffb1492616adbae6154bfbe64ef.zip",
+                                                      "sha256":  "sha256:a063ccfa37a6315d46850383466005363cad21fb96ac10e91e5d3de9186eb259",
+                                                      "revision":  "1949b1621a802ffb1492616adbae6154bfbe64ef",
+                                                      "path":  "hipamd/include"
+                                                  },
                           "target_abi":  {
                                              "pointer_width_bits":  64,
                                              "size_t_width_bits":  64,
@@ -1519,6 +1533,13 @@
                                                          "revision":  "rocm-6.1.2",
                                                          "path":  "include/hip/hip_runtime_api.h"
                                                      },
+                          "source_clr_artifact":  {
+                                                      "role":  "supporting-clr-source",
+                                                      "url":  "https://github.com/ROCm/clr/archive/bd86f17082b0e4f33ea1b044419b40206b3dc2eb.zip",
+                                                      "sha256":  "sha256:37056c8d1aa794139b84043fd5c4a44081ce4c945b317cb37cbb925b6d155869",
+                                                      "revision":  "bd86f17082b0e4f33ea1b044419b40206b3dc2eb",
+                                                      "path":  "hipamd/include"
+                                                  },
                           "target_abi":  {
                                              "pointer_width_bits":  64,
                                              "size_t_width_bits":  64,
@@ -2269,6 +2290,13 @@
                                                          "revision":  "rocm-6.2.4",
                                                          "path":  "include/hip/hip_runtime_api.h"
                                                      },
+                          "source_clr_artifact":  {
+                                                      "role":  "supporting-clr-source",
+                                                      "url":  "https://github.com/ROCm/clr/archive/65d174c3e35423bf25c9c369513780c9d9ca760c.zip",
+                                                      "sha256":  "sha256:2a376e5605a42939a741bc28bfad950426adfbd094f592c54d9abcaa42c557cc",
+                                                      "revision":  "65d174c3e35423bf25c9c369513780c9d9ca760c",
+                                                      "path":  "hipamd/include"
+                                                  },
                           "target_abi":  {
                                              "pointer_width_bits":  64,
                                              "size_t_width_bits":  64,
@@ -3019,6 +3047,13 @@
                                                          "revision":  "rocm-6.4.2",
                                                          "path":  "include/hip/hip_runtime_api.h"
                                                      },
+                          "source_clr_artifact":  {
+                                                      "role":  "supporting-clr-source",
+                                                      "url":  "https://github.com/ROCm/clr/archive/123eb5128769ba30fda8f84414421bc858e8c695.zip",
+                                                      "sha256":  "sha256:98cb8a9ac0357aefd7f1703c6027609995aa13a2bf92734434aaf462c02e2c28",
+                                                      "revision":  "123eb5128769ba30fda8f84414421bc858e8c695",
+                                                      "path":  "hipamd/include"
+                                                  },
                           "target_abi":  {
                                              "pointer_width_bits":  64,
                                              "size_t_width_bits":  64,
@@ -3769,6 +3804,13 @@
                                                          "revision":  "rocm-7.2.0",
                                                          "path":  "include/hip/hip_runtime_api.h"
                                                      },
+                          "source_clr_artifact":  {
+                                                      "role":  "supporting-clr-source",
+                                                      "url":  "https://github.com/ROCm/clr/archive/c5824370effd4609972653f6490f7313f5bc18af.zip",
+                                                      "sha256":  "sha256:9b50b1437d98a791fd03bf6a3c2bcbfb0f310fbb7487f6e4369182d206bc81e5",
+                                                      "revision":  "c5824370effd4609972653f6490f7313f5bc18af",
+                                                      "path":  "hipamd/include"
+                                                  },
                           "target_abi":  {
                                              "pointer_width_bits":  64,
                                              "size_t_width_bits":  64,
@@ -4518,6 +4560,13 @@
                                                          "revision":  "d135154e63ee2e44e7de3a7143dea4bca860df78",
                                                          "path":  "include/hip/hip_runtime_api.h"
                                                      },
+                          "source_clr_artifact":  {
+                                                      "role":  "supporting-clr-source",
+                                                      "url":  "https://github.com/ROCm/clr/archive/396c84e07b78590c7b6e92977539ed109d11ff0a.zip",
+                                                      "sha256":  "sha256:7bd8c8a717ae3d92905864b9806077d9873650006b94785ee2f2ea03802838a5",
+                                                      "revision":  "396c84e07b78590c7b6e92977539ed109d11ff0a",
+                                                      "path":  "hipamd/include"
+                                                  },
                           "target_abi":  {
                                              "pointer_width_bits":  64,
                                              "size_t_width_bits":  64,

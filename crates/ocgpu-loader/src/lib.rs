@@ -73,7 +73,7 @@ impl fmt::Display for Backend {
 /// One failed candidate from a backend-library search.
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub struct OpenFailure {
-    /// Candidate that was passed to the operating-system loader.
+    /// Logical or absolute candidate associated with this loader attempt.
     pub candidate: PathBuf,
     /// Operating-system error code, when one was supplied.
     pub os_code: Option<i32>,
@@ -633,6 +633,8 @@ mod platform {
 
     const RTLD_LOCAL: c_int = 0;
     const RTLD_NOW: c_int = 2;
+    // Independently encoded layout facts from glibc's
+    // `sysdeps/generic/dl-cache.h`; every offset is bounds-checked below.
     const NEW_CACHE_MAGIC: &[u8] = b"glibc-ld.so.cache1.1";
     const OLD_CACHE_MAGIC: &[u8] = b"ld.so-1.7.0";
     const NEW_CACHE_HEADER_SIZE: usize = 48;
@@ -640,6 +642,9 @@ mod platform {
     const OLD_CACHE_HEADER_SIZE: usize = 16;
     const OLD_CACHE_ENTRY_SIZE: usize = 12;
     const MAX_LOADER_CACHE_BYTES: u64 = 64 * 1024 * 1024;
+    const MAX_LOADER_CACHE_ENTRIES: usize = 1_000_000;
+    const MAX_LOADER_CACHE_STRING_BYTES: usize = 4_096;
+    const MAX_MATCHING_CACHE_PATHS: usize = 64;
 
     #[cfg(target_arch = "x86_64")]
     const FIXED_LIBRARY_DIRECTORIES: &[&str] = &[
@@ -696,8 +701,9 @@ mod platform {
             return Err(OpenFailure {
                 candidate,
                 os_code: None,
-                message: "LD_LIBRARY_PATH contains a relative or current-directory entry"
-                    .to_owned(),
+                message:
+                    "LD_LIBRARY_PATH contains a relative, tokenized, or current-directory entry"
+                        .to_owned(),
             });
         }
 
@@ -831,8 +837,16 @@ mod platform {
         let Some(value) = value else {
             return Ok(Vec::new());
         };
-        let canonical_current = current.and_then(|path| path.canonicalize().ok());
+        let Some(current) = current else {
+            return Err(());
+        };
+        if value.as_bytes().contains(&b'$') {
+            return Err(());
+        }
+        let canonical_current = current.canonicalize().ok();
         let mut entries = Vec::new();
+        // glibc passes `:;` to `fillin_rpath` for `LD_LIBRARY_PATH`; neither
+        // separator has an escaping mechanism in this environment variable.
         for bytes in value
             .as_bytes()
             .split(|byte| *byte == b':' || *byte == b';')
@@ -841,7 +855,7 @@ mod platform {
             if entry.as_os_str().is_empty() || !entry.is_absolute() {
                 return Err(());
             }
-            if current.is_some_and(|cwd| entry == cwd)
+            if entry == current
                 || entry
                     .canonicalize()
                     .ok()
@@ -867,8 +881,9 @@ mod platform {
         {
             return Err("default library candidate is not a NUL-free basename");
         }
-        let search_directories = validated_library_path_entries(library_path, current)
-            .map_err(|()| "LD_LIBRARY_PATH contains a relative or current-directory entry")?;
+        let search_directories = validated_library_path_entries(library_path, current).map_err(
+            |()| "LD_LIBRARY_PATH contains a relative, tokenized, or current-directory entry",
+        )?;
         let canonical_current = current.and_then(|path| path.canonicalize().ok());
         let mut resolved = Vec::new();
         for directory in search_directories {
@@ -916,12 +931,32 @@ mod platform {
             || !canonical
                 .metadata()
                 .is_ok_and(|metadata| metadata.is_file())
+            || !canonical_target_matches_candidate(exact_basename, &canonical)
             || canonical_current.is_some_and(|cwd| canonical.parent() == Some(cwd))
             || resolved.contains(&canonical)
         {
             return;
         }
         resolved.push(canonical);
+    }
+
+    fn canonical_target_matches_candidate(candidate: &OsStr, canonical: &Path) -> bool {
+        let candidate = candidate.as_bytes();
+        if !matches!(
+            candidate,
+            b"libamdhip64.so.5" | b"libamdhip64.so.6" | b"libamdhip64.so.7"
+        ) {
+            // CUDA's `libcuda.so.1` commonly resolves to a driver-versioned
+            // basename, and unversioned HIP is deliberately profile-neutral.
+            return true;
+        }
+        let Some(target) = canonical.file_name().map(OsStrExt::as_bytes) else {
+            return false;
+        };
+        target == candidate
+            || target
+                .strip_prefix(candidate)
+                .is_some_and(|suffix| suffix.starts_with(b".") && suffix.len() > 1)
     }
 
     fn parse_loader_cache(candidate: &OsStr, bytes: &[u8]) -> Vec<PathBuf> {
@@ -936,6 +971,9 @@ mod platform {
             return None;
         }
         let entries = usize::try_from(read_u32(bytes, 12)?).ok()?;
+        if entries > MAX_LOADER_CACHE_ENTRIES {
+            return None;
+        }
         let entries_bytes = entries.checked_mul(OLD_CACHE_ENTRY_SIZE)?;
         let strings_offset = OLD_CACHE_HEADER_SIZE.checked_add(entries_bytes)?;
         if strings_offset > bytes.len() {
@@ -964,6 +1002,9 @@ mod platform {
             return None;
         }
         let entries = usize::try_from(read_u32(bytes, 20)?).ok()?;
+        if entries > MAX_LOADER_CACHE_ENTRIES {
+            return None;
+        }
         let strings_length = usize::try_from(read_u32(bytes, 24)?).ok()?;
         let entries_bytes = entries.checked_mul(NEW_CACHE_ENTRY_SIZE)?;
         let strings_offset = NEW_CACHE_HEADER_SIZE.checked_add(entries_bytes)?;
@@ -977,12 +1018,12 @@ mod platform {
             let offset =
                 NEW_CACHE_HEADER_SIZE.checked_add(index.checked_mul(NEW_CACHE_ENTRY_SIZE)?)?;
             let key = usize::try_from(read_u32(bytes, offset.checked_add(4)?)?).ok()?;
-            let value = usize::try_from(read_u32(bytes, offset.checked_add(8)?)?).ok()?;
             let hwcap = read_u64(bytes, offset.checked_add(16)?)?;
             let key = bounded_cache_string(bytes, key, strings_offset, strings_end)?;
-            let value = bounded_cache_string(bytes, value, strings_offset, strings_end)?;
             if hwcap == 0 && key == candidate.as_bytes() {
-                paths.push(PathBuf::from(OsStr::from_bytes(value)));
+                let value = usize::try_from(read_u32(bytes, offset.checked_add(8)?)?).ok()?;
+                let value = bounded_cache_string(bytes, value, strings_offset, strings_end)?;
+                push_cache_match(&mut paths, value)?;
             }
         }
         Some(paths)
@@ -999,16 +1040,28 @@ mod platform {
             let offset =
                 OLD_CACHE_HEADER_SIZE.checked_add(index.checked_mul(OLD_CACHE_ENTRY_SIZE)?)?;
             let key = usize::try_from(read_u32(bytes, offset.checked_add(4)?)?).ok()?;
-            let value = usize::try_from(read_u32(bytes, offset.checked_add(8)?)?).ok()?;
             let key = strings_offset.checked_add(key)?;
-            let value = strings_offset.checked_add(value)?;
             let key = bounded_cache_string(bytes, key, strings_offset, bytes.len())?;
-            let value = bounded_cache_string(bytes, value, strings_offset, bytes.len())?;
             if key == candidate.as_bytes() {
-                paths.push(PathBuf::from(OsStr::from_bytes(value)));
+                let value = usize::try_from(read_u32(bytes, offset.checked_add(8)?)?).ok()?;
+                let value = strings_offset.checked_add(value)?;
+                let value = bounded_cache_string(bytes, value, strings_offset, bytes.len())?;
+                push_cache_match(&mut paths, value)?;
             }
         }
         Some(paths)
+    }
+
+    fn push_cache_match(paths: &mut Vec<PathBuf>, value: &[u8]) -> Option<()> {
+        let path = PathBuf::from(OsStr::from_bytes(value));
+        if paths.contains(&path) {
+            return Some(());
+        }
+        if paths.len() >= MAX_MATCHING_CACHE_PATHS {
+            return None;
+        }
+        paths.push(path);
+        Some(())
     }
 
     fn bounded_cache_string(
@@ -1020,7 +1073,10 @@ mod platform {
         if offset < strings_offset || offset >= strings_end || strings_end > bytes.len() {
             return None;
         }
-        let tail = bytes.get(offset..strings_end)?;
+        let bounded_end = offset
+            .checked_add(MAX_LOADER_CACHE_STRING_BYTES)?
+            .min(strings_end);
+        let tail = bytes.get(offset..bounded_end)?;
         let length = tail.iter().position(|byte| *byte == 0)?;
         tail.get(..length)
     }
@@ -1116,6 +1172,14 @@ mod platform {
                 )
                 .is_err()
             );
+            assert!(
+                validated_library_path_entries(
+                    Some(OsStr::new("/$ORIGIN/lib:/usr/lib")),
+                    Some(current),
+                )
+                .is_err()
+            );
+            assert!(validated_library_path_entries(Some(OsStr::new("/opt/vendor")), None).is_err());
         }
 
         #[test]
@@ -1159,6 +1223,61 @@ mod platform {
             assert_eq!(
                 resolved,
                 [safe.join(candidate).canonicalize().expect("probe exists")]
+            );
+        }
+
+        #[test]
+        fn versioned_hip_candidate_preserves_major_across_symlinks() {
+            let root = TestDirectory::new();
+            let current = root.0.join("current");
+            let cross_major = root.0.join("cross-major");
+            let same_major = root.0.join("same-major");
+            fs::create_dir(&current).expect("create isolated current directory");
+            fs::create_dir(&cross_major).expect("create cross-major directory");
+            fs::create_dir(&same_major).expect("create same-major directory");
+
+            let cross_major_target = cross_major.join("libamdhip64.so.6.4.0");
+            let same_major_target = same_major.join("libamdhip64.so.7.2.0");
+            fs::write(&cross_major_target, b"probe").expect("write HIP 6 target");
+            fs::write(&same_major_target, b"probe").expect("write HIP 7 target");
+            std::os::unix::fs::symlink(
+                cross_major_target
+                    .file_name()
+                    .expect("HIP 6 target has a basename"),
+                cross_major.join("libamdhip64.so.7"),
+            )
+            .expect("create cross-major HIP symlink");
+            std::os::unix::fs::symlink(
+                same_major_target
+                    .file_name()
+                    .expect("HIP 7 target has a basename"),
+                same_major.join("libamdhip64.so.7"),
+            )
+            .expect("create same-major HIP symlink");
+
+            let rejected = resolve_default_candidate_paths(
+                Path::new("libamdhip64.so.7"),
+                Some(cross_major.as_os_str()),
+                Some(&current),
+                None,
+                &[],
+            )
+            .expect("versioned HIP candidate is valid");
+            assert!(rejected.is_empty());
+
+            let accepted = resolve_default_candidate_paths(
+                Path::new("libamdhip64.so.7"),
+                Some(same_major.as_os_str()),
+                Some(&current),
+                None,
+                &[],
+            )
+            .expect("versioned HIP candidate is valid");
+            assert_eq!(
+                accepted,
+                [same_major_target
+                    .canonicalize()
+                    .expect("same-major target exists")]
             );
         }
 
@@ -1237,6 +1356,16 @@ mod platform {
             let mut corrupt = new_cache;
             corrupt[20..24].copy_from_slice(&u32::MAX.to_ne_bytes());
             assert!(parse_loader_cache(candidate, &corrupt).is_empty());
+
+            let excessive_paths: Vec<_> = (0..=super::MAX_MATCHING_CACHE_PATHS)
+                .map(|index| PathBuf::from(format!("/cache/{index}/libocgpu-cache-probe.so.1")))
+                .collect();
+            let excessive_entries: Vec<_> = excessive_paths
+                .iter()
+                .map(|path| (candidate, path.as_path()))
+                .collect();
+            let excessive_cache = new_cache_bytes(&excessive_entries);
+            assert!(parse_loader_cache(candidate, &excessive_cache).is_empty());
         }
 
         #[test]

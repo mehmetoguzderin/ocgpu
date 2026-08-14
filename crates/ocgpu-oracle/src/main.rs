@@ -31,12 +31,15 @@ fn run() -> Result<(), Box<dyn Error>> {
         "validate" if arguments.len() == 1 => {
             let summary = validate_repository(&root)?;
             println!(
-                "validated {} inventories, {} entries, {} decisions, {} manifest entries, and {} exports",
+                "validated {} inventories, {} entries, {} decisions, {} manifest entries, {} exports, and HIP profiles {}/common {}/attributes {}",
                 summary.inventories,
                 summary.entries,
                 summary.decisions,
                 summary.manifest_entries,
-                summary.exports
+                summary.exports,
+                summary.hip_runtime_profiles,
+                summary.hip_common_functions,
+                summary.hip_device_attributes
             );
         }
         "report" => {
@@ -77,8 +80,12 @@ fn run() -> Result<(), Box<dyn Error>> {
             let summary = validate_repository(&root)?;
             report(&root, true)?;
             println!(
-                "oracle check passed: {} entries and {} explicit decisions",
-                summary.entries, summary.decisions
+                "oracle check passed: {} entries, {} explicit decisions, and HIP profiles {}/common {}/attributes {}",
+                summary.entries,
+                summary.decisions,
+                summary.hip_runtime_profiles,
+                summary.hip_common_functions,
+                summary.hip_device_attributes
             );
         }
         "extract-rust" => extract(&root, &arguments[1..])?,

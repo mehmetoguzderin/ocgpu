@@ -9,7 +9,7 @@
   },
   "compatibility_policy": {
     "rule": "After the reviewed minimum, later minor and patch releases in the same major are accepted; the next major is excluded.",
-    "source": "https://rocm.docs.amd.com/projects/install-on-windows/en/docs-6.4.2/conceptual/release-versioning.html",
+    "source": "https://rocm.docs.amd.com/projects/install-on-windows/en/docs-6.4.2/conceptual/deployment-guidelines.html",
     "fail_closed": "Earlier minors, unrecognized majors, and malformed runtime versions are rejected. hipGetProcAddress is not called before its separately reviewed minimum."
   },
   "table_flag_encoding": {
@@ -256,19 +256,19 @@
       "platform": "windows",
       "major": 5,
       "names": ["amdhip64.dll"],
-      "source": "https://rocm.docs.amd.com/projects/install-on-windows/en/docs-6.1.2/reference/system-requirements.html"
+      "source": "https://rocm.docs.amd.com/projects/install-on-windows/en/docs-6.3.1/"
     },
     {
       "platform": "windows",
       "major": 6,
       "names": ["amdhip64_6.dll"],
-      "source": "https://rocm.docs.amd.com/projects/install-on-windows/en/docs-6.4.2/conceptual/release-versioning.html"
+      "source": "https://rocm.docs.amd.com/projects/install-on-windows/en/docs-6.3.1/"
     },
     {
       "platform": "windows",
       "major": 7,
       "names": ["amdhip64_7.dll"],
-      "source": "https://rocm.docs.amd.com/projects/install-on-windows/en/latest/conceptual/release-versioning.html"
+      "source": "https://rocm.docs.amd.com/projects/install-on-windows/en/docs-7.1.1/about/releasenotes.html"
     },
     {
       "platform": "linux",
@@ -523,6 +523,24 @@
     }
   ],
   "semantic_reviews": [
+    {
+      "operations": [
+        "hipInit",
+        "hipDriverGetVersion"
+      ],
+      "finding": "The common adapter preserves runtime initialization flags and returns the driver version through the declared integer output parameter.",
+      "proof": "The initialization and version-management documentation blocks in every reviewed hip_runtime_api.h artifact."
+    },
+    {
+      "operations": [
+        "hipGetDeviceCount",
+        "hipDeviceGet",
+        "hipDeviceGetName",
+        "hipDeviceGetAttribute"
+      ],
+      "finding": "The common adapter preserves device enumeration, ordinal-to-handle lookup, bounded name-buffer writes, and native attribute query semantics; the reviewed 32-value map supplies the attribute translation.",
+      "proof": "The device-management documentation blocks and extracted hipDeviceAttribute_t values in every reviewed hip_runtime_api.h artifact."
+    },
     {
       "operations": ["hipMalloc", "hipFree"],
       "finding": "The common adapter preserves the allocation output pointer, byte count, and paired free semantics without changing ownership.",
