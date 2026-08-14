@@ -824,3 +824,51 @@ pub(super) fn render_hip_runtime_profiles(
     output.push_str("];\n");
     output
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn inputs() -> (ApiManifest, HipRuntimeProfiles, HipRuntimeDeclarations) {
+        (
+            toml::from_str(include_str!("../../../api/ocgpu-api.toml"))
+                .expect("canonical API manifest parses"),
+            serde_json::from_str(include_str!(
+                "../../../oracle/vendor/hip/runtime-profiles.json"
+            ))
+            .expect("HIP profile ledger parses"),
+            serde_json::from_str(include_str!(
+                "../../../oracle/vendor/hip/runtime-profile-declarations.json"
+            ))
+            .expect("HIP profile declarations parse"),
+        )
+    }
+
+    #[test]
+    fn reviewed_profile_declarations_validate() {
+        let (manifest, ledger, declarations) = inputs();
+        validate_hip_runtime_profiles(&manifest, &ledger, &declarations)
+            .expect("reviewed profile evidence is coherent");
+    }
+
+    #[test]
+    fn profile_source_binding_and_platform_drift_fail_closed() {
+        let (manifest, ledger, mut declarations) = inputs();
+        declarations.snapshots[5].source_header_artifact.sha256 =
+            format!("sha256:{}", "0".repeat(64));
+        assert!(validate_hip_runtime_profiles(&manifest, &ledger, &declarations).is_err());
+
+        let (manifest, ledger, mut declarations) = inputs();
+        declarations.snapshots[5]
+            .source_inventory_platforms
+            .remove(0);
+        assert!(validate_hip_runtime_profiles(&manifest, &ledger, &declarations).is_err());
+    }
+
+    #[test]
+    fn profile_device_attribute_drift_fails_closed() {
+        let (manifest, ledger, mut declarations) = inputs();
+        declarations.snapshots[0].device_attributes[0].value += 1;
+        assert!(validate_hip_runtime_profiles(&manifest, &ledger, &declarations).is_err());
+    }
+}

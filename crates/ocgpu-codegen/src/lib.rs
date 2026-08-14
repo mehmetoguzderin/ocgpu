@@ -4546,4 +4546,30 @@ mod tests {
         assert_eq!(c_constant_type("u64"), "uint64_t");
         assert_eq!(c_constant_type("usize"), "uintptr_t");
     }
+
+    #[test]
+    fn hip_device_pointer_preserves_its_vendor_pointer_category() {
+        let manifest = canonical_manifest();
+        let device_pointer = manifest
+            .types
+            .iter()
+            .find(|entry| entry.name == "ocgpuHipDeviceptr_t")
+            .expect("HIP device pointer type exists");
+        assert_eq!(device_pointer.kind, "alias");
+        assert_eq!(device_pointer.rust_type.as_deref(), Some("*mut c_void"));
+        assert!(device_pointer
+            .oracle_variants
+            .iter()
+            .all(|variant| variant.oracle_kind == "opaque_handle"));
+
+        for (symbol, index) in [("hipMemcpyHtoD", 0_usize), ("hipMemcpyDtoH", 1_usize)] {
+            let raw = manifest
+                .functions
+                .iter()
+                .map(|function| &function.hip)
+                .find(|raw| raw.vendor_symbol == symbol)
+                .expect("raw HIP memcpy declaration exists");
+            assert_eq!(raw.params[index].type_name, "ocgpuHipDeviceptr_t");
+        }
+    }
 }
