@@ -1,0 +1,30 @@
+# SPDX-License-Identifier: CC0-1.0
+
+[package]
+name = "ocgpu-oracle"
+version = "0.0.0"
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+publish = false
+description = "Maintainer-only API inventory extractor and coverage validator for ocgpu"
+
+[dependencies]
+miniz_oxide = "0.8.9"
+quote = "1.0.40"
+serde.workspace = true
+serde_json.workspace = true
+syn = { version = "2.0.106", features = ["full", "parsing", "visit"] }
+thiserror.workspace = true
+toml.workspace = true
+
+# These exact packages are source inventories, not executable dependencies.
+# Keeping them behind an always-false target makes Cargo resolve and download
+# their registry sources for `cargo metadata` while preventing their runtime
+# loader dependencies from raising the workspace's Rust 1.85 build floor.
+[target.'cfg(any())'.dependencies]
+cudarc = { version = "=0.19.9", default-features = false, features = ["std", "driver", "dynamic-loading", "cuda-13030"] }
+rocmrc = { version = "=0.5.0", default-features = false, features = ["dynamic-loading"] }
+
+[lints]
+workspace = true

@@ -1,0 +1,113 @@
+# SPDX-License-Identifier: CC0-1.0
+
+name: Opt-in hardware smoke
+
+on:
+  workflow_dispatch:
+    inputs:
+      acknowledgement:
+        description: Type RUN_BOUNDED_GPU_SMOKE to enable the labelled self-hosted jobs
+        required: true
+        type: string
+      backend:
+        description: Select the dedicated runner family to exercise
+        required: true
+        default: all
+        type: choice
+        options: [all, cuda, hip]
+      hip_linux_smoke_module:
+        description: Absolute Linux-runner path to a reviewed, architecture-matched HIP no-op code object
+        required: false
+        type: string
+      hip_windows_smoke_module:
+        description: Absolute Windows-runner path to a reviewed, architecture-matched HIP no-op code object
+        required: false
+        type: string
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ocgpu-hardware-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  nvidia-linux:
+    if: inputs.acknowledgement == 'RUN_BOUNDED_GPU_SMOKE' && inputs.backend != 'hip'
+    runs-on: [self-hosted, linux, x64, ocgpu, nvidia]
+    timeout-minutes: 15
+    env:
+      OCGPU_RUN_HARDWARE_SMOKE: "1"
+      OCGPU_SMOKE_BACKEND: cuda
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+      - run: cargo test -p ocgpu --test hardware_smoke --all-features -- --nocapture
+      - run: cargo run -p ocgpu-cli -- doctor --json
+      - name: Resolve every applicable CUDA manifest symbol
+        shell: pwsh
+        run: |
+          cargo run -q -p ocgpu-cli -- symbols --backend cuda --all --json | Set-Content -Encoding utf8 symbols.json
+          ./.github/scripts/assert-hardware-symbols.ps1 -Backend cuda -SymbolsJson symbols.json -GeneratedInventory crates/ocgpu-codegen/generated/api-inventory.json
+
+  nvidia-windows:
+    if: inputs.acknowledgement == 'RUN_BOUNDED_GPU_SMOKE' && inputs.backend != 'hip'
+    runs-on: [self-hosted, windows, x64, ocgpu, nvidia]
+    timeout-minutes: 15
+    env:
+      OCGPU_RUN_HARDWARE_SMOKE: "1"
+      OCGPU_SMOKE_BACKEND: cuda
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+      - run: cargo test -p ocgpu --test hardware_smoke --all-features -- --nocapture
+      - run: cargo run -p ocgpu-cli -- doctor --json
+      - name: Resolve every applicable CUDA manifest symbol
+        shell: pwsh
+        run: |
+          cargo run -q -p ocgpu-cli -- symbols --backend cuda --all --json | Set-Content -Encoding utf8 symbols.json
+          ./.github/scripts/assert-hardware-symbols.ps1 -Backend cuda -SymbolsJson symbols.json -GeneratedInventory crates/ocgpu-codegen/generated/api-inventory.json
+
+  amd-linux:
+    if: inputs.acknowledgement == 'RUN_BOUNDED_GPU_SMOKE' && inputs.backend != 'cuda'
+    runs-on: [self-hosted, linux, x64, ocgpu, amd]
+    timeout-minutes: 15
+    env:
+      OCGPU_RUN_HARDWARE_SMOKE: "1"
+      OCGPU_SMOKE_BACKEND: hip
+      OCGPU_HIP_SMOKE_MODULE: ${{ inputs.hip_linux_smoke_module }}
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+      - name: Require a runner-local Linux HIP fixture
+        shell: pwsh
+        run: |
+          if (-not [IO.Path]::IsPathRooted($env:OCGPU_HIP_SMOKE_MODULE)) { throw "hip_linux_smoke_module must be an absolute path" }
+          if (-not (Test-Path -LiteralPath $env:OCGPU_HIP_SMOKE_MODULE -PathType Leaf)) { throw "Linux HIP fixture does not exist on this runner" }
+      - run: cargo test -p ocgpu --test hardware_smoke --all-features -- --nocapture
+      - run: cargo run -p ocgpu-cli -- doctor --json
+      - name: Resolve every applicable HIP manifest symbol
+        shell: pwsh
+        run: |
+          cargo run -q -p ocgpu-cli -- symbols --backend hip --all --json | Set-Content -Encoding utf8 symbols.json
+          ./.github/scripts/assert-hardware-symbols.ps1 -Backend hip -SymbolsJson symbols.json -GeneratedInventory crates/ocgpu-codegen/generated/api-inventory.json
+
+  amd-windows:
+    if: inputs.acknowledgement == 'RUN_BOUNDED_GPU_SMOKE' && inputs.backend != 'cuda'
+    runs-on: [self-hosted, windows, x64, ocgpu, amd]
+    timeout-minutes: 15
+    env:
+      OCGPU_RUN_HARDWARE_SMOKE: "1"
+      OCGPU_SMOKE_BACKEND: hip
+      OCGPU_HIP_SMOKE_MODULE: ${{ inputs.hip_windows_smoke_module }}
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+      - name: Require a runner-local Windows HIP fixture
+        shell: pwsh
+        run: |
+          if (-not [IO.Path]::IsPathRooted($env:OCGPU_HIP_SMOKE_MODULE)) { throw "hip_windows_smoke_module must be an absolute path" }
+          if (-not (Test-Path -LiteralPath $env:OCGPU_HIP_SMOKE_MODULE -PathType Leaf)) { throw "Windows HIP fixture does not exist on this runner" }
+      - run: cargo test -p ocgpu --test hardware_smoke --all-features -- --nocapture
+      - run: cargo run -p ocgpu-cli -- doctor --json
+      - name: Resolve every applicable Windows HIP manifest symbol
+        shell: pwsh
+        run: |
+          cargo run -q -p ocgpu-cli -- symbols --backend hip --all --json | Set-Content -Encoding utf8 symbols.json
+          ./.github/scripts/assert-hardware-symbols.ps1 -Backend hip -SymbolsJson symbols.json -GeneratedInventory crates/ocgpu-codegen/generated/api-inventory.json

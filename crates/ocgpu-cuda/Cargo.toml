@@ -1,0 +1,25 @@
+# SPDX-License-Identifier: CC0-1.0
+
+[package]
+name = "ocgpu-cuda"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+publish = ["crates-io"]
+description = "Runtime-loaded CUDA Driver dispatch backend for ocgpu"
+documentation = "https://docs.rs/ocgpu-cuda"
+readme = "../README.md"
+keywords = ["gpu", "cuda", "ffi", "driver"]
+categories = ["api-bindings", "hardware-support"]
+
+[features]
+default = []
+explicit-library-path = ["ocgpu-loader/explicit-library-path"]
+
+[dependencies]
+ocgpu-abi = { path = "../ocgpu-abi", version = "0.1.0" }
+ocgpu-loader = { path = "../ocgpu-loader", version = "0.1.0" }
+
+[lints]
+workspace = true

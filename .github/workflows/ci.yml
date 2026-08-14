@@ -1,0 +1,117 @@
+# SPDX-License-Identifier: CC0-1.0
+
+name: SDK-free CI
+
+on:
+  push:
+  pull_request:
+
+permissions:
+  contents: read
+
+env:
+  CARGO_TERM_COLOR: always
+  RUST_BACKTRACE: "1"
+
+jobs:
+  shipping-msrv:
+    name: Shipping MSRV 1.85.0
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+      - name: Install documented shipping MSRV
+        run: rustup toolchain install 1.85.0 --profile minimal
+      - name: Check the complete workspace feature surface at MSRV
+        run: cargo +1.85.0 check --locked --workspace --all-targets --all-features
+      - name: Check minimal shipping graph at MSRV
+        run: cargo +1.85.0 check --locked --no-default-features -p ocgpu-abi -p ocgpu-loader -p ocgpu-cuda -p ocgpu-hip -p ocgpu -p ocgpu-capi
+
+  quality:
+    name: Format, lint, test, generation
+    runs-on: ubuntu-24.04
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+      - name: Install pinned Rust toolchain
+        run: rustup toolchain install 1.97.1 --profile minimal --component rustfmt,clippy
+      - name: Run repository quality gate
+        run: cargo +1.97.1 run -p xtask -- ci
+
+  sdk-free-x64:
+    name: SDK-free ${{ matrix.target }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: ubuntu-24.04
+            target: x86_64-unknown-linux-gnu
+          - os: windows-2025
+            target: x86_64-pc-windows-msvc
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 35
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+      - name: Assert the runner has no vendor SDK
+        shell: pwsh
+        run: ./.github/scripts/assert-sdk-free.ps1
+      - name: Install pinned Rust toolchain
+        shell: bash
+        run: rustup toolchain install 1.97.1 --profile minimal --target ${{ matrix.target }}
+      - name: Prove shipping graph excludes oracle crates
+        shell: bash
+        run: cargo +1.97.1 tree -p ocgpu -p ocgpu-capi -p ocgpu-cli | tee shipping-dependencies.txt
+      - name: Reject SDK and oracle dependencies in shipping graph
+        shell: bash
+        run: |
+          if grep -E '(^|[[:space:]])(cudarc|rocmrc|bindgen|clang-sys)([[:space:]]|$)' shipping-dependencies.txt; then
+            echo "shipping dependency graph contains an SDK/oracle dependency" >&2
+            exit 1
+          fi
+      - name: Build Rust library, C libraries, and CLI
+        run: cargo +1.97.1 build --target ${{ matrix.target }} --release -p ocgpu -p ocgpu-capi -p ocgpu-cli
+      - name: Build shipping crates without default features
+        run: cargo +1.97.1 build --target ${{ matrix.target }} --release -p ocgpu-abi -p ocgpu-loader -p ocgpu-cuda -p ocgpu-hip -p ocgpu -p ocgpu-capi --no-default-features
+      - name: Run all shipping-crate tests (hardware explicitly capability-skips)
+        run: cargo +1.97.1 test --target ${{ matrix.target }} --all-features -p ocgpu-abi -p ocgpu-loader -p ocgpu-cuda -p ocgpu-hip -p ocgpu -p ocgpu-capi -p ocgpu-cli
+
+  sdk-free-aarch64:
+    name: SDK-free aarch64 Linux
+    runs-on: ubuntu-24.04
+    timeout-minutes: 35
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+      - name: Assert the runner has no vendor SDK
+        shell: pwsh
+        run: ./.github/scripts/assert-sdk-free.ps1
+      - name: Install cross linker
+        run: sudo apt-get update && sudo apt-get install --yes --no-install-recommends gcc-aarch64-linux-gnu binutils-aarch64-linux-gnu
+      - name: Install pinned Rust target
+        run: rustup toolchain install 1.97.1 --profile minimal --target aarch64-unknown-linux-gnu
+      - name: Install exact C packager
+        run: cargo +1.97.1 install cargo-c --version '0.10.24+cargo-0.98.0' --locked
+      - name: Cross-build shipping artifacts
+        env:
+          CARGO_TARGET_AARCH64_UNKNOWN_LINUX_GNU_LINKER: aarch64-linux-gnu-gcc
+        run: |
+          cargo +1.97.1 build --target aarch64-unknown-linux-gnu --release -p ocgpu -p ocgpu-cli
+          cargo +1.97.1 cbuild --target aarch64-unknown-linux-gnu --release -p ocgpu-capi
+      - name: Reject linked vendor libraries
+        run: |
+          library=target/aarch64-unknown-linux-gnu/release/libocgpu.so
+          archive=target/aarch64-unknown-linux-gnu/release/libocgpu.a
+          test -f "$library"
+          test -f "$archive"
+          if aarch64-linux-gnu-readelf -d "$library" | grep -Ei 'libcuda|libamdhip|nvcuda|amdhip64'; then
+            echo "C library has a forbidden vendor link dependency" >&2
+            exit 1
+          fi
+          sed -n -E 's/^[[:space:]]*(ocgpu[A-Za-z0-9_]+);$/\1/p' exports/ocgpu.map | LC_ALL=C sort -u > target/expected-aarch64-exports.txt
+          aarch64-linux-gnu-nm -D --defined-only --format=posix "$library" \
+            | awk '$1 ~ /^ocgpu[A-Za-z0-9_]+(@@OCGPU_1[.]0)?$/ { sub(/@@.*/, "", $1); print $1 }' \
+            | LC_ALL=C sort -u > target/actual-aarch64-exports.txt
+          diff -u target/expected-aarch64-exports.txt target/actual-aarch64-exports.txt
+      - name: Cross-compile the public header and generated layout as strict C99
+        run: |
+          aarch64-linux-gnu-gcc -std=c99 -pedantic-errors -Wall -Wextra -Werror -Iinclude -c tests/c99/header_compile.c -o target/header-aarch64.o
+          aarch64-linux-gnu-gcc -std=c99 -pedantic-errors -Wall -Wextra -Werror -Iinclude -c tests/abi/generated_layout.c -o target/generated-layout-aarch64.o

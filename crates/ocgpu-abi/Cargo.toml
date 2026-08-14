@@ -1,0 +1,20 @@
+# SPDX-License-Identifier: CC0-1.0
+
+[package]
+name = "ocgpu-abi"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+publish = ["crates-io"]
+description = "C-compatible ABI declarations for the SDK-free ocgpu runtime"
+documentation = "https://docs.rs/ocgpu-abi"
+readme = "../README.md"
+keywords = ["gpu", "cuda", "hip", "ffi"]
+categories = ["api-bindings", "hardware-support", "no-std"]
+
+[lib]
+path = "src/lib.rs"
+
+[lints]
+workspace = true

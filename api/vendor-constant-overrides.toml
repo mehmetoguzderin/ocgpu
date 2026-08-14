@@ -1,0 +1,33 @@
+# SPDX-License-Identifier: CC0-1.0
+# Reviewed values for source enums whose pinned normalized inventory records an
+# implicit enumerator but cannot encode declaration-order arithmetic.
+
+[[constant]]
+backend = "hip"
+name = "hipDeviceAttributeDmaBufSupported"
+value = 93
+provenance = "HIP 7.14 hip_runtime_api.h: follows hipDeviceAttributeHostNumaId=92 in hipDeviceAttribute_t"
+
+[[constant]]
+backend = "hip"
+name = "hipDeviceAttributeGPUDirectRDMAWithHipVMMSupported"
+value = 94
+provenance = "HIP 7.14 hip_runtime_api.h: follows hipDeviceAttributeDmaBufSupported=93 in hipDeviceAttribute_t"
+
+[[constant]]
+backend = "hip"
+name = "hipDeviceAttributeHandleTypeFabricSupported"
+value = 95
+provenance = "HIP 7.14 hip_runtime_api.h: follows hipDeviceAttributeGPUDirectRDMAWithHipVMMSupported=94 in hipDeviceAttribute_t"
+
+[[constant]]
+backend = "hip"
+name = "hipDeviceAttributeExpertSchedMode"
+value = 10021
+provenance = "HIP 7.14 hip_runtime_api.h: follows hipDeviceAttributePciChipId=10020 in hipDeviceAttribute_t"
+
+[[constant]]
+backend = "hip"
+name = "hipDeviceAttributeMaxDynDataPrefetchRegions"
+value = 10022
+provenance = "HIP 7.14 hip_runtime_api.h: follows hipDeviceAttributeExpertSchedMode=10021 in hipDeviceAttribute_t"

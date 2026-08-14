@@ -1,0 +1,388 @@
+# SPDX-License-Identifier: CC0-1.0
+
+name: Release
+
+on:
+  push:
+    tags: ["v[0-9]+.[0-9]+.[0-9]+"]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  verify:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+      - name: Assert the verification runner has no vendor SDK
+        shell: pwsh
+        run: ./.github/scripts/assert-sdk-free.ps1
+      - name: Install pinned quality and MSRV toolchains
+        run: |
+          rustup toolchain install 1.97.1 --profile minimal --component rustfmt,clippy
+          rustup toolchain install 1.85.0 --profile minimal
+      - name: Require a tag matching the workspace version
+        if: startsWith(github.ref, 'refs/tags/v')
+        shell: bash
+        run: |
+          version="$(cargo +1.97.1 metadata --no-deps --format-version 1 | jq -r '.packages[] | select(.name == "ocgpu") | .version')"
+          test "${GITHUB_REF_NAME}" = "v${version}" || { echo "tag ${GITHUB_REF_NAME} does not match workspace v${version}" >&2; exit 1; }
+      - name: Check every public shipping feature at MSRV
+        run: cargo +1.85.0 check --locked --all-features -p ocgpu-abi -p ocgpu-loader -p ocgpu-cuda -p ocgpu-hip -p ocgpu -p ocgpu-capi -p ocgpu-cli
+      - name: Check minimal shipping graph at MSRV
+        run: cargo +1.85.0 check --locked --no-default-features -p ocgpu-abi -p ocgpu-loader -p ocgpu-cuda -p ocgpu-hip -p ocgpu -p ocgpu-capi
+      - run: cargo +1.97.1 run -p xtask -- ci
+      - name: Compile strict C99, flat declarations/layouts, and C++ header mode
+        run: |
+          CC=gcc CXX=g++ cargo +1.97.1 run -p xtask -- c99
+          CC=clang CXX=clang++ cargo +1.97.1 run -p xtask -- c99
+      - name: Install exact RustSec audit client
+        run: cargo +1.97.1 install cargo-audit --version 0.22.2 --locked
+      - name: Audit the exact release lockfile
+        run: cargo +1.97.1 audit --deny warnings
+
+  rust-source-packages:
+    name: Ordered Rust source packages
+    needs: verify
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    permissions:
+      contents: read
+      id-token: write
+      attestations: write
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+      - name: Assert the package runner has no vendor SDK
+        shell: pwsh
+        run: ./.github/scripts/assert-sdk-free.ps1
+      - name: Install pinned toolchain
+        run: rustup toolchain install 1.97.1 --profile minimal
+      - name: Build and inspect dependency-ordered source archives
+        shell: bash
+        run: |
+          set -euo pipefail
+          version="$(cargo +1.97.1 metadata --no-deps --format-version 1 | jq -r '.packages[] | select(.name == "ocgpu") | .version')"
+          install -d dist/rust-source target/package-lists
+          cargo +1.97.1 fetch --locked
+          cargo +1.97.1 package --locked --no-verify \
+            -p ocgpu-abi -p ocgpu-loader -p ocgpu-cuda -p ocgpu-hip -p ocgpu
+          for crate in ocgpu-abi ocgpu-loader ocgpu-cuda ocgpu-hip ocgpu; do
+            artifact="target/package/${crate}-${version}.crate"
+            listing="target/package-lists/${crate}.txt"
+            test -f "$artifact"
+            tar -tzf "$artifact" | LC_ALL=C sort > "$listing"
+            grep -Fx "${crate}-${version}/Cargo.toml" "$listing"
+            grep -Fx "${crate}-${version}/LICENSE" "$listing"
+            grep -Fx "${crate}-${version}/README.md" "$listing"
+            grep -Fx "${crate}-${version}/src/lib.rs" "$listing"
+            if grep -Eq '(^/|(^|/)[.][.](/|$))' "$listing"; then
+              echo "$artifact contains a non-local path" >&2
+              exit 1
+            fi
+            cp "$artifact" dist/rust-source/
+          done
+          grep -Fx "ocgpu-${version}/tests/fixtures/noop.ptx" target/package-lists/ocgpu.txt
+          grep -Fx "ocgpu-${version}/tests/hardware_smoke.rs" target/package-lists/ocgpu.txt
+          install -d target/packaged-graph
+          for artifact in dist/rust-source/*.crate; do
+            tar -xzf "$artifact" -C target/packaged-graph
+          done
+          cp -R xtask/package-consumer target/packaged-graph/consumer
+          CARGO_TARGET_DIR="$PWD/target/packaged-graph-build" \
+            cargo +1.97.1 check --offline --all-features \
+            --manifest-path target/packaged-graph/consumer/Cargo.toml
+          (
+            cd dist/rust-source
+            sha256sum ./*.crate | LC_ALL=C sort -k2 > SHA256SUMS
+          )
+      - name: Attest Rust source packages
+        uses: actions/attest-build-provenance@e8998f949152b193b063cb0ec769d69d929409be # v2.4.0
+        with:
+          subject-path: dist/rust-source/*.crate
+      - name: Upload Rust source packages
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: rust-source-release
+          path: dist/rust-source/*
+          if-no-files-found: error
+
+  package:
+    needs: verify
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: ubuntu-24.04
+            target: x86_64-unknown-linux-gnu
+            archive: ocgpu-x86_64-linux.zip
+          - os: windows-2025
+            target: x86_64-pc-windows-msvc
+            archive: ocgpu-x86_64-windows.zip
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 45
+    permissions:
+      contents: read
+      id-token: write
+      attestations: write
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+      - name: Assert the binary-package runner has no vendor SDK
+        shell: pwsh
+        run: ./.github/scripts/assert-sdk-free.ps1
+      - name: Install pinned toolchain
+        shell: bash
+        run: rustup toolchain install 1.97.1 --profile minimal --target ${{ matrix.target }}
+      - name: Install exact C packager
+        shell: bash
+        run: cargo +1.97.1 install cargo-c --version '0.10.24+cargo-0.98.0' --locked
+      - name: Build static/shared C libraries and CLI
+        shell: bash
+        run: |
+          cargo +1.97.1 cinstall -p ocgpu-capi --release --target ${{ matrix.target }} --destdir "$PWD/dist/install" --prefix /usr --libdir /usr/lib
+          cargo +1.97.1 build -p ocgpu-cli --release --target ${{ matrix.target }}
+          cargo +1.97.1 run -p xtask -- licenses
+      - name: Build mapped, versioned Linux shared library from the PIC Rust archive
+        if: runner.os == 'Linux'
+        shell: bash
+        env:
+          CARGO_TARGET_DIR: target/pic
+          RUSTFLAGS: -C relocation-model=pic
+        run: |
+          cargo +1.97.1 build -p ocgpu-capi --release --target ${{ matrix.target }} --lib
+          install -d dist/install/usr/lib
+          for candidate in dist/install/usr/lib/libocgpu.so*; do
+            if [ -e "$candidate" ] || [ -L "$candidate" ]; then rm -f -- "$candidate"; fi
+          done
+          cc -shared \
+            -Wl,--whole-archive target/pic/${{ matrix.target }}/release/libocgpu_capi.a \
+            -Wl,--no-whole-archive \
+            -Wl,--version-script,exports/ocgpu.map \
+            -Wl,-soname,libocgpu.so.1 \
+            -ldl -lpthread -lm -lrt -lutil \
+            -o dist/install/usr/lib/libocgpu.so.1.0.0
+          ln -sfn libocgpu.so.1.0.0 dist/install/usr/lib/libocgpu.so.1
+          ln -sfn libocgpu.so.1 dist/install/usr/lib/libocgpu.so
+      - name: Audit exact mapped ELF exports, SONAME, and dependencies
+        if: runner.os == 'Linux'
+        shell: bash
+        run: |
+          library=dist/install/usr/lib/libocgpu.so.1.0.0
+          sed -n -E 's/^[[:space:]]*(ocgpu[A-Za-z0-9_]+);$/\1/p' exports/ocgpu.map | sort -u > target/expected-package-exports.txt
+          readelf --dyn-syms --wide "$library" \
+            | awk '$8 ~ /^ocgpu[A-Za-z0-9_]+@@OCGPU_1[.]0$/ { name=$8; sub(/@@.*/, "", name); print name }' \
+            | sort -u > target/actual-package-exports.txt
+          diff -u target/expected-package-exports.txt target/actual-package-exports.txt
+          readelf --version-info "$library" | grep -F 'Name: OCGPU_1.0'
+          readelf -d "$library" | grep -F 'Library soname: [libocgpu.so.1]'
+          readelf -d "$library" | sed -n -E 's/.*Shared library: \[([^]]+)\].*/\1/p' | sort -u > target/package-needed.txt
+          if grep -Ev '^(lib(c|m|dl|pthread|rt|util|gcc_s)\.so(\.[0-9]+)*)$' target/package-needed.txt; then
+            echo 'packaged library has an unexpected DT_NEEDED dependency' >&2
+            exit 1
+          fi
+          if grep -Ei 'cuda|amdhip|hiprtc|nvrtc' target/package-needed.txt; then
+            echo 'vendor runtime appears in packaged DT_NEEDED entries' >&2
+            exit 1
+          fi
+      - name: Stage installed public package and provenance
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = "Stop"
+          $installPrefix = "dist/install/usr"
+          $stage = "dist/stage"
+          if (-not (Test-Path "$installPrefix/include/ocgpu/ocgpu.h")) { throw "cargo-c did not install the public header" }
+          if (-not (Get-ChildItem "$installPrefix" -Recurse -File -Filter "ocgpu.pc")) { throw "cargo-c did not install ocgpu.pc" }
+          New-Item -ItemType Directory -Force $stage, "$stage/bin", "$stage/licenses", "$stage/docs" | Out-Null
+          if ($IsWindows) {
+            Copy-Item "$installPrefix/*" $stage -Recurse -Force
+          } else {
+            & cp -a -- "$installPrefix/." "$stage/"
+            if ($LASTEXITCODE -ne 0) { throw "preserving cargo-c install tree failed with $LASTEXITCODE" }
+          }
+          Copy-Item LICENSES/* "$stage/licenses/"
+          Copy-Item LICENSE "$stage/LICENSE"
+          Copy-Item README.md "$stage/README.md"
+          Copy-Item docs/*.md "$stage/docs/"
+          Copy-Item coverage/coverage.json,coverage/coverage.json.deflate,coverage/coverage.md "$stage/docs/"
+          Get-ChildItem "target/${{ matrix.target }}/release" -File | Where-Object { $_.Name -match '^ocgpu(\.exe)?$' } | Copy-Item -Destination "$stage/bin/"
+          if ($IsWindows) {
+            foreach ($required in @("ocgpu.dll", "ocgpu.dll.lib", "ocgpu.lib")) {
+              if (-not (Get-ChildItem $stage -Recurse -File -Filter $required)) { throw "cargo-c package is missing $required" }
+            }
+          } else {
+            foreach ($required in @("libocgpu.a", "libocgpu.so", "libocgpu.so.1", "libocgpu.so.1.0.0")) {
+              if (-not (Get-ChildItem $stage -Recurse -Filter $required)) { throw "Linux package is missing $required" }
+            }
+            foreach ($link in @("$stage/lib/libocgpu.so", "$stage/lib/libocgpu.so.1")) {
+              if ((Get-Item -LiteralPath $link).LinkType -ne "SymbolicLink") { throw "$link is not a preserved SONAME symlink" }
+            }
+          }
+      - name: Compile and safely run Linux shared/static package consumers
+        if: runner.os == 'Linux'
+        shell: bash
+        run: |
+          export PKG_CONFIG_PATH="$PWD/dist/stage/lib/pkgconfig"
+          pkg-config --define-variable=prefix="$PWD/dist/stage" --exists ocgpu
+          pkg-config --define-variable=prefix="$PWD/dist/stage" --cflags --libs ocgpu | tee target/pkg-config-shared.txt
+          pkg-config --define-variable=prefix="$PWD/dist/stage" --cflags --libs --static ocgpu | tee target/pkg-config-static.txt
+          cc -std=c99 -pedantic-errors -Wall -Wextra -Werror \
+            -Idist/stage/include -c tests/abi/generated_layout.c \
+            -o target/release-generated-layout.o
+          clang++ -std=c++17 -pedantic-errors -Wall -Wextra -Werror \
+            -Wreserved-identifier -Idist/stage/include \
+            -c tests/c99/header_cpp_compile.cpp -o target/release-header-cpp.o
+          cc -std=c99 -pedantic-errors -Wall -Wextra -Werror \
+            $(pkg-config --define-variable=prefix="$PWD/dist/stage" --cflags ocgpu) \
+            tests/c99/header_compile.c \
+            $(pkg-config --define-variable=prefix="$PWD/dist/stage" --libs ocgpu) \
+            -Wl,-rpath,'$ORIGIN/../dist/stage/lib' -o target/release-header-shared
+          cc -std=c99 -pedantic-errors -Wall -Wextra -Werror \
+            $(pkg-config --define-variable=prefix="$PWD/dist/stage" --cflags ocgpu) \
+            tests/c99/header_compile.c \
+            $(pkg-config --define-variable=prefix="$PWD/dist/stage" --libs --static ocgpu) \
+            -o target/release-header-static
+          cc -std=c99 -pedantic-errors -Wall -Wextra -Werror \
+            $(pkg-config --define-variable=prefix="$PWD/dist/stage" --cflags ocgpu) \
+            tests/c99/enumerate.c \
+            $(pkg-config --define-variable=prefix="$PWD/dist/stage" --libs ocgpu) \
+            -Wl,-rpath,'$ORIGIN/../dist/stage/lib' -o target/release-consumer-shared
+          cc -std=c99 -pedantic-errors -Wall -Wextra -Werror \
+            $(pkg-config --define-variable=prefix="$PWD/dist/stage" --cflags ocgpu) \
+            tests/c99/enumerate.c \
+            $(pkg-config --define-variable=prefix="$PWD/dist/stage" --libs --static ocgpu) \
+            -o target/release-consumer-static
+          target/release-header-shared
+          target/release-header-static
+          target/release-consumer-shared
+          target/release-consumer-static
+      - name: Compile and safely run Windows import/static package consumers
+        if: runner.os == 'Windows'
+        shell: cmd
+        run: |
+          call "%ProgramFiles%\Microsoft Visual Studio\2022\Enterprise\VC\Auxiliary\Build\vcvars64.bat"
+          cl /nologo /W4 /WX /wd4324 /wd4146 /wd4308 /Idist\stage\include /c tests\abi\generated_layout.c /Fotarget\release-generated-layout.obj
+          if errorlevel 1 exit /b %errorlevel%
+          cl /nologo /W4 /WX /permissive- /std:c++17 /TP /Idist\stage\include /c tests\c99\header_cpp_compile.cpp /Fotarget\release-header-cpp.obj
+          if errorlevel 1 exit /b %errorlevel%
+          cl /nologo /W4 /WX /Idist\stage\include tests\c99\header_compile.c dist\stage\lib\ocgpu.dll.lib /link /OUT:target\release-header-shared.exe
+          if errorlevel 1 exit /b %errorlevel%
+          cl /nologo /W4 /WX /Idist\stage\include tests\c99\header_compile.c dist\stage\lib\ocgpu.lib ws2_32.lib ntdll.lib userenv.lib dbghelp.lib /link /OUT:target\release-header-static.exe
+          if errorlevel 1 exit /b %errorlevel%
+          cl /nologo /W4 /WX /Idist\stage\include tests\c99\enumerate.c dist\stage\lib\ocgpu.dll.lib /link /OUT:target\release-consumer-shared.exe
+          if errorlevel 1 exit /b %errorlevel%
+          cl /nologo /W4 /WX /Idist\stage\include tests\c99\enumerate.c dist\stage\lib\ocgpu.lib ws2_32.lib ntdll.lib userenv.lib dbghelp.lib /link /OUT:target\release-consumer-static.exe
+          if errorlevel 1 exit /b %errorlevel%
+          set PATH=%CD%\dist\stage\bin;%PATH%
+          target\release-header-shared.exe
+          if errorlevel 1 exit /b %errorlevel%
+          target\release-header-static.exe
+          if errorlevel 1 exit /b %errorlevel%
+          target\release-consumer-shared.exe
+          if errorlevel 1 exit /b %errorlevel%
+          target\release-consumer-static.exe
+      - name: Audit packaged Windows PE imports and exact exports
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = "Stop"
+          $dumpbin = Get-ChildItem "$env:ProgramFiles\Microsoft Visual Studio\2022\Enterprise\VC\Tools\MSVC\*\bin\Hostx64\x64\dumpbin.exe" | Sort-Object FullName | Select-Object -Last 1
+          if (-not $dumpbin) { throw "dumpbin.exe not found" }
+          $libraries = @(Get-ChildItem dist/stage -Recurse -File -Filter ocgpu.dll)
+          if ($libraries.Count -ne 1) { throw "expected exactly one staged ocgpu.dll, found $($libraries.Count)" }
+          $imports = & $dumpbin.FullName /nologo /imports $libraries[0].FullName
+          if ($LASTEXITCODE -ne 0) { throw "dumpbin /imports failed with $LASTEXITCODE" }
+          if ($imports | Select-String -Pattern 'nvcuda\.dll|amdhip64(?:_[0-9]+)?\.dll|nvrtc(?:64_[0-9]+)?\.dll|hiprtc(?:64)?\.dll' -CaseSensitive:$false) {
+            throw "vendor runtime appears in the packaged PE import table"
+          }
+          $lines = & $dumpbin.FullName /nologo /exports $libraries[0].FullName
+          if ($LASTEXITCODE -ne 0) { throw "dumpbin /exports failed with $LASTEXITCODE" }
+          $actual = $lines | ForEach-Object {
+            if ($_ -match '^\s+\d+\s+[0-9A-Fa-f]+\s+[0-9A-Fa-f]+\s+(ocgpu[A-Za-z0-9_]+)(?:\s|$)') { $Matches[1] }
+          } | Sort-Object -CaseSensitive -Unique
+          $expected = Get-Content exports/ocgpu.def | ForEach-Object { $_.Trim() } | Where-Object { $_ -match '^ocgpu[A-Za-z0-9_]+$' } | Sort-Object -CaseSensitive -Unique
+          $difference = Compare-Object -CaseSensitive -ReferenceObject $expected -DifferenceObject $actual
+          if ($difference) { $difference | Format-Table | Out-String | Write-Error; throw "packaged PE export set differs from exports/ocgpu.def" }
+      - name: Create release archive and checksum
+        shell: pwsh
+        run: |
+          if ($IsWindows) {
+            Compress-Archive -Path "dist/stage/*" -DestinationPath "dist/${{ matrix.archive }}"
+          } else {
+            Push-Location dist/stage
+            zip --symlinks -X -r "../${{ matrix.archive }}" .
+            Pop-Location
+          }
+          $hash = (Get-FileHash "dist/${{ matrix.archive }}" -Algorithm SHA256).Hash.ToLowerInvariant()
+          "$hash  ${{ matrix.archive }}" | Set-Content -NoNewline "dist/${{ matrix.archive }}.sha256"
+      - name: Attest package provenance
+        uses: actions/attest-build-provenance@e8998f949152b193b063cb0ec769d69d929409be # v2.4.0
+        with:
+          subject-path: dist/${{ matrix.archive }}
+      - name: Upload package
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: ${{ matrix.target }}-release
+          path: |
+            dist/${{ matrix.archive }}
+            dist/${{ matrix.archive }}.sha256
+          if-no-files-found: error
+
+  aarch64-release-gate:
+    name: aarch64 release ABI gate
+    needs: verify
+    runs-on: ubuntu-24.04
+    timeout-minutes: 35
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+      - name: Assert the cross-build runner has no vendor SDK
+        shell: pwsh
+        run: ./.github/scripts/assert-sdk-free.ps1
+      - name: Install cross C toolchain
+        run: sudo apt-get update && sudo apt-get install --yes --no-install-recommends gcc-aarch64-linux-gnu binutils-aarch64-linux-gnu
+      - name: Install pinned Rust target
+        run: rustup toolchain install 1.97.1 --profile minimal --target aarch64-unknown-linux-gnu
+      - name: Install exact C packager
+        run: cargo +1.97.1 install cargo-c --version '0.10.24+cargo-0.98.0' --locked
+      - name: Cross-build Rust and C shipping artifacts
+        env:
+          CARGO_TARGET_AARCH64_UNKNOWN_LINUX_GNU_LINKER: aarch64-linux-gnu-gcc
+        run: |
+          cargo +1.97.1 build --target aarch64-unknown-linux-gnu --release -p ocgpu -p ocgpu-cli
+          cargo +1.97.1 cbuild --target aarch64-unknown-linux-gnu --release -p ocgpu-capi
+      - name: Audit archive, exact exports, and dynamic dependencies
+        run: |
+          library=target/aarch64-unknown-linux-gnu/release/libocgpu.so
+          archive=target/aarch64-unknown-linux-gnu/release/libocgpu.a
+          test -f "$library"
+          test -f "$archive"
+          sed -n -E 's/^[[:space:]]*(ocgpu[A-Za-z0-9_]+);$/\1/p' exports/ocgpu.map | LC_ALL=C sort -u > target/expected-aarch64-release-exports.txt
+          aarch64-linux-gnu-nm -D --defined-only --format=posix "$library" \
+            | awk '$1 ~ /^ocgpu[A-Za-z0-9_]+(@@OCGPU_1[.]0)?$/ { sub(/@@.*/, "", $1); print $1 }' \
+            | LC_ALL=C sort -u > target/actual-aarch64-release-exports.txt
+          diff -u target/expected-aarch64-release-exports.txt target/actual-aarch64-release-exports.txt
+          if aarch64-linux-gnu-readelf -d "$library" | grep -Ei 'cuda|amdhip|hiprtc|nvrtc'; then
+            echo "vendor runtime appears in aarch64 DT_NEEDED entries" >&2
+            exit 1
+          fi
+      - name: Cross-compile public header and generated layout as strict C99
+        run: |
+          aarch64-linux-gnu-gcc -std=c99 -pedantic-errors -Wall -Wextra -Werror -Iinclude -c tests/c99/header_compile.c -o target/release-header-aarch64.o
+          aarch64-linux-gnu-gcc -std=c99 -pedantic-errors -Wall -Wextra -Werror -Iinclude -c tests/abi/generated_layout.c -o target/release-generated-layout-aarch64.o
+
+  publish-github-release:
+    if: startsWith(github.ref, 'refs/tags/v')
+    needs: [package, rust-source-packages, aarch64-release-gate]
+    runs-on: ubuntu-24.04
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4.3.0
+        with:
+          pattern: "*-release"
+          path: dist
+          merge-multiple: true
+      - name: Publish immutable tag artifacts
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: gh release create "${GITHUB_REF_NAME}" dist/* --verify-tag --generate-notes

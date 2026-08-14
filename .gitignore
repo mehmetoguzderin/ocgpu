@@ -1,0 +1,10 @@
+/target/
+/dist/
+/stage/
+/.cargo-audit/
+*.o
+*.obj
+*.pdb
+*.ilk
+shipping-dependencies.txt
+symbols.json

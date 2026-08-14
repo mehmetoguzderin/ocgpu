@@ -1,0 +1,1745 @@
+{
+  "spdx_license_identifier": "CC0-1.0",
+  "schema_version": 1,
+  "abi_version": 65536,
+  "cuda": [
+    {
+      "stable_id": 16842753,
+      "logical_id": "init.initialize",
+      "raw_name": "ocgpuCuInit",
+      "vendor_symbol": "cuInit",
+      "aliases": [],
+      "versioned_alternatives": [],
+      "signature_hash": "fnv1a64:f90a7539de9e55cd",
+      "variant": "default",
+      "per_thread_default_stream": false,
+      "proc_address_flags": 1,
+      "fallback_order": [
+        "cuInit"
+      ],
+      "linux": {
+        "available": true,
+        "baseline": "CUDA 13.3 Update 1 / API 13030",
+        "proc_version": 2000,
+        "symbols": [
+          "cuInit"
+        ],
+        "reason": "Classified available in the committed platform baseline inventory."
+      },
+      "windows": {
+        "available": true,
+        "baseline": "CUDA 13.3 Update 1 / API 13030",
+        "proc_version": 2000,
+        "symbols": [
+          "cuInit"
+        ],
+        "reason": "Classified available in the committed platform baseline inventory."
+      }
+    },
+    {
+      "stable_id": 16842754,
+      "logical_id": "driver.get_version",
+      "raw_name": "ocgpuCuDriverGetVersion",
+      "vendor_symbol": "cuDriverGetVersion",
+      "aliases": [],
+      "versioned_alternatives": [],
+      "signature_hash": "fnv1a64:e1eb40b190805e21",
+      "variant": "default",
+      "per_thread_default_stream": false,
+      "proc_address_flags": 1,
+      "fallback_order": [
+        "cuDriverGetVersion"
+      ],
+      "linux": {
+        "available": true,
+        "baseline": "CUDA 13.3 Update 1 / API 13030",
+        "proc_version": 2020,
+        "symbols": [
+          "cuDriverGetVersion"
+        ],
+        "reason": "Classified available in the committed platform baseline inventory."
+      },
+      "windows": {
+        "available": true,
+        "baseline": "CUDA 13.3 Update 1 / API 13030",
+        "proc_version": 2020,
+        "symbols": [
+          "cuDriverGetVersion"
+        ],
+        "reason": "Classified available in the committed platform baseline inventory."
+      }
+    },
+    {
+      "stable_id": 33619969,
+      "logical_id": "device.get_count",
+      "raw_name": "ocgpuCuDeviceGetCount",
+      "vendor_symbol": "cuDeviceGetCount",
+      "aliases": [],
+      "versioned_alternatives": [],
+      "signature_hash": "fnv1a64:e1eb40b190805e21",
+      "variant": "default",
+      "per_thread_default_stream": false,
+      "proc_address_flags": 1,
+      "fallback_order": [
+        "cuDeviceGetCount"
+      ],
+      "linux": {
+        "available": true,
+        "baseline": "CUDA 13.3 Update 1 / API 13030",
+        "proc_version": 2000,
+        "symbols": [
+          "cuDeviceGetCount"
+        ],
+        "reason": "Classified available in the committed platform baseline inventory."
+      },
+      "windows": {
+        "available": true,
+        "baseline": "CUDA 13.3 Update 1 / API 13030",
+        "proc_version": 2000,
+        "symbols": [
+          "cuDeviceGetCount"
+        ],
+        "reason": "Classified available in the committed platform baseline inventory."
+      }
+    },
+    {
+      "stable_id": 33619970,
+      "logical_id": "device.get",
+      "raw_name": "ocgpuCuDeviceGet",
+      "vendor_symbol": "cuDeviceGet",
+      "aliases": [],
+      "versioned_alternatives": [],
+      "signature_hash": "fnv1a64:6ffe85be78de46e7",
+      "variant": "default",
+      "per_thread_default_stream": false,
+      "proc_address_flags": 1,
+      "fallback_order": [
+        "cuDeviceGet"
+      ],
+      "linux": {
+        "available": true,
+        "baseline": "CUDA 13.3 Update 1 / API 13030",
+        "proc_version": 2000,
+        "symbols": [
+          "cuDeviceGet"
+        ],
+        "reason": "Classified available in the committed platform baseline inventory."
+      },
+      "windows": {
+        "available": true,
+        "baseline": "CUDA 13.3 Update 1 / API 13030",
+        "proc_version": 2000,
+        "symbols": [
+          "cuDeviceGet"
+        ],
+        "reason": "Classified available in the committed platform baseline inventory."
+      }
+    },
+    {
+      "stable_id": 33619971,
+      "logical_id": "device.get_name",
+      "raw_name": "ocgpuCuDeviceGetName",
+      "vendor_symbol": "cuDeviceGetName",
+      "aliases": [],
+      "versioned_alternatives": [],
+      "signature_hash": "fnv1a64:9832f5b22b631ff5",
+      "variant": "default",
+      "per_thread_default_stream": false,
+      "proc_address_flags": 1,
+      "fallback_order": [
+        "cuDeviceGetName"
+      ],
+      "linux": {
+        "available": true,
+        "baseline": "CUDA 13.3 Update 1 / API 13030",
+        "proc_version": 2000,
+        "symbols": [
+          "cuDeviceGetName"
+        ],
+        "reason": "Classified available in the committed platform baseline inventory."
+      },
+      "windows": {
+        "available": true,
+        "baseline": "CUDA 13.3 Update 1 / API 13030",
+        "proc_version": 2000,
+        "symbols": [
+          "cuDeviceGetName"
+        ],
+        "reason": "Classified available in the committed platform baseline inventory."
+      }
+    },
+    {
+      "stable_id": 33619972,
+      "logical_id": "device.get_attribute",
+      "raw_name": "ocgpuCuDeviceGetAttribute",
+      "vendor_symbol": "cuDeviceGetAttribute",
+      "aliases": [],
+      "versioned_alternatives": [],
+      "signature_hash": "fnv1a64:f1e8fe009cd58fe8",
+      "variant": "default",
+      "per_thread_default_stream": false,
+      "proc_address_flags": 1,
+      "fallback_order": [
+        "cuDeviceGetAttribute"
+      ],
+      "linux": {
+        "available": true,
+        "baseline": "CUDA 13.3 Update 1 / API 13030",
+        "proc_version": 2000,
+        "symbols": [
+          "cuDeviceGetAttribute"
+        ],
+        "reason": "Classified available in the committed platform baseline inventory."
+      },
+      "windows": {
+        "available": true,
+        "baseline": "CUDA 13.3 Update 1 / API 13030",
+        "proc_version": 2000,
+        "symbols": [
+          "cuDeviceGetAttribute"
+        ],
+        "reason": "Classified available in the committed platform baseline inventory."
+      }
+    },
+    {
+      "stable_id": 50397185,
+      "logical_id": "context.create",
+      "raw_name": "ocgpuCuCtxCreate_v2",
+      "vendor_symbol": "cuCtxCreate_v2",
+      "aliases": [],
+      "versioned_alternatives": [
+        "cuCtxCreate"
+      ],
+      "signature_hash": "fnv1a64:5fe24f18ca898842",
+      "variant": "versioned_v2",
+      "per_thread_default_stream": false,
+      "proc_address_flags": 1,
+      "fallback_order": [
+        "cuCtxCreate_v2"
+      ],
+      "linux": {
+        "available": true,
+        "baseline": "CUDA 13.3 Update 1 / API 13030",
+        "proc_version": 3020,
+        "symbols": [
+          "cuCtxCreate_v2"
+        ],
+        "reason": "Classified available in the committed platform baseline inventory."
+      },
+      "windows": {
+        "available": true,
+        "baseline": "CUDA 13.3 Update 1 / API 13030",
+        "proc_version": 3020,
+        "symbols": [
+          "cuCtxCreate_v2"
+        ],
+        "reason": "Classified available in the committed platform baseline inventory."
+      }
+    },
+    {
+      "stable_id": 50397186,
+      "logical_id": "context.destroy",
+      "raw_name": "ocgpuCuCtxDestroy_v2",
+      "vendor_symbol": "cuCtxDestroy_v2",
+      "aliases": [],
+      "versioned_alternatives": [
+        "cuCtxDestroy"
+      ],
+      "signature_hash": "fnv1a64:ffb85f91e5da1a1e",
+      "variant": "versioned_v2",
+      "per_thread_default_stream": false,
+      "proc_address_flags": 1,
+      "fallback_order": [
+        "cuCtxDestroy_v2"
+      ],
+      "linux": {
+        "available": true,
+        "baseline": "CUDA 13.3 Update 1 / API 13030",
+        "proc_version": 4000,
+        "symbols": [
+          "cuCtxDestroy_v2"
+        ],
+        "reason": "Classified available in the committed platform baseline inventory."
+      },
+      "windows": {
+        "available": true,
+        "baseline": "CUDA 13.3 Update 1 / API 13030",
+        "proc_version": 4000,
+        "symbols": [
+          "cuCtxDestroy_v2"
+        ],
+        "reason": "Classified available in the committed platform baseline inventory."
+      }
+    },
+    {
+      "stable_id": 50397187,
+      "logical_id": "context.set_current",
+      "raw_name": "ocgpuCuCtxSetCurrent",
+      "vendor_symbol": "cuCtxSetCurrent",
+      "aliases": [],
+      "versioned_alternatives": [],
+      "signature_hash": "fnv1a64:ffb85f91e5da1a1e",
+      "variant": "default",
+      "per_thread_default_stream": false,
+      "proc_address_flags": 1,
+      "fallback_order": [
+        "cuCtxSetCurrent"
+      ],
+      "linux": {
+        "available": true,
+        "baseline": "CUDA 13.3 Update 1 / API 13030",
+        "proc_version": 4000,
+        "symbols": [
+          "cuCtxSetCurrent"
+        ],
+        "reason": "Classified available in the committed platform baseline inventory."
+      },
+      "windows": {
+        "available": true,
+        "baseline": "CUDA 13.3 Update 1 / API 13030",
+        "proc_version": 4000,
+        "symbols": [
+          "cuCtxSetCurrent"
+        ],
+        "reason": "Classified available in the committed platform baseline inventory."
+      }
+    },
+    {
+      "stable_id": 50397188,
+      "logical_id": "context.get_current",
+      "raw_name": "ocgpuCuCtxGetCurrent",
+      "vendor_symbol": "cuCtxGetCurrent",
+      "aliases": [],
+      "versioned_alternatives": [],
+      "signature_hash": "fnv1a64:58aa0699880db0c6",
+      "variant": "default",
+      "per_thread_default_stream": false,
+      "proc_address_flags": 1,
+      "fallback_order": [
+        "cuCtxGetCurrent"
+      ],
+      "linux": {
+        "available": true,
+        "baseline": "CUDA 13.3 Update 1 / API 13030",
+        "proc_version": 4000,
+        "symbols": [
+          "cuCtxGetCurrent"
+        ],
+        "reason": "Classified available in the committed platform baseline inventory."
+      },
+      "windows": {
+        "available": true,
+        "baseline": "CUDA 13.3 Update 1 / API 13030",
+        "proc_version": 4000,
+        "symbols": [
+          "cuCtxGetCurrent"
+        ],
+        "reason": "Classified available in the committed platform baseline inventory."
+      }
+    },
+    {
+      "stable_id": 50397189,
+      "logical_id": "context.synchronize",
+      "raw_name": "ocgpuCuCtxSynchronize",
+      "vendor_symbol": "cuCtxSynchronize",
+      "aliases": [],
+      "versioned_alternatives": [],
+      "signature_hash": "fnv1a64:e0b241c24d289167",
+      "variant": "default",
+      "per_thread_default_stream": false,
+      "proc_address_flags": 1,
+      "fallback_order": [
+        "cuCtxSynchronize"
+      ],
+      "linux": {
+        "available": true,
+        "baseline": "CUDA 13.3 Update 1 / API 13030",
+        "proc_version": 2000,
+        "symbols": [
+          "cuCtxSynchronize"
+        ],
+        "reason": "Classified available in the committed platform baseline inventory."
+      },
+      "windows": {
+        "available": true,
+        "baseline": "CUDA 13.3 Update 1 / API 13030",
+        "proc_version": 2000,
+        "symbols": [
+          "cuCtxSynchronize"
+        ],
+        "reason": "Classified available in the committed platform baseline inventory."
+      }
+    },
+    {
+      "stable_id": 67174401,
+      "logical_id": "memory.allocate",
+      "raw_name": "ocgpuCuMemAlloc_v2",
+      "vendor_symbol": "cuMemAlloc_v2",
+      "aliases": [],
+      "versioned_alternatives": [
+        "cuMemAlloc"
+      ],
+      "signature_hash": "fnv1a64:f24682c55ee0921d",
+      "variant": "versioned_v2",
+      "per_thread_default_stream": false,
+      "proc_address_flags": 1,
+      "fallback_order": [
+        "cuMemAlloc_v2"
+      ],
+      "linux": {
+        "available": true,
+        "baseline": "CUDA 13.3 Update 1 / API 13030",
+        "proc_version": 3020,
+        "symbols": [
+          "cuMemAlloc_v2"
+        ],
+        "reason": "Classified available in the committed platform baseline inventory."
+      },
+      "windows": {
+        "available": true,
+        "baseline": "CUDA 13.3 Update 1 / API 13030",
+        "proc_version": 3020,
+        "symbols": [
+          "cuMemAlloc_v2"
+        ],
+        "reason": "Classified available in the committed platform baseline inventory."
+      }
+    },
+    {
+      "stable_id": 67174402,
+      "logical_id": "memory.free",
+      "raw_name": "ocgpuCuMemFree_v2",
+      "vendor_symbol": "cuMemFree_v2",
+      "aliases": [],
+      "versioned_alternatives": [
+        "cuMemFree"
+      ],
+      "signature_hash": "fnv1a64:30f7b34c49ffa2f7",
+      "variant": "versioned_v2",
+      "per_thread_default_stream": false,
+      "proc_address_flags": 1,
+      "fallback_order": [
+        "cuMemFree_v2"
+      ],
+      "linux": {
+        "available": true,
+        "baseline": "CUDA 13.3 Update 1 / API 13030",
+        "proc_version": 3020,
+        "symbols": [
+          "cuMemFree_v2"
+        ],
+        "reason": "Classified available in the committed platform baseline inventory."
+      },
+      "windows": {
+        "available": true,
+        "baseline": "CUDA 13.3 Update 1 / API 13030",
+        "proc_version": 3020,
+        "symbols": [
+          "cuMemFree_v2"
+        ],
+        "reason": "Classified available in the committed platform baseline inventory."
+      }
+    },
+    {
+      "stable_id": 67174403,
+      "logical_id": "memory.copy_htod",
+      "raw_name": "ocgpuCuMemcpyHtoD_v2",
+      "vendor_symbol": "cuMemcpyHtoD_v2",
+      "aliases": [],
+      "versioned_alternatives": [
+        "cuMemcpyHtoD"
+      ],
+      "signature_hash": "fnv1a64:4651f924cde745ea",
+      "variant": "versioned_v2",
+      "per_thread_default_stream": false,
+      "proc_address_flags": 1,
+      "fallback_order": [
+        "cuMemcpyHtoD_v2"
+      ],
+      "linux": {
+        "available": true,
+        "baseline": "CUDA 13.3 Update 1 / API 13030",
+        "proc_version": 3020,
+        "symbols": [
+          "cuMemcpyHtoD_v2"
+        ],
+        "reason": "Classified available in the committed platform baseline inventory."
+      },
+      "windows": {
+        "available": true,
+        "baseline": "CUDA 13.3 Update 1 / API 13030",
+        "proc_version": 3020,
+        "symbols": [
+          "cuMemcpyHtoD_v2"
+        ],
+        "reason": "Classified available in the committed platform baseline inventory."
+      }
+    },
+    {
+      "stable_id": 67174404,
+      "logical_id": "memory.copy_dtoh",
+      "raw_name": "ocgpuCuMemcpyDtoH_v2",
+      "vendor_symbol": "cuMemcpyDtoH_v2",
+      "aliases": [],
+      "versioned_alternatives": [
+        "cuMemcpyDtoH"
+      ],
+      "signature_hash": "fnv1a64:6c614a275e4ac94d",
+      "variant": "versioned_v2",
+      "per_thread_default_stream": false,
+      "proc_address_flags": 1,
+      "fallback_order": [
+        "cuMemcpyDtoH_v2"
+      ],
+      "linux": {
+        "available": true,
+        "baseline": "CUDA 13.3 Update 1 / API 13030",
+        "proc_version": 3020,
+        "symbols": [
+          "cuMemcpyDtoH_v2"
+        ],
+        "reason": "Classified available in the committed platform baseline inventory."
+      },
+      "windows": {
+        "available": true,
+        "baseline": "CUDA 13.3 Update 1 / API 13030",
+        "proc_version": 3020,
+        "symbols": [
+          "cuMemcpyDtoH_v2"
+        ],
+        "reason": "Classified available in the committed platform baseline inventory."
+      }
+    },
+    {
+      "stable_id": 83951617,
+      "logical_id": "stream.create",
+      "raw_name": "ocgpuCuStreamCreate",
+      "vendor_symbol": "cuStreamCreate",
+      "aliases": [],
+      "versioned_alternatives": [],
+      "signature_hash": "fnv1a64:1adb1c9153a49e95",
+      "variant": "default",
+      "per_thread_default_stream": false,
+      "proc_address_flags": 1,
+      "fallback_order": [
+        "cuStreamCreate"
+      ],
+      "linux": {
+        "available": true,
+        "baseline": "CUDA 13.3 Update 1 / API 13030",
+        "proc_version": 2000,
+        "symbols": [
+          "cuStreamCreate"
+        ],
+        "reason": "Classified available in the committed platform baseline inventory."
+      },
+      "windows": {
+        "available": true,
+        "baseline": "CUDA 13.3 Update 1 / API 13030",
+        "proc_version": 2000,
+        "symbols": [
+          "cuStreamCreate"
+        ],
+        "reason": "Classified available in the committed platform baseline inventory."
+      }
+    },
+    {
+      "stable_id": 83951618,
+      "logical_id": "stream.destroy",
+      "raw_name": "ocgpuCuStreamDestroy_v2",
+      "vendor_symbol": "cuStreamDestroy_v2",
+      "aliases": [],
+      "versioned_alternatives": [
+        "cuStreamDestroy"
+      ],
+      "signature_hash": "fnv1a64:2e438cc1305b17fb",
+      "variant": "versioned_v2",
+      "per_thread_default_stream": false,
+      "proc_address_flags": 1,
+      "fallback_order": [
+        "cuStreamDestroy_v2"
+      ],
+      "linux": {
+        "available": true,
+        "baseline": "CUDA 13.3 Update 1 / API 13030",
+        "proc_version": 4000,
+        "symbols": [
+          "cuStreamDestroy_v2"
+        ],
+        "reason": "Classified available in the committed platform baseline inventory."
+      },
+      "windows": {
+        "available": true,
+        "baseline": "CUDA 13.3 Update 1 / API 13030",
+        "proc_version": 4000,
+        "symbols": [
+          "cuStreamDestroy_v2"
+        ],
+        "reason": "Classified available in the committed platform baseline inventory."
+      }
+    },
+    {
+      "stable_id": 83951619,
+      "logical_id": "stream.synchronize",
+      "raw_name": "ocgpuCuStreamSynchronize",
+      "vendor_symbol": "cuStreamSynchronize",
+      "aliases": [],
+      "versioned_alternatives": [],
+      "signature_hash": "fnv1a64:2e438cc1305b17fb",
+      "variant": "default",
+      "per_thread_default_stream": false,
+      "proc_address_flags": 1,
+      "fallback_order": [
+        "cuStreamSynchronize"
+      ],
+      "linux": {
+        "available": true,
+        "baseline": "CUDA 13.3 Update 1 / API 13030",
+        "proc_version": 2000,
+        "symbols": [
+          "cuStreamSynchronize"
+        ],
+        "reason": "Classified available in the committed platform baseline inventory."
+      },
+      "windows": {
+        "available": true,
+        "baseline": "CUDA 13.3 Update 1 / API 13030",
+        "proc_version": 2000,
+        "symbols": [
+          "cuStreamSynchronize"
+        ],
+        "reason": "Classified available in the committed platform baseline inventory."
+      }
+    },
+    {
+      "stable_id": 100728833,
+      "logical_id": "event.create",
+      "raw_name": "ocgpuCuEventCreate",
+      "vendor_symbol": "cuEventCreate",
+      "aliases": [],
+      "versioned_alternatives": [],
+      "signature_hash": "fnv1a64:679eaa411a676f1d",
+      "variant": "default",
+      "per_thread_default_stream": false,
+      "proc_address_flags": 1,
+      "fallback_order": [
+        "cuEventCreate"
+      ],
+      "linux": {
+        "available": true,
+        "baseline": "CUDA 13.3 Update 1 / API 13030",
+        "proc_version": 2000,
+        "symbols": [
+          "cuEventCreate"
+        ],
+        "reason": "Classified available in the committed platform baseline inventory."
+      },
+      "windows": {
+        "available": true,
+        "baseline": "CUDA 13.3 Update 1 / API 13030",
+        "proc_version": 2000,
+        "symbols": [
+          "cuEventCreate"
+        ],
+        "reason": "Classified available in the committed platform baseline inventory."
+      }
+    },
+    {
+      "stable_id": 100728834,
+      "logical_id": "event.destroy",
+      "raw_name": "ocgpuCuEventDestroy_v2",
+      "vendor_symbol": "cuEventDestroy_v2",
+      "aliases": [],
+      "versioned_alternatives": [
+        "cuEventDestroy"
+      ],
+      "signature_hash": "fnv1a64:50cdf57d1b9a6783",
+      "variant": "versioned_v2",
+      "per_thread_default_stream": false,
+      "proc_address_flags": 1,
+      "fallback_order": [
+        "cuEventDestroy_v2"
+      ],
+      "linux": {
+        "available": true,
+        "baseline": "CUDA 13.3 Update 1 / API 13030",
+        "proc_version": 4000,
+        "symbols": [
+          "cuEventDestroy_v2"
+        ],
+        "reason": "Classified available in the committed platform baseline inventory."
+      },
+      "windows": {
+        "available": true,
+        "baseline": "CUDA 13.3 Update 1 / API 13030",
+        "proc_version": 4000,
+        "symbols": [
+          "cuEventDestroy_v2"
+        ],
+        "reason": "Classified available in the committed platform baseline inventory."
+      }
+    },
+    {
+      "stable_id": 100728835,
+      "logical_id": "event.record",
+      "raw_name": "ocgpuCuEventRecord",
+      "vendor_symbol": "cuEventRecord",
+      "aliases": [],
+      "versioned_alternatives": [],
+      "signature_hash": "fnv1a64:c9985b83d941b833",
+      "variant": "default",
+      "per_thread_default_stream": false,
+      "proc_address_flags": 1,
+      "fallback_order": [
+        "cuEventRecord"
+      ],
+      "linux": {
+        "available": true,
+        "baseline": "CUDA 13.3 Update 1 / API 13030",
+        "proc_version": 2000,
+        "symbols": [
+          "cuEventRecord"
+        ],
+        "reason": "Classified available in the committed platform baseline inventory."
+      },
+      "windows": {
+        "available": true,
+        "baseline": "CUDA 13.3 Update 1 / API 13030",
+        "proc_version": 2000,
+        "symbols": [
+          "cuEventRecord"
+        ],
+        "reason": "Classified available in the committed platform baseline inventory."
+      }
+    },
+    {
+      "stable_id": 100728836,
+      "logical_id": "event.synchronize",
+      "raw_name": "ocgpuCuEventSynchronize",
+      "vendor_symbol": "cuEventSynchronize",
+      "aliases": [],
+      "versioned_alternatives": [],
+      "signature_hash": "fnv1a64:50cdf57d1b9a6783",
+      "variant": "default",
+      "per_thread_default_stream": false,
+      "proc_address_flags": 1,
+      "fallback_order": [
+        "cuEventSynchronize"
+      ],
+      "linux": {
+        "available": true,
+        "baseline": "CUDA 13.3 Update 1 / API 13030",
+        "proc_version": 2000,
+        "symbols": [
+          "cuEventSynchronize"
+        ],
+        "reason": "Classified available in the committed platform baseline inventory."
+      },
+      "windows": {
+        "available": true,
+        "baseline": "CUDA 13.3 Update 1 / API 13030",
+        "proc_version": 2000,
+        "symbols": [
+          "cuEventSynchronize"
+        ],
+        "reason": "Classified available in the committed platform baseline inventory."
+      }
+    },
+    {
+      "stable_id": 117506049,
+      "logical_id": "module.load_data",
+      "raw_name": "ocgpuCuModuleLoadData",
+      "vendor_symbol": "cuModuleLoadData",
+      "aliases": [],
+      "versioned_alternatives": [],
+      "signature_hash": "fnv1a64:5af9ba4c274ce7a4",
+      "variant": "default",
+      "per_thread_default_stream": false,
+      "proc_address_flags": 1,
+      "fallback_order": [
+        "cuModuleLoadData"
+      ],
+      "linux": {
+        "available": true,
+        "baseline": "CUDA 13.3 Update 1 / API 13030",
+        "proc_version": 2000,
+        "symbols": [
+          "cuModuleLoadData"
+        ],
+        "reason": "Classified available in the committed platform baseline inventory."
+      },
+      "windows": {
+        "available": true,
+        "baseline": "CUDA 13.3 Update 1 / API 13030",
+        "proc_version": 2000,
+        "symbols": [
+          "cuModuleLoadData"
+        ],
+        "reason": "Classified available in the committed platform baseline inventory."
+      }
+    },
+    {
+      "stable_id": 117506050,
+      "logical_id": "module.unload",
+      "raw_name": "ocgpuCuModuleUnload",
+      "vendor_symbol": "cuModuleUnload",
+      "aliases": [],
+      "versioned_alternatives": [],
+      "signature_hash": "fnv1a64:abef48f7021836e3",
+      "variant": "default",
+      "per_thread_default_stream": false,
+      "proc_address_flags": 1,
+      "fallback_order": [
+        "cuModuleUnload"
+      ],
+      "linux": {
+        "available": true,
+        "baseline": "CUDA 13.3 Update 1 / API 13030",
+        "proc_version": 2000,
+        "symbols": [
+          "cuModuleUnload"
+        ],
+        "reason": "Classified available in the committed platform baseline inventory."
+      },
+      "windows": {
+        "available": true,
+        "baseline": "CUDA 13.3 Update 1 / API 13030",
+        "proc_version": 2000,
+        "symbols": [
+          "cuModuleUnload"
+        ],
+        "reason": "Classified available in the committed platform baseline inventory."
+      }
+    },
+    {
+      "stable_id": 117506051,
+      "logical_id": "module.get_function",
+      "raw_name": "ocgpuCuModuleGetFunction",
+      "vendor_symbol": "cuModuleGetFunction",
+      "aliases": [],
+      "versioned_alternatives": [],
+      "signature_hash": "fnv1a64:2dc15e9f222ca126",
+      "variant": "default",
+      "per_thread_default_stream": false,
+      "proc_address_flags": 1,
+      "fallback_order": [
+        "cuModuleGetFunction"
+      ],
+      "linux": {
+        "available": true,
+        "baseline": "CUDA 13.3 Update 1 / API 13030",
+        "proc_version": 2000,
+        "symbols": [
+          "cuModuleGetFunction"
+        ],
+        "reason": "Classified available in the committed platform baseline inventory."
+      },
+      "windows": {
+        "available": true,
+        "baseline": "CUDA 13.3 Update 1 / API 13030",
+        "proc_version": 2000,
+        "symbols": [
+          "cuModuleGetFunction"
+        ],
+        "reason": "Classified available in the committed platform baseline inventory."
+      }
+    },
+    {
+      "stable_id": 134283265,
+      "logical_id": "launch.kernel",
+      "raw_name": "ocgpuCuLaunchKernel",
+      "vendor_symbol": "cuLaunchKernel",
+      "aliases": [],
+      "versioned_alternatives": [],
+      "signature_hash": "fnv1a64:ffb9363da77ff3f9",
+      "variant": "default",
+      "per_thread_default_stream": false,
+      "proc_address_flags": 1,
+      "fallback_order": [
+        "cuLaunchKernel"
+      ],
+      "linux": {
+        "available": true,
+        "baseline": "CUDA 13.3 Update 1 / API 13030",
+        "proc_version": 4000,
+        "symbols": [
+          "cuLaunchKernel"
+        ],
+        "reason": "Classified available in the committed platform baseline inventory."
+      },
+      "windows": {
+        "available": true,
+        "baseline": "CUDA 13.3 Update 1 / API 13030",
+        "proc_version": 4000,
+        "symbols": [
+          "cuLaunchKernel"
+        ],
+        "reason": "Classified available in the committed platform baseline inventory."
+      }
+    }
+  ],
+  "hip": [
+    {
+      "stable_id": 16842753,
+      "logical_id": "init.initialize",
+      "raw_name": "ocgpuHipInit",
+      "vendor_symbol": "hipInit",
+      "aliases": [],
+      "versioned_alternatives": [],
+      "signature_hash": "fnv1a64:ae4b099c3a2fe958",
+      "variant": "runtime",
+      "per_thread_default_stream": false,
+      "proc_address_flags": 0,
+      "fallback_order": [
+        "hipInit"
+      ],
+      "linux": {
+        "available": true,
+        "baseline": "HIP 7.14.60850 / ROCm 7.14.0",
+        "proc_version": 714,
+        "symbols": [
+          "hipInit"
+        ],
+        "reason": "Classified available in the committed platform baseline inventory."
+      },
+      "windows": {
+        "available": true,
+        "baseline": "HIP SDK for Windows 7.2.0",
+        "proc_version": 702,
+        "symbols": [
+          "hipInit"
+        ],
+        "reason": "Classified available in the committed platform baseline inventory."
+      }
+    },
+    {
+      "stable_id": 16842754,
+      "logical_id": "driver.get_version",
+      "raw_name": "ocgpuHipDriverGetVersion",
+      "vendor_symbol": "hipDriverGetVersion",
+      "aliases": [],
+      "versioned_alternatives": [],
+      "signature_hash": "fnv1a64:fcaa6e41dada2ed0",
+      "variant": "runtime",
+      "per_thread_default_stream": false,
+      "proc_address_flags": 0,
+      "fallback_order": [
+        "hipDriverGetVersion"
+      ],
+      "linux": {
+        "available": true,
+        "baseline": "HIP 7.14.60850 / ROCm 7.14.0",
+        "proc_version": 714,
+        "symbols": [
+          "hipDriverGetVersion"
+        ],
+        "reason": "Classified available in the committed platform baseline inventory."
+      },
+      "windows": {
+        "available": true,
+        "baseline": "HIP SDK for Windows 7.2.0",
+        "proc_version": 702,
+        "symbols": [
+          "hipDriverGetVersion"
+        ],
+        "reason": "Classified available in the committed platform baseline inventory."
+      }
+    },
+    {
+      "stable_id": 33619969,
+      "logical_id": "device.get_count",
+      "raw_name": "ocgpuHipGetDeviceCount",
+      "vendor_symbol": "hipGetDeviceCount",
+      "aliases": [],
+      "versioned_alternatives": [],
+      "signature_hash": "fnv1a64:fcaa6e41dada2ed0",
+      "variant": "runtime",
+      "per_thread_default_stream": false,
+      "proc_address_flags": 0,
+      "fallback_order": [
+        "hipGetDeviceCount"
+      ],
+      "linux": {
+        "available": true,
+        "baseline": "HIP 7.14.60850 / ROCm 7.14.0",
+        "proc_version": 714,
+        "symbols": [
+          "hipGetDeviceCount"
+        ],
+        "reason": "Classified available in the committed platform baseline inventory."
+      },
+      "windows": {
+        "available": true,
+        "baseline": "HIP SDK for Windows 7.2.0",
+        "proc_version": 702,
+        "symbols": [
+          "hipGetDeviceCount"
+        ],
+        "reason": "Classified available in the committed platform baseline inventory."
+      }
+    },
+    {
+      "stable_id": 33619970,
+      "logical_id": "device.get",
+      "raw_name": "ocgpuHipDeviceGet",
+      "vendor_symbol": "hipDeviceGet",
+      "aliases": [],
+      "versioned_alternatives": [],
+      "signature_hash": "fnv1a64:6a8cb5e6a09e0b76",
+      "variant": "runtime",
+      "per_thread_default_stream": false,
+      "proc_address_flags": 0,
+      "fallback_order": [
+        "hipDeviceGet"
+      ],
+      "linux": {
+        "available": true,
+        "baseline": "HIP 7.14.60850 / ROCm 7.14.0",
+        "proc_version": 714,
+        "symbols": [
+          "hipDeviceGet"
+        ],
+        "reason": "Classified available in the committed platform baseline inventory."
+      },
+      "windows": {
+        "available": true,
+        "baseline": "HIP SDK for Windows 7.2.0",
+        "proc_version": 702,
+        "symbols": [
+          "hipDeviceGet"
+        ],
+        "reason": "Classified available in the committed platform baseline inventory."
+      }
+    },
+    {
+      "stable_id": 33619971,
+      "logical_id": "device.get_name",
+      "raw_name": "ocgpuHipDeviceGetName",
+      "vendor_symbol": "hipDeviceGetName",
+      "aliases": [],
+      "versioned_alternatives": [],
+      "signature_hash": "fnv1a64:bd2b0c6f03f3cbf6",
+      "variant": "runtime",
+      "per_thread_default_stream": false,
+      "proc_address_flags": 0,
+      "fallback_order": [
+        "hipDeviceGetName"
+      ],
+      "linux": {
+        "available": true,
+        "baseline": "HIP 7.14.60850 / ROCm 7.14.0",
+        "proc_version": 714,
+        "symbols": [
+          "hipDeviceGetName"
+        ],
+        "reason": "Classified available in the committed platform baseline inventory."
+      },
+      "windows": {
+        "available": true,
+        "baseline": "HIP SDK for Windows 7.2.0",
+        "proc_version": 702,
+        "symbols": [
+          "hipDeviceGetName"
+        ],
+        "reason": "Classified available in the committed platform baseline inventory."
+      }
+    },
+    {
+      "stable_id": 33619972,
+      "logical_id": "device.get_attribute",
+      "raw_name": "ocgpuHipDeviceGetAttribute",
+      "vendor_symbol": "hipDeviceGetAttribute",
+      "aliases": [],
+      "versioned_alternatives": [],
+      "signature_hash": "fnv1a64:471a4cc7b9b96f10",
+      "variant": "runtime",
+      "per_thread_default_stream": false,
+      "proc_address_flags": 0,
+      "fallback_order": [
+        "hipDeviceGetAttribute"
+      ],
+      "linux": {
+        "available": true,
+        "baseline": "HIP 7.14.60850 / ROCm 7.14.0",
+        "proc_version": 714,
+        "symbols": [
+          "hipDeviceGetAttribute"
+        ],
+        "reason": "Classified available in the committed platform baseline inventory."
+      },
+      "windows": {
+        "available": true,
+        "baseline": "HIP SDK for Windows 7.2.0",
+        "proc_version": 702,
+        "symbols": [
+          "hipDeviceGetAttribute"
+        ],
+        "reason": "Classified available in the committed platform baseline inventory."
+      }
+    },
+    {
+      "stable_id": 50397185,
+      "logical_id": "context.create",
+      "raw_name": "ocgpuHipCtxCreate",
+      "vendor_symbol": "hipCtxCreate",
+      "aliases": [],
+      "versioned_alternatives": [],
+      "signature_hash": "fnv1a64:d313c97b664694e7",
+      "variant": "deprecated_compatibility",
+      "per_thread_default_stream": false,
+      "proc_address_flags": 0,
+      "fallback_order": [
+        "hipCtxCreate"
+      ],
+      "linux": {
+        "available": true,
+        "baseline": "HIP 7.14.60850 / ROCm 7.14.0",
+        "proc_version": 714,
+        "symbols": [
+          "hipCtxCreate"
+        ],
+        "reason": "Classified available in the committed platform baseline inventory."
+      },
+      "windows": {
+        "available": true,
+        "baseline": "HIP SDK for Windows 7.2.0",
+        "proc_version": 702,
+        "symbols": [
+          "hipCtxCreate"
+        ],
+        "reason": "Classified available in the committed platform baseline inventory."
+      }
+    },
+    {
+      "stable_id": 50397186,
+      "logical_id": "context.destroy",
+      "raw_name": "ocgpuHipCtxDestroy",
+      "vendor_symbol": "hipCtxDestroy",
+      "aliases": [],
+      "versioned_alternatives": [],
+      "signature_hash": "fnv1a64:25c0d2a7d4d758a1",
+      "variant": "deprecated_compatibility",
+      "per_thread_default_stream": false,
+      "proc_address_flags": 0,
+      "fallback_order": [
+        "hipCtxDestroy"
+      ],
+      "linux": {
+        "available": true,
+        "baseline": "HIP 7.14.60850 / ROCm 7.14.0",
+        "proc_version": 714,
+        "symbols": [
+          "hipCtxDestroy"
+        ],
+        "reason": "Classified available in the committed platform baseline inventory."
+      },
+      "windows": {
+        "available": true,
+        "baseline": "HIP SDK for Windows 7.2.0",
+        "proc_version": 702,
+        "symbols": [
+          "hipCtxDestroy"
+        ],
+        "reason": "Classified available in the committed platform baseline inventory."
+      }
+    },
+    {
+      "stable_id": 50397187,
+      "logical_id": "context.set_current",
+      "raw_name": "ocgpuHipCtxSetCurrent",
+      "vendor_symbol": "hipCtxSetCurrent",
+      "aliases": [],
+      "versioned_alternatives": [],
+      "signature_hash": "fnv1a64:25c0d2a7d4d758a1",
+      "variant": "deprecated_compatibility",
+      "per_thread_default_stream": false,
+      "proc_address_flags": 0,
+      "fallback_order": [
+        "hipCtxSetCurrent"
+      ],
+      "linux": {
+        "available": true,
+        "baseline": "HIP 7.14.60850 / ROCm 7.14.0",
+        "proc_version": 714,
+        "symbols": [
+          "hipCtxSetCurrent"
+        ],
+        "reason": "Classified available in the committed platform baseline inventory."
+      },
+      "windows": {
+        "available": true,
+        "baseline": "HIP SDK for Windows 7.2.0",
+        "proc_version": 702,
+        "symbols": [
+          "hipCtxSetCurrent"
+        ],
+        "reason": "Classified available in the committed platform baseline inventory."
+      }
+    },
+    {
+      "stable_id": 50397188,
+      "logical_id": "context.get_current",
+      "raw_name": "ocgpuHipCtxGetCurrent",
+      "vendor_symbol": "hipCtxGetCurrent",
+      "aliases": [],
+      "versioned_alternatives": [],
+      "signature_hash": "fnv1a64:57fa91b303cfa82d",
+      "variant": "deprecated_compatibility",
+      "per_thread_default_stream": false,
+      "proc_address_flags": 0,
+      "fallback_order": [
+        "hipCtxGetCurrent"
+      ],
+      "linux": {
+        "available": true,
+        "baseline": "HIP 7.14.60850 / ROCm 7.14.0",
+        "proc_version": 714,
+        "symbols": [
+          "hipCtxGetCurrent"
+        ],
+        "reason": "Classified available in the committed platform baseline inventory."
+      },
+      "windows": {
+        "available": true,
+        "baseline": "HIP SDK for Windows 7.2.0",
+        "proc_version": 702,
+        "symbols": [
+          "hipCtxGetCurrent"
+        ],
+        "reason": "Classified available in the committed platform baseline inventory."
+      }
+    },
+    {
+      "stable_id": 50397189,
+      "logical_id": "context.synchronize",
+      "raw_name": "ocgpuHipCtxSynchronize",
+      "vendor_symbol": "hipCtxSynchronize",
+      "aliases": [],
+      "versioned_alternatives": [],
+      "signature_hash": "fnv1a64:12a4c1296992e854",
+      "variant": "deprecated_compatibility",
+      "per_thread_default_stream": false,
+      "proc_address_flags": 0,
+      "fallback_order": [
+        "hipCtxSynchronize"
+      ],
+      "linux": {
+        "available": true,
+        "baseline": "HIP 7.14.60850 / ROCm 7.14.0",
+        "proc_version": 714,
+        "symbols": [
+          "hipCtxSynchronize"
+        ],
+        "reason": "Classified available in the committed platform baseline inventory."
+      },
+      "windows": {
+        "available": true,
+        "baseline": "HIP SDK for Windows 7.2.0",
+        "proc_version": 702,
+        "symbols": [
+          "hipCtxSynchronize"
+        ],
+        "reason": "Classified available in the committed platform baseline inventory."
+      }
+    },
+    {
+      "stable_id": 67174401,
+      "logical_id": "memory.allocate",
+      "raw_name": "ocgpuHipMalloc",
+      "vendor_symbol": "hipMalloc",
+      "aliases": [],
+      "versioned_alternatives": [],
+      "signature_hash": "fnv1a64:4ed04c499169d752",
+      "variant": "runtime",
+      "per_thread_default_stream": false,
+      "proc_address_flags": 0,
+      "fallback_order": [
+        "hipMalloc"
+      ],
+      "linux": {
+        "available": true,
+        "baseline": "HIP 7.14.60850 / ROCm 7.14.0",
+        "proc_version": 714,
+        "symbols": [
+          "hipMalloc"
+        ],
+        "reason": "Classified available in the committed platform baseline inventory."
+      },
+      "windows": {
+        "available": true,
+        "baseline": "HIP SDK for Windows 7.2.0",
+        "proc_version": 702,
+        "symbols": [
+          "hipMalloc"
+        ],
+        "reason": "Classified available in the committed platform baseline inventory."
+      }
+    },
+    {
+      "stable_id": 67174402,
+      "logical_id": "memory.free",
+      "raw_name": "ocgpuHipFree",
+      "vendor_symbol": "hipFree",
+      "aliases": [],
+      "versioned_alternatives": [],
+      "signature_hash": "fnv1a64:96fadd46dba75a34",
+      "variant": "runtime",
+      "per_thread_default_stream": false,
+      "proc_address_flags": 0,
+      "fallback_order": [
+        "hipFree"
+      ],
+      "linux": {
+        "available": true,
+        "baseline": "HIP 7.14.60850 / ROCm 7.14.0",
+        "proc_version": 714,
+        "symbols": [
+          "hipFree"
+        ],
+        "reason": "Classified available in the committed platform baseline inventory."
+      },
+      "windows": {
+        "available": true,
+        "baseline": "HIP SDK for Windows 7.2.0",
+        "proc_version": 702,
+        "symbols": [
+          "hipFree"
+        ],
+        "reason": "Classified available in the committed platform baseline inventory."
+      }
+    },
+    {
+      "stable_id": 67174403,
+      "logical_id": "memory.copy_htod",
+      "raw_name": "ocgpuHipMemcpyHtoD",
+      "vendor_symbol": "hipMemcpyHtoD",
+      "aliases": [],
+      "versioned_alternatives": [],
+      "signature_hash": "fnv1a64:3a7a9cc5fb9ca499",
+      "variant": "driver_shaped",
+      "per_thread_default_stream": false,
+      "proc_address_flags": 0,
+      "fallback_order": [
+        "hipMemcpyHtoD"
+      ],
+      "linux": {
+        "available": true,
+        "baseline": "HIP 7.14.60850 / ROCm 7.14.0",
+        "proc_version": 714,
+        "symbols": [
+          "hipMemcpyHtoD"
+        ],
+        "reason": "Classified available in the committed platform baseline inventory."
+      },
+      "windows": {
+        "available": true,
+        "baseline": "HIP SDK for Windows 7.2.0",
+        "proc_version": 702,
+        "symbols": [
+          "hipMemcpyHtoD"
+        ],
+        "reason": "Classified available in the committed platform baseline inventory."
+      }
+    },
+    {
+      "stable_id": 67174404,
+      "logical_id": "memory.copy_dtoh",
+      "raw_name": "ocgpuHipMemcpyDtoH",
+      "vendor_symbol": "hipMemcpyDtoH",
+      "aliases": [],
+      "versioned_alternatives": [],
+      "signature_hash": "fnv1a64:ce4131fd6ad2cbf2",
+      "variant": "driver_shaped",
+      "per_thread_default_stream": false,
+      "proc_address_flags": 0,
+      "fallback_order": [
+        "hipMemcpyDtoH"
+      ],
+      "linux": {
+        "available": true,
+        "baseline": "HIP 7.14.60850 / ROCm 7.14.0",
+        "proc_version": 714,
+        "symbols": [
+          "hipMemcpyDtoH"
+        ],
+        "reason": "Classified available in the committed platform baseline inventory."
+      },
+      "windows": {
+        "available": true,
+        "baseline": "HIP SDK for Windows 7.2.0",
+        "proc_version": 702,
+        "symbols": [
+          "hipMemcpyDtoH"
+        ],
+        "reason": "Classified available in the committed platform baseline inventory."
+      }
+    },
+    {
+      "stable_id": 83951617,
+      "logical_id": "stream.create",
+      "raw_name": "ocgpuHipStreamCreateWithFlags",
+      "vendor_symbol": "hipStreamCreateWithFlags",
+      "aliases": [],
+      "versioned_alternatives": [
+        "hipStreamCreate"
+      ],
+      "signature_hash": "fnv1a64:1969127fef6ce9f8",
+      "variant": "runtime",
+      "per_thread_default_stream": false,
+      "proc_address_flags": 0,
+      "fallback_order": [
+        "hipStreamCreateWithFlags"
+      ],
+      "linux": {
+        "available": true,
+        "baseline": "HIP 7.14.60850 / ROCm 7.14.0",
+        "proc_version": 714,
+        "symbols": [
+          "hipStreamCreateWithFlags"
+        ],
+        "reason": "Classified available in the committed platform baseline inventory."
+      },
+      "windows": {
+        "available": true,
+        "baseline": "HIP SDK for Windows 7.2.0",
+        "proc_version": 702,
+        "symbols": [
+          "hipStreamCreateWithFlags"
+        ],
+        "reason": "Classified available in the committed platform baseline inventory."
+      }
+    },
+    {
+      "stable_id": 83951618,
+      "logical_id": "stream.destroy",
+      "raw_name": "ocgpuHipStreamDestroy",
+      "vendor_symbol": "hipStreamDestroy",
+      "aliases": [],
+      "versioned_alternatives": [],
+      "signature_hash": "fnv1a64:7e5fcfc700e369b2",
+      "variant": "runtime",
+      "per_thread_default_stream": false,
+      "proc_address_flags": 0,
+      "fallback_order": [
+        "hipStreamDestroy"
+      ],
+      "linux": {
+        "available": true,
+        "baseline": "HIP 7.14.60850 / ROCm 7.14.0",
+        "proc_version": 714,
+        "symbols": [
+          "hipStreamDestroy"
+        ],
+        "reason": "Classified available in the committed platform baseline inventory."
+      },
+      "windows": {
+        "available": true,
+        "baseline": "HIP SDK for Windows 7.2.0",
+        "proc_version": 702,
+        "symbols": [
+          "hipStreamDestroy"
+        ],
+        "reason": "Classified available in the committed platform baseline inventory."
+      }
+    },
+    {
+      "stable_id": 83951619,
+      "logical_id": "stream.synchronize",
+      "raw_name": "ocgpuHipStreamSynchronize",
+      "vendor_symbol": "hipStreamSynchronize",
+      "aliases": [],
+      "versioned_alternatives": [],
+      "signature_hash": "fnv1a64:7e5fcfc700e369b2",
+      "variant": "runtime",
+      "per_thread_default_stream": false,
+      "proc_address_flags": 0,
+      "fallback_order": [
+        "hipStreamSynchronize"
+      ],
+      "linux": {
+        "available": true,
+        "baseline": "HIP 7.14.60850 / ROCm 7.14.0",
+        "proc_version": 714,
+        "symbols": [
+          "hipStreamSynchronize"
+        ],
+        "reason": "Classified available in the committed platform baseline inventory."
+      },
+      "windows": {
+        "available": true,
+        "baseline": "HIP SDK for Windows 7.2.0",
+        "proc_version": 702,
+        "symbols": [
+          "hipStreamSynchronize"
+        ],
+        "reason": "Classified available in the committed platform baseline inventory."
+      }
+    },
+    {
+      "stable_id": 100728833,
+      "logical_id": "event.create",
+      "raw_name": "ocgpuHipEventCreateWithFlags",
+      "vendor_symbol": "hipEventCreateWithFlags",
+      "aliases": [],
+      "versioned_alternatives": [
+        "hipEventCreate"
+      ],
+      "signature_hash": "fnv1a64:fffdd773f339ddc0",
+      "variant": "runtime",
+      "per_thread_default_stream": false,
+      "proc_address_flags": 0,
+      "fallback_order": [
+        "hipEventCreateWithFlags"
+      ],
+      "linux": {
+        "available": true,
+        "baseline": "HIP 7.14.60850 / ROCm 7.14.0",
+        "proc_version": 714,
+        "symbols": [
+          "hipEventCreateWithFlags"
+        ],
+        "reason": "Classified available in the committed platform baseline inventory."
+      },
+      "windows": {
+        "available": true,
+        "baseline": "HIP SDK for Windows 7.2.0",
+        "proc_version": 702,
+        "symbols": [
+          "hipEventCreateWithFlags"
+        ],
+        "reason": "Classified available in the committed platform baseline inventory."
+      }
+    },
+    {
+      "stable_id": 100728834,
+      "logical_id": "event.destroy",
+      "raw_name": "ocgpuHipEventDestroy",
+      "vendor_symbol": "hipEventDestroy",
+      "aliases": [],
+      "versioned_alternatives": [],
+      "signature_hash": "fnv1a64:076f3def7d53ae82",
+      "variant": "runtime",
+      "per_thread_default_stream": false,
+      "proc_address_flags": 0,
+      "fallback_order": [
+        "hipEventDestroy"
+      ],
+      "linux": {
+        "available": true,
+        "baseline": "HIP 7.14.60850 / ROCm 7.14.0",
+        "proc_version": 714,
+        "symbols": [
+          "hipEventDestroy"
+        ],
+        "reason": "Classified available in the committed platform baseline inventory."
+      },
+      "windows": {
+        "available": true,
+        "baseline": "HIP SDK for Windows 7.2.0",
+        "proc_version": 702,
+        "symbols": [
+          "hipEventDestroy"
+        ],
+        "reason": "Classified available in the committed platform baseline inventory."
+      }
+    },
+    {
+      "stable_id": 100728835,
+      "logical_id": "event.record",
+      "raw_name": "ocgpuHipEventRecord",
+      "vendor_symbol": "hipEventRecord",
+      "aliases": [],
+      "versioned_alternatives": [],
+      "signature_hash": "fnv1a64:5c7fb3f3b7078d6e",
+      "variant": "runtime",
+      "per_thread_default_stream": false,
+      "proc_address_flags": 0,
+      "fallback_order": [
+        "hipEventRecord"
+      ],
+      "linux": {
+        "available": true,
+        "baseline": "HIP 7.14.60850 / ROCm 7.14.0",
+        "proc_version": 714,
+        "symbols": [
+          "hipEventRecord"
+        ],
+        "reason": "Classified available in the committed platform baseline inventory."
+      },
+      "windows": {
+        "available": true,
+        "baseline": "HIP SDK for Windows 7.2.0",
+        "proc_version": 702,
+        "symbols": [
+          "hipEventRecord"
+        ],
+        "reason": "Classified available in the committed platform baseline inventory."
+      }
+    },
+    {
+      "stable_id": 100728836,
+      "logical_id": "event.synchronize",
+      "raw_name": "ocgpuHipEventSynchronize",
+      "vendor_symbol": "hipEventSynchronize",
+      "aliases": [],
+      "versioned_alternatives": [],
+      "signature_hash": "fnv1a64:076f3def7d53ae82",
+      "variant": "runtime",
+      "per_thread_default_stream": false,
+      "proc_address_flags": 0,
+      "fallback_order": [
+        "hipEventSynchronize"
+      ],
+      "linux": {
+        "available": true,
+        "baseline": "HIP 7.14.60850 / ROCm 7.14.0",
+        "proc_version": 714,
+        "symbols": [
+          "hipEventSynchronize"
+        ],
+        "reason": "Classified available in the committed platform baseline inventory."
+      },
+      "windows": {
+        "available": true,
+        "baseline": "HIP SDK for Windows 7.2.0",
+        "proc_version": 702,
+        "symbols": [
+          "hipEventSynchronize"
+        ],
+        "reason": "Classified available in the committed platform baseline inventory."
+      }
+    },
+    {
+      "stable_id": 117506049,
+      "logical_id": "module.load_data",
+      "raw_name": "ocgpuHipModuleLoadData",
+      "vendor_symbol": "hipModuleLoadData",
+      "aliases": [],
+      "versioned_alternatives": [],
+      "signature_hash": "fnv1a64:db636f47377bd17b",
+      "variant": "driver_shaped",
+      "per_thread_default_stream": false,
+      "proc_address_flags": 0,
+      "fallback_order": [
+        "hipModuleLoadData"
+      ],
+      "linux": {
+        "available": true,
+        "baseline": "HIP 7.14.60850 / ROCm 7.14.0",
+        "proc_version": 714,
+        "symbols": [
+          "hipModuleLoadData"
+        ],
+        "reason": "Classified available in the committed platform baseline inventory."
+      },
+      "windows": {
+        "available": true,
+        "baseline": "HIP SDK for Windows 7.2.0",
+        "proc_version": 702,
+        "symbols": [
+          "hipModuleLoadData"
+        ],
+        "reason": "Classified available in the committed platform baseline inventory."
+      }
+    },
+    {
+      "stable_id": 117506050,
+      "logical_id": "module.unload",
+      "raw_name": "ocgpuHipModuleUnload",
+      "vendor_symbol": "hipModuleUnload",
+      "aliases": [],
+      "versioned_alternatives": [],
+      "signature_hash": "fnv1a64:5cb60dc71fbbe922",
+      "variant": "driver_shaped",
+      "per_thread_default_stream": false,
+      "proc_address_flags": 0,
+      "fallback_order": [
+        "hipModuleUnload"
+      ],
+      "linux": {
+        "available": true,
+        "baseline": "HIP 7.14.60850 / ROCm 7.14.0",
+        "proc_version": 714,
+        "symbols": [
+          "hipModuleUnload"
+        ],
+        "reason": "Classified available in the committed platform baseline inventory."
+      },
+      "windows": {
+        "available": true,
+        "baseline": "HIP SDK for Windows 7.2.0",
+        "proc_version": 702,
+        "symbols": [
+          "hipModuleUnload"
+        ],
+        "reason": "Classified available in the committed platform baseline inventory."
+      }
+    },
+    {
+      "stable_id": 117506051,
+      "logical_id": "module.get_function",
+      "raw_name": "ocgpuHipModuleGetFunction",
+      "vendor_symbol": "hipModuleGetFunction",
+      "aliases": [],
+      "versioned_alternatives": [],
+      "signature_hash": "fnv1a64:0a6074da39f8130d",
+      "variant": "driver_shaped",
+      "per_thread_default_stream": false,
+      "proc_address_flags": 0,
+      "fallback_order": [
+        "hipModuleGetFunction"
+      ],
+      "linux": {
+        "available": true,
+        "baseline": "HIP 7.14.60850 / ROCm 7.14.0",
+        "proc_version": 714,
+        "symbols": [
+          "hipModuleGetFunction"
+        ],
+        "reason": "Classified available in the committed platform baseline inventory."
+      },
+      "windows": {
+        "available": true,
+        "baseline": "HIP SDK for Windows 7.2.0",
+        "proc_version": 702,
+        "symbols": [
+          "hipModuleGetFunction"
+        ],
+        "reason": "Classified available in the committed platform baseline inventory."
+      }
+    },
+    {
+      "stable_id": 134283265,
+      "logical_id": "launch.kernel",
+      "raw_name": "ocgpuHipModuleLaunchKernel",
+      "vendor_symbol": "hipModuleLaunchKernel",
+      "aliases": [],
+      "versioned_alternatives": [],
+      "signature_hash": "fnv1a64:52791bd6a6a03b60",
+      "variant": "driver_shaped",
+      "per_thread_default_stream": false,
+      "proc_address_flags": 0,
+      "fallback_order": [
+        "hipModuleLaunchKernel"
+      ],
+      "linux": {
+        "available": true,
+        "baseline": "HIP 7.14.60850 / ROCm 7.14.0",
+        "proc_version": 714,
+        "symbols": [
+          "hipModuleLaunchKernel"
+        ],
+        "reason": "Classified available in the committed platform baseline inventory."
+      },
+      "windows": {
+        "available": true,
+        "baseline": "HIP SDK for Windows 7.2.0",
+        "proc_version": 702,
+        "symbols": [
+          "hipModuleLaunchKernel"
+        ],
+        "reason": "Classified available in the committed platform baseline inventory."
+      }
+    }
+  ]
+}

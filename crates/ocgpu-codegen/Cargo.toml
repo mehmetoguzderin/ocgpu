@@ -1,0 +1,25 @@
+# SPDX-License-Identifier: CC0-1.0
+
+[package]
+name = "ocgpu-codegen"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+publish = false
+
+[lib]
+path = "src/lib.rs"
+
+[[bin]]
+name = "ocgpu-codegen"
+path = "src/main.rs"
+
+[dependencies]
+cbindgen = "=0.29.4"
+serde.workspace = true
+serde_json.workspace = true
+toml.workspace = true
+
+[lints]
+workspace = true

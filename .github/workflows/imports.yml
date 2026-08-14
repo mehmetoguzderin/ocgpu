@@ -1,0 +1,148 @@
+# SPDX-License-Identifier: CC0-1.0
+
+name: Runtime-loading import tables
+
+on:
+  push:
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  linux:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+      - name: Assert the runner has no vendor SDK
+        shell: pwsh
+        run: ./.github/scripts/assert-sdk-free.ps1
+      - run: rustup toolchain install 1.97.1 --profile minimal
+      - run: cargo +1.97.1 install cargo-c --version '0.10.24+cargo-0.98.0' --locked
+      - run: cargo +1.97.1 cbuild --release -p ocgpu-capi
+      - name: Build and audit the mapped public ELF package artifact
+        env:
+          CARGO_TARGET_DIR: target/pic
+          RUSTFLAGS: -C relocation-model=pic
+        run: |
+          cargo +1.97.1 build -p ocgpu-capi --release --lib
+          cc -shared \
+            -Wl,--whole-archive target/pic/release/libocgpu_capi.a \
+            -Wl,--no-whole-archive \
+            -Wl,--version-script,exports/ocgpu.map \
+            -Wl,-soname,libocgpu.so.1 \
+            -ldl -lpthread -lm -lrt -lutil \
+            -o target/libocgpu-mapped.so.1.0.0
+          sed -n -E 's/^[[:space:]]*(ocgpu[A-Za-z0-9_]+);$/\1/p' exports/ocgpu.map | sort -u > target/expected-mapped-exports.txt
+          readelf --dyn-syms --wide target/libocgpu-mapped.so.1.0.0 \
+            | awk '$8 ~ /^ocgpu[A-Za-z0-9_]+@@OCGPU_1[.]0$/ { name=$8; sub(/@@.*/, "", name); print name }' \
+            | sort -u > target/actual-mapped-exports.txt
+          diff -u target/expected-mapped-exports.txt target/actual-mapped-exports.txt
+          readelf --version-info target/libocgpu-mapped.so.1.0.0 | grep -F 'Name: OCGPU_1.0'
+          readelf -d target/libocgpu-mapped.so.1.0.0 | grep -F 'Library soname: [libocgpu.so.1]'
+          if readelf -d target/libocgpu-mapped.so.1.0.0 | grep -Ei 'libcuda|libamdhip|nvcuda|amdhip64'; then
+            echo "vendor runtime appears in mapped package DT_NEEDED" >&2
+            exit 1
+          fi
+      - name: Inspect ELF dynamic dependencies and exported symbols
+        run: |
+          readelf -d target/release/libocgpu.so | tee target/readelf-dynamic.txt
+          if grep -Ei 'libcuda|libamdhip|nvcuda|amdhip64' target/readelf-dynamic.txt; then
+            echo "vendor runtime appears in DT_NEEDED" >&2
+            exit 1
+          fi
+          sed -n -E 's/^[[:space:]]*(ocgpu[A-Za-z0-9_]+);$/\1/p' exports/ocgpu.map | sort -u > target/expected-exports.txt
+          nm -D --defined-only --format=posix target/release/libocgpu.so \
+            | awk '$1 ~ /^ocgpu[A-Za-z0-9_]+(@@OCGPU_1[.]0)?$/ { sub(/@@.*/, "", $1); print $1 }' \
+            | sort -u > target/actual-exports.txt
+          diff -u target/expected-exports.txt target/actual-exports.txt
+      - name: Audit backend-disabled flat export feature
+        run: |
+          CARGO_TARGET_DIR=target/flat cargo +1.97.1 cbuild --release -p ocgpu-capi --no-default-features --features flat-c-exports
+          sed -n -E 's/^[[:space:]]*(ocgpu[A-Za-z0-9_]+);$/\1/p' exports/ocgpu-flat.map | sort -u > target/expected-flat-exports.txt
+          nm -D --defined-only --format=posix target/flat/release/libocgpu.so \
+            | awk '$1 ~ /^ocgpu[A-Za-z0-9_]+(@@OCGPU_1[.]0)?$/ { sub(/@@.*/, "", $1); print $1 }' \
+            | sort -u > target/actual-flat-exports.txt
+          diff -u target/expected-flat-exports.txt target/actual-flat-exports.txt
+      - name: Build and audit the mapped backend-disabled flat ELF artifact
+        env:
+          CARGO_TARGET_DIR: target/flat-pic
+          RUSTFLAGS: -C relocation-model=pic
+        run: |
+          cargo +1.97.1 build -p ocgpu-capi --release --lib --no-default-features --features flat-c-exports
+          cc -shared \
+            -Wl,--whole-archive target/flat-pic/release/libocgpu_capi.a \
+            -Wl,--no-whole-archive \
+            -Wl,--version-script,exports/ocgpu-flat.map \
+            -Wl,-soname,libocgpu.so.1 \
+            -ldl -lpthread -lm -lrt -lutil \
+            -o target/libocgpu-flat-mapped.so.1.0.0
+          sed -n -E 's/^[[:space:]]*(ocgpu[A-Za-z0-9_]+);$/\1/p' exports/ocgpu-flat.map | sort -u > target/expected-flat-mapped-exports.txt
+          readelf --dyn-syms --wide target/libocgpu-flat-mapped.so.1.0.0 \
+            | awk '$8 ~ /^ocgpu[A-Za-z0-9_]+@@OCGPU_1[.]0$/ { name=$8; sub(/@@.*/, "", name); print name }' \
+            | sort -u > target/actual-flat-mapped-exports.txt
+          diff -u target/expected-flat-mapped-exports.txt target/actual-flat-mapped-exports.txt
+          readelf --version-info target/libocgpu-flat-mapped.so.1.0.0 | grep -F 'Name: OCGPU_1.0'
+          readelf -d target/libocgpu-flat-mapped.so.1.0.0 | grep -F 'Library soname: [libocgpu.so.1]'
+          if readelf -d target/libocgpu-flat-mapped.so.1.0.0 | grep -Ei 'libcuda|libamdhip|nvcuda|amdhip64'; then
+            echo "vendor runtime appears in mapped flat package DT_NEEDED" >&2
+            exit 1
+          fi
+
+  windows:
+    runs-on: windows-2025
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+      - name: Assert the runner has no vendor SDK
+        shell: pwsh
+        run: ./.github/scripts/assert-sdk-free.ps1
+      - run: rustup toolchain install 1.97.1 --profile minimal
+      - run: cargo +1.97.1 install cargo-c --version '0.10.24+cargo-0.98.0' --locked
+      - run: cargo +1.97.1 cbuild --release -p ocgpu-capi
+      - name: Build backend-disabled flat export feature separately
+        shell: pwsh
+        run: |
+          $env:CARGO_TARGET_DIR = "target/flat"
+          cargo +1.97.1 cbuild --release -p ocgpu-capi --no-default-features --features flat-c-exports
+          if ($LASTEXITCODE -ne 0) { throw "flat export build failed with $LASTEXITCODE" }
+      - name: Inspect PE imports
+        shell: pwsh
+        run: |
+          $dumpbin = Get-ChildItem "$env:ProgramFiles\Microsoft Visual Studio\2022\Enterprise\VC\Tools\MSVC\*\bin\Hostx64\x64\dumpbin.exe" | Sort-Object FullName | Select-Object -Last 1
+          if (-not $dumpbin) { throw "dumpbin.exe not found" }
+          & $dumpbin.FullName /nologo /imports target\release\ocgpu.dll | Set-Content target\imports.txt
+          if ($LASTEXITCODE -ne 0) { throw "dumpbin /imports failed with $LASTEXITCODE" }
+          if (Select-String -Path target\imports.txt -Pattern 'nvcuda\.dll|amdhip64_7\.dll' -CaseSensitive:$false) {
+            throw "vendor runtime appears in the PE import table"
+          }
+      - name: Inspect PE exports against the committed definition
+        shell: pwsh
+        run: |
+          $dumpbin = Get-ChildItem "$env:ProgramFiles\Microsoft Visual Studio\2022\Enterprise\VC\Tools\MSVC\*\bin\Hostx64\x64\dumpbin.exe" | Sort-Object FullName | Select-Object -Last 1
+          if (-not $dumpbin) { throw "dumpbin.exe not found" }
+          $lines = & $dumpbin.FullName /nologo /exports target\release\ocgpu.dll
+          if ($LASTEXITCODE -ne 0) { throw "dumpbin /exports failed with $LASTEXITCODE" }
+          $actual = $lines | ForEach-Object {
+            if ($_ -match '^\s+\d+\s+[0-9A-Fa-f]+\s+[0-9A-Fa-f]+\s+(ocgpu[A-Za-z0-9_]+)(?:\s|$)') { $Matches[1] }
+          } | Sort-Object -CaseSensitive -Unique
+          $expected = Get-Content exports/ocgpu.def | ForEach-Object { $_.Trim() } | Where-Object { $_ -match '^ocgpu[A-Za-z0-9_]+$' } | Sort-Object -CaseSensitive -Unique
+          $difference = Compare-Object -CaseSensitive -ReferenceObject $expected -DifferenceObject $actual
+          if ($difference) { $difference | Format-Table | Out-String | Write-Error; throw "PE export set differs from exports/ocgpu.def" }
+      - name: Inspect backend-disabled flat PE exports exactly
+        shell: pwsh
+        run: |
+          $dumpbin = Get-ChildItem "$env:ProgramFiles\Microsoft Visual Studio\2022\Enterprise\VC\Tools\MSVC\*\bin\Hostx64\x64\dumpbin.exe" | Sort-Object FullName | Select-Object -Last 1
+          if (-not $dumpbin) { throw "dumpbin.exe not found" }
+          $imports = & $dumpbin.FullName /nologo /imports target\flat\release\ocgpu.dll
+          if ($LASTEXITCODE -ne 0) { throw "flat dumpbin /imports failed with $LASTEXITCODE" }
+          if ($imports | Select-String -Pattern 'nvcuda\.dll|amdhip64_7\.dll' -CaseSensitive:$false) { throw "vendor runtime appears in flat PE imports" }
+          $lines = & $dumpbin.FullName /nologo /exports target\flat\release\ocgpu.dll
+          if ($LASTEXITCODE -ne 0) { throw "flat dumpbin /exports failed with $LASTEXITCODE" }
+          $actual = $lines | ForEach-Object {
+            if ($_ -match '^\s+\d+\s+[0-9A-Fa-f]+\s+[0-9A-Fa-f]+\s+(ocgpu[A-Za-z0-9_]+)(?:\s|$)') { $Matches[1] }
+          } | Sort-Object -CaseSensitive -Unique
+          $expected = Get-Content exports/ocgpu-flat.def | ForEach-Object { $_.Trim() } | Where-Object { $_ -match '^ocgpu[A-Za-z0-9_]+$' } | Sort-Object -CaseSensitive -Unique
+          $difference = Compare-Object -CaseSensitive -ReferenceObject $expected -DifferenceObject $actual
+          if ($difference) { $difference | Format-Table | Out-String | Write-Error; throw "flat PE export set differs from exports/ocgpu-flat.def" }

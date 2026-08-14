@@ -1,0 +1,21 @@
+# SPDX-License-Identifier: CC0-1.0
+
+[package]
+name = "ocgpu-loader"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+publish = ["crates-io"]
+description = "Secure process-lifetime dynamic-library loading for ocgpu"
+documentation = "https://docs.rs/ocgpu-loader"
+readme = "../README.md"
+keywords = ["gpu", "cuda", "hip", "loader"]
+categories = ["api-bindings", "hardware-support"]
+
+[features]
+default = []
+explicit-library-path = []
+
+[lints]
+workspace = true

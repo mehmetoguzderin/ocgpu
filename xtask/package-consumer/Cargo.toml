@@ -1,0 +1,19 @@
+# SPDX-License-Identifier: CC0-1.0
+
+[package]
+name = "ocgpu-package-graph-check"
+version = "0.0.0"
+edition = "2024"
+publish = false
+
+[dependencies]
+ocgpu = { version = "=0.1.0", features = ["explicit-library-path", "global-default-backend"] }
+
+[patch.crates-io]
+ocgpu = { path = "../ocgpu-0.1.0" }
+ocgpu-abi = { path = "../ocgpu-abi-0.1.0" }
+ocgpu-loader = { path = "../ocgpu-loader-0.1.0" }
+ocgpu-cuda = { path = "../ocgpu-cuda-0.1.0" }
+ocgpu-hip = { path = "../ocgpu-hip-0.1.0" }
+
+[workspace]

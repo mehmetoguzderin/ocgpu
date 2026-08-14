@@ -1,0 +1,552 @@
+{
+  "schema_version": 1,
+  "spdx_license_identifier": "CC0-1.0",
+  "inventory_id": "hip-runtime-profiles",
+  "scope": "Fail-closed common HIP ABI profiles for Windows x86_64 and Linux x86_64/aarch64. This does not extend the exhaustive HIP 7.14 raw inventory.",
+  "runtime_version_encoding": {
+    "expression": "major * 10000000 + minor * 100000 + patch",
+    "source": "https://rocm.docs.amd.com/projects/HIP/en/latest/reference/hip_runtime_api/modules/initialization_and_version.html"
+  },
+  "compatibility_policy": {
+    "rule": "After the reviewed minimum, later minor and patch releases in the same major are accepted; the next major is excluded.",
+    "source": "https://rocm.docs.amd.com/projects/install-on-windows/en/docs-6.4.2/conceptual/release-versioning.html",
+    "fail_closed": "Earlier minors, unrecognized majors, and malformed runtime versions are rejected. hipGetProcAddress is not called before its separately reviewed minimum."
+  },
+  "table_flag_encoding": {
+    "mask": 16711680,
+    "shift": 16,
+    "hip5": 327680,
+    "hip6": 393216,
+    "hip7": 458752,
+    "zero_meaning": "No HIP runtime profile selected; CUDA tables leave these bits zero."
+  },
+  "bootstrap_symbols": [
+    "hipRuntimeGetVersion"
+  ],
+  "release_sets": {
+    "all_reviewed": [
+      "hip-5.7.31541",
+      "hip-5.7.31921",
+      "hip-6.1.40093",
+      "hip-6.2.41134",
+      "hip-6.4.43484",
+      "hip-7.2.53210",
+      "hip-7.14.60850"
+    ],
+    "through_7_2": [
+      "hip-5.7.31541",
+      "hip-5.7.31921",
+      "hip-6.1.40093",
+      "hip-6.2.41134",
+      "hip-6.4.43484",
+      "hip-7.2.53210"
+    ],
+    "legacy_5_6": [
+      "hip-5.7.31541",
+      "hip-5.7.31921",
+      "hip-6.1.40093",
+      "hip-6.2.41134",
+      "hip-6.4.43484"
+    ],
+    "hip_7": [
+      "hip-7.2.53210",
+      "hip-7.14.60850"
+    ],
+    "only_7_14": [
+      "hip-7.14.60850"
+    ]
+  },
+  "profiles": [
+    {
+      "runtime_major": 7,
+      "table_flag": 458752,
+      "common_adapter_symbols": [],
+      "reviewed_release_ids": ["hip-7.2.53210", "hip-7.14.60850"],
+      "windows": {
+        "library_candidates": ["amdhip64_7.dll"],
+        "runtime_version_min_inclusive": 70253210,
+        "runtime_version_max_inclusive": 79999999,
+        "proc_address_min_inclusive": 70253210,
+        "raw_inventory_min_inclusive": 70253210
+      },
+      "linux": {
+        "library_candidates": ["libamdhip64.so.7", "libamdhip64.so"],
+        "runtime_version_min_inclusive": 70253210,
+        "runtime_version_max_inclusive": 79999999,
+        "proc_address_min_inclusive": 70253210,
+        "raw_inventory_min_inclusive": 71460850
+      }
+    },
+    {
+      "runtime_major": 6,
+      "table_flag": 393216,
+      "common_adapter_symbols": ["hipMemcpyHtoD"],
+      "reviewed_release_ids": ["hip-6.1.40093", "hip-6.2.41134", "hip-6.4.43484"],
+      "windows": {
+        "library_candidates": ["amdhip64_6.dll"],
+        "runtime_version_min_inclusive": 60140093,
+        "runtime_version_max_inclusive": 69999999,
+        "proc_address_min_inclusive": 60241134,
+        "raw_inventory_min_inclusive": null
+      },
+      "linux": {
+        "library_candidates": ["libamdhip64.so.6", "libamdhip64.so"],
+        "runtime_version_min_inclusive": 60140093,
+        "runtime_version_max_inclusive": 69999999,
+        "proc_address_min_inclusive": 60241134,
+        "raw_inventory_min_inclusive": null
+      }
+    },
+    {
+      "runtime_major": 5,
+      "table_flag": 327680,
+      "common_adapter_symbols": ["hipMemcpyHtoD"],
+      "reviewed_release_ids": ["hip-5.7.31541", "hip-5.7.31921"],
+      "windows": {
+        "library_candidates": ["amdhip64.dll"],
+        "runtime_version_min_inclusive": 50731541,
+        "runtime_version_max_inclusive": 59999999,
+        "proc_address_min_inclusive": null,
+        "raw_inventory_min_inclusive": null
+      },
+      "linux": {
+        "library_candidates": ["libamdhip64.so.5", "libamdhip64.so"],
+        "runtime_version_min_inclusive": 50731541,
+        "runtime_version_max_inclusive": 59999999,
+        "proc_address_min_inclusive": null,
+        "raw_inventory_min_inclusive": null
+      }
+    }
+  ],
+  "reviewed_releases": [
+    {
+      "id": "hip-5.7.31541",
+      "rocm_release": "5.7.0",
+      "runtime_version": 50731541,
+      "observed_runtime": {
+        "platform": "x86_64-pc-windows-msvc",
+        "library": "C:/Windows/System32/amdhip64.dll",
+        "sha256": "sha256:f6a64adfef5336490b530942cd2b22fa5d7c07d20c0d4cfb01e5b8c93ba20c94",
+        "hip_runtime_get_version": 50731541,
+        "file_version": "10.0.3584.0",
+        "product_version": "10.0.3584.0",
+        "signature_status": "Valid",
+        "signer_subject": "CN=Microsoft Windows Hardware Compatibility Publisher, O=Microsoft Corporation, L=Redmond, S=Washington, C=US",
+        "signer_thumbprint": "32B4E7CE92A59C722B8BDF7AE3E66520CFB9DE21",
+        "scope_note": "This is a local runtime observation, not a claim that the official HIP VERSION member encodes patch 31541. ABI declarations are independently pinned to the official rocm-5.7.0 tag below."
+      },
+      "hip_commit": "rocm-5.7.0 tag object 0d2121a93c071e66285f873130df3a70a56ad844 / peeled commit 80681169ae20de8f8025b4fad799204c3ae7de50",
+      "hip_archive_url": "https://github.com/ROCm/HIP/archive/80681169ae20de8f8025b4fad799204c3ae7de50.zip",
+      "hip_archive_sha256": "sha256:d4677c1612f3e5eef5eca1815c8dd3571b8b00affaf0ee793994beaa2ab130ae",
+      "hip_header_path": "include/hip/hip_runtime_api.h",
+      "hip_header_sha256": "sha256:c3081f64a2821a17e40ccb6fdd6dda19e38a69aacb6882ed9526e4ce26f1ab09",
+      "hip_version_sha256": "sha256:d9e2297659156a4c6f7561cafbcea3e7e98893738228594827efef8474c1e23d",
+      "clr_commit": "rocm-5.7.0 tag object 49e585e23762140bd7602d64e841697174eb6e22 / peeled commit d1770ee1baf5ede2e723490024d5038e95df85b6",
+      "clr_archive_url": "https://github.com/ROCm/clr/archive/d1770ee1baf5ede2e723490024d5038e95df85b6.zip",
+      "clr_archive_sha256": "sha256:56424963b77761088c00bcb7c229697b31ec3618354fafe9da5ec436c0b311ff",
+      "clr_cmake_path": "hipamd/src/CMakeLists.txt",
+      "clr_cmake_sha256": "sha256:2d440e43255a620278c496b4095816da1d0e8ad25a16745b5b9c3d4ab3894ead",
+      "proc_address_declared": false
+    },
+    {
+      "id": "hip-5.7.31921",
+      "rocm_release": "5.7.1",
+      "runtime_version": 50731921,
+      "hip_commit": "80681169ae20de8f8025b4fad799204c3ae7de50",
+      "hip_archive_url": "https://github.com/ROCm/HIP/archive/80681169ae20de8f8025b4fad799204c3ae7de50.zip",
+      "hip_archive_sha256": "sha256:d4677c1612f3e5eef5eca1815c8dd3571b8b00affaf0ee793994beaa2ab130ae",
+      "hip_header_path": "include/hip/hip_runtime_api.h",
+      "hip_header_sha256": "sha256:c3081f64a2821a17e40ccb6fdd6dda19e38a69aacb6882ed9526e4ce26f1ab09",
+      "hip_version_sha256": "sha256:d9e2297659156a4c6f7561cafbcea3e7e98893738228594827efef8474c1e23d",
+      "clr_commit": "1949b1621a802ffb1492616adbae6154bfbe64ef",
+      "clr_archive_url": "https://github.com/ROCm/clr/archive/1949b1621a802ffb1492616adbae6154bfbe64ef.zip",
+      "clr_archive_sha256": "sha256:a063ccfa37a6315d46850383466005363cad21fb96ac10e91e5d3de9186eb259",
+      "clr_cmake_path": "hipamd/src/CMakeLists.txt",
+      "clr_cmake_sha256": "sha256:2d440e43255a620278c496b4095816da1d0e8ad25a16745b5b9c3d4ab3894ead",
+      "proc_address_declared": false
+    },
+    {
+      "id": "hip-6.1.40093",
+      "rocm_release": "6.1.2",
+      "runtime_version": 60140093,
+      "hip_commit": "900a5e9828f55ae004de99314c5f992e6a0ebc9b",
+      "hip_archive_url": "https://github.com/ROCm/HIP/archive/900a5e9828f55ae004de99314c5f992e6a0ebc9b.zip",
+      "hip_archive_sha256": "sha256:7a4fcaebbe455eb96c020a6ab47a3400b36059838713b341ed2b927eb2a5ac74",
+      "hip_header_path": "include/hip/hip_runtime_api.h",
+      "hip_header_sha256": "sha256:7f36ffc64b62b0255ca76a561be64a8481be6154330e31b23ede30bc0e226b23",
+      "hip_version_sha256": "sha256:6d9cd2864bb4dc1b1b6a7e707c9b17ec601e5c8b4ae1a341ebecc948328227ae",
+      "clr_commit": "bd86f17082b0e4f33ea1b044419b40206b3dc2eb",
+      "clr_archive_url": "https://github.com/ROCm/clr/archive/bd86f17082b0e4f33ea1b044419b40206b3dc2eb.zip",
+      "clr_archive_sha256": "sha256:37056c8d1aa794139b84043fd5c4a44081ce4c945b317cb37cbb925b6d155869",
+      "clr_cmake_path": "hipamd/src/CMakeLists.txt",
+      "clr_cmake_sha256": "sha256:8bce3453eee0bc10cffe1dd1a326da33b852320704cbdc006ed2882dd2278aec",
+      "proc_address_declared": false
+    },
+    {
+      "id": "hip-6.2.41134",
+      "rocm_release": "6.2.4",
+      "runtime_version": 60241134,
+      "hip_commit": "d3b75fbb82113374e2d6103baa96a9c61425da48",
+      "hip_archive_url": "https://github.com/ROCm/HIP/archive/d3b75fbb82113374e2d6103baa96a9c61425da48.zip",
+      "hip_archive_sha256": "sha256:c4f7f295482dcea2578e18b7924e610c289c0ef8ae263c5f298b73f632ac3c1c",
+      "hip_header_path": "include/hip/hip_runtime_api.h",
+      "hip_header_sha256": "sha256:1fdbcf68c43b541904b64c48e51c89f543970a62b36cf17bd29700b1835b3ff0",
+      "hip_version_sha256": "sha256:652bcac90e1edebfe39b936524c82c080774fb4075a4d2acb6ced30b412b9590",
+      "clr_commit": "65d174c3e35423bf25c9c369513780c9d9ca760c",
+      "clr_archive_url": "https://github.com/ROCm/clr/archive/65d174c3e35423bf25c9c369513780c9d9ca760c.zip",
+      "clr_archive_sha256": "sha256:2a376e5605a42939a741bc28bfad950426adfbd094f592c54d9abcaa42c557cc",
+      "clr_cmake_path": "hipamd/src/CMakeLists.txt",
+      "clr_cmake_sha256": "sha256:547a53e1ee9b8c05723120c7894c7fee4eba2f77ec1576feeb3a3c4d7bbedea5",
+      "proc_address_declared": true
+    },
+    {
+      "id": "hip-6.4.43484",
+      "rocm_release": "6.4.2",
+      "runtime_version": 60443484,
+      "hip_commit": "3d568a1ba58c89725aef145752ba48a88588b1d0",
+      "hip_archive_url": "https://github.com/ROCm/HIP/archive/3d568a1ba58c89725aef145752ba48a88588b1d0.zip",
+      "hip_archive_sha256": "sha256:cfc8cb748d3bea5d0285819fda2d46f16718be901867ca52b9736c60b47e34ce",
+      "hip_header_path": "include/hip/hip_runtime_api.h",
+      "hip_header_sha256": "sha256:747ea283542659391858971dbafc7ce16b82a017f4530aafd0d8b39515ce5bcc",
+      "hip_version_sha256": "sha256:1e51532674aae5c0ee05bda30dc8907c7c547887c3cf00d8de202d36288c635b",
+      "clr_commit": "123eb5128769ba30fda8f84414421bc858e8c695",
+      "clr_archive_url": "https://github.com/ROCm/clr/archive/123eb5128769ba30fda8f84414421bc858e8c695.zip",
+      "clr_archive_sha256": "sha256:98cb8a9ac0357aefd7f1703c6027609995aa13a2bf92734434aaf462c02e2c28",
+      "clr_cmake_path": "hipamd/src/CMakeLists.txt",
+      "clr_cmake_sha256": "sha256:0b1646eceb5cfd517ee3aa937d853ea71dc5aab6cc7b128b7702c2d49ef3d1cb",
+      "proc_address_declared": true
+    },
+    {
+      "id": "hip-7.2.53210",
+      "rocm_release": "7.2.0",
+      "runtime_version": 70253210,
+      "hip_commit": "rocm-7.2.0 tag object 04d503ec19aa637e2982220dd81913223c759cf4",
+      "hip_archive_url": "https://github.com/ROCm/HIP/archive/04d503ec19aa637e2982220dd81913223c759cf4.zip",
+      "hip_archive_sha256": "sha256:af75c40c2777151e0dad3b7e960111d1793742ccb7d3eb5a0e1ffd2b181758f1",
+      "hip_header_path": "include/hip/hip_runtime_api.h",
+      "hip_header_sha256": "sha256:16f713e8b5633ae434e59a3a92c0e521f435e5be7bd5952e7818fe9adf087eac",
+      "hip_version_sha256": "sha256:af0a9a0af62e0b198df7ca4b570e7a158f7a73d2c23d964b27ef70426194c836",
+      "clr_commit": "c5824370effd4609972653f6490f7313f5bc18af",
+      "clr_archive_url": "https://github.com/ROCm/clr/archive/c5824370effd4609972653f6490f7313f5bc18af.zip",
+      "clr_archive_sha256": "sha256:9b50b1437d98a791fd03bf6a3c2bcbfb0f310fbb7487f6e4369182d206bc81e5",
+      "clr_cmake_path": "hipamd/src/CMakeLists.txt",
+      "clr_cmake_sha256": "sha256:338d7d54bba7882ccf3ef59b01668aa68fff3edf7847e5a241f230e758aa27ff",
+      "proc_address_declared": true
+    },
+    {
+      "id": "hip-7.14.60850",
+      "rocm_release": "7.14.0",
+      "runtime_version": 71460850,
+      "hip_commit": "d135154e63ee2e44e7de3a7143dea4bca860df78",
+      "hip_archive_url": "https://github.com/ROCm/HIP/archive/d135154e63ee2e44e7de3a7143dea4bca860df78.zip",
+      "hip_archive_sha256": "sha256:9d4221874dece55578c994ef8b06e8f607f5e033fb9ae701d198078f09f4ff94",
+      "hip_header_path": "include/hip/hip_runtime_api.h",
+      "hip_header_sha256": "sha256:2074d65bbe51ee34773637b0c2a8c8afad4ab3ea2cb776535fbaf69aa107bafe",
+      "hip_version_sha256": "sha256:c9a8cbee9a257d263dacc3c40cefe2d9519433b95fca8012cc38dbbad451bea5",
+      "clr_commit": "396c84e07b78590c7b6e92977539ed109d11ff0a",
+      "clr_archive_url": "https://github.com/ROCm/clr/archive/396c84e07b78590c7b6e92977539ed109d11ff0a.zip",
+      "clr_archive_sha256": "sha256:7bd8c8a717ae3d92905864b9806077d9873650006b94785ee2f2ea03802838a5",
+      "clr_cmake_path": "hipamd/src/CMakeLists.txt",
+      "clr_cmake_sha256": "sha256:56bd3b1ca64010038dd493e711ad77d166bd09b9f47e99431129712da60af392",
+      "proc_address_declared": true
+    }
+  ],
+  "library_naming_evidence": [
+    {
+      "platform": "windows",
+      "major": 5,
+      "names": ["amdhip64.dll"],
+      "source": "https://rocm.docs.amd.com/projects/install-on-windows/en/docs-6.1.2/reference/system-requirements.html"
+    },
+    {
+      "platform": "windows",
+      "major": 6,
+      "names": ["amdhip64_6.dll"],
+      "source": "https://rocm.docs.amd.com/projects/install-on-windows/en/docs-6.4.2/conceptual/release-versioning.html"
+    },
+    {
+      "platform": "windows",
+      "major": 7,
+      "names": ["amdhip64_7.dll"],
+      "source": "https://rocm.docs.amd.com/projects/install-on-windows/en/latest/conceptual/release-versioning.html"
+    },
+    {
+      "platform": "linux",
+      "major": 5,
+      "names": ["libamdhip64.so.5", "libamdhip64.so"],
+      "source": "https://github.com/ROCm/clr/blob/1949b1621a802ffb1492616adbae6154bfbe64ef/hipamd/src/CMakeLists.txt"
+    },
+    {
+      "platform": "linux",
+      "major": 6,
+      "names": ["libamdhip64.so.6", "libamdhip64.so"],
+      "source": "https://github.com/ROCm/clr/blob/123eb5128769ba30fda8f84414421bc858e8c695/hipamd/src/CMakeLists.txt"
+    },
+    {
+      "platform": "linux",
+      "major": 7,
+      "names": ["libamdhip64.so.7", "libamdhip64.so"],
+      "source": "https://github.com/ROCm/clr/blob/c5824370effd4609972653f6490f7313f5bc18af/hipamd/src/CMakeLists.txt"
+    }
+  ],
+  "common_functions": [
+    {
+      "name": "hipInit",
+      "release_set": "all_reviewed",
+      "signature_hash": "sha256:e2170e0eb5e2ddfba1f7d002ef27d75464de4d9057e1f43145dd301ccafee9a0"
+    },
+    {
+      "name": "hipDriverGetVersion",
+      "release_set": "all_reviewed",
+      "signature_hash": "sha256:42f707736bbb7f4007ce7b9a343a3d51e8d5c8ed90c78d924ea0e586e9a0b4ca"
+    },
+    {
+      "name": "hipGetDeviceCount",
+      "release_set": "all_reviewed",
+      "signature_hash": "sha256:deca875ed797a451fbc8d6fe46900bc6762363ad8a02bbe6178959ed710f662a"
+    },
+    {
+      "name": "hipDeviceGet",
+      "release_set": "all_reviewed",
+      "signature_hash": "sha256:932abe175d3fc35a744c17be51607bd1db86a1d19e84bf4d9a0a8c2cb20c8471"
+    },
+    {
+      "name": "hipDeviceGetName",
+      "release_set": "all_reviewed",
+      "signature_hash": "sha256:5c57eab7c14c872ce759bc6aaf2410bf4f3122a02fc33327523c3a537575c858"
+    },
+    {
+      "name": "hipDeviceGetAttribute",
+      "release_set": "all_reviewed",
+      "signature_hash": "sha256:676683f5f2043c52bef71aefd66134bc0d9126428050d3fc7118d2b7f4454f74"
+    },
+    {
+      "name": "hipCtxCreate",
+      "release_set": "all_reviewed",
+      "signature_hash": "sha256:7f914dd118486cb82360950291d7cecb2cabac61fd98024b7c40444705d25c23"
+    },
+    {
+      "name": "hipCtxDestroy",
+      "release_set": "all_reviewed",
+      "signature_hash": "sha256:ada02a48bf8b9a78c0dd4ad0253d8a971b31dafa0645c551691690a930ba5190"
+    },
+    {
+      "name": "hipCtxSetCurrent",
+      "release_set": "all_reviewed",
+      "signature_hash": "sha256:2a7f371996cd1ff9d14757bea096527375f0f670c63f2400fc434f6dbcb86fa9"
+    },
+    {
+      "name": "hipCtxGetCurrent",
+      "release_set": "all_reviewed",
+      "signature_hash": "sha256:4b9c2270c65b8c38df393c7ed582e65973297e11a90e87d2a9bd8fb0c0beda84"
+    },
+    {
+      "name": "hipCtxSynchronize",
+      "release_set": "all_reviewed",
+      "signature_hash": "sha256:f9264c898f10283aa36c840dc6d4d87f04114640925d3671c01e48d884c7433d"
+    },
+    {
+      "name": "hipMalloc",
+      "release_set": "all_reviewed",
+      "signature_hash": "sha256:8dab3d5a3e31d60b4f4204e993be9b698b705838cf3b3e810185964e3e3e0177"
+    },
+    {
+      "name": "hipFree",
+      "release_set": "all_reviewed",
+      "signature_hash": "sha256:7bdad7097f862dad57ac7a4cf297a13bb1bedfff3eedbdeabf79fa1eff681455"
+    },
+    {
+      "name": "hipMemcpyDtoH",
+      "release_set": "all_reviewed",
+      "signature_hash": "sha256:cff57c4fc6e10aa8f6c3147d6169bcc0a3260aaf657aee41457ebf6dd0689059"
+    },
+    {
+      "name": "hipStreamCreateWithFlags",
+      "release_set": "through_7_2",
+      "signature_hash": "sha256:e15e3729400db3cb471c23f3892c4dc9ee4362d7c2684b43aae8a2df861b70fe"
+      ,"additional_signatures": [
+        {
+          "release_set": "only_7_14",
+          "signature_hash": "sha256:2bf60aab428769c58045078a5ccd129a9089c74aa8918227eebdcee6b0992a35"
+        }
+      ]
+    },
+    {
+      "name": "hipStreamDestroy",
+      "release_set": "all_reviewed",
+      "signature_hash": "sha256:3db42e6aee8d3c8257abd425cdeb581f23899ae799d8791969fd8abb7ee191a9"
+    },
+    {
+      "name": "hipStreamSynchronize",
+      "release_set": "all_reviewed",
+      "signature_hash": "sha256:fe1e8f6e27ecdf10f36370f616040ac1d58bded6be5fd61fb47a316722bc0d06"
+    },
+    {
+      "name": "hipEventCreateWithFlags",
+      "release_set": "through_7_2",
+      "signature_hash": "sha256:cd802e08b4d303855cd434cfabccefff39ab8867382eb895ea0ff7cc6ad6a2cf"
+      ,"additional_signatures": [
+        {
+          "release_set": "only_7_14",
+          "signature_hash": "sha256:f4b7e8d8d456ed6f66f8ebca558de879abf2c1dd0fddc26aa34020ee1a72f925"
+        }
+      ]
+    },
+    {
+      "name": "hipEventDestroy",
+      "release_set": "all_reviewed",
+      "signature_hash": "sha256:dbef59d1706f3c42a414f108417447159a1d1d832e3b4c2fb4ead61055d5ea91"
+    },
+    {
+      "name": "hipEventRecord",
+      "release_set": "all_reviewed",
+      "signature_hash": "sha256:fbc3f2ef34e1988da6d1adcd75bf8122b5d7a6fe2256ad28ece5f4cb37645922"
+    },
+    {
+      "name": "hipEventSynchronize",
+      "release_set": "all_reviewed",
+      "signature_hash": "sha256:f472a4710c4d6e20a12ab12501489eac856200f4c4cb1472541b2d5d5ea882dc"
+    },
+    {
+      "name": "hipModuleLoadData",
+      "release_set": "all_reviewed",
+      "signature_hash": "sha256:2473da92562d2d2c5fa9f423249b6820870c806b73dfdb71d40066e95ef1e8c5"
+    },
+    {
+      "name": "hipModuleUnload",
+      "release_set": "all_reviewed",
+      "signature_hash": "sha256:49a2c7e00d5d086bededed15682862758b7e068f93bda982632ae8f124b0ed60"
+    },
+    {
+      "name": "hipModuleGetFunction",
+      "release_set": "all_reviewed",
+      "signature_hash": "sha256:1d3b9507a53c969e38f531319ef589b12a225d2e15cf6426dbc30ab3ba37124c"
+    },
+    {
+      "name": "hipModuleLaunchKernel",
+      "release_set": "all_reviewed",
+      "signature_hash": "sha256:2620228d1163126deda5646ef7ddfc58fb169657415056f9cc00de689fa1689b"
+    }
+  ],
+  "common_adapters": [
+    {
+      "name": "hipMemcpyHtoD",
+      "adapter": "The public/current input remains const. HIP 5.x/6.x is called through a legacy declaration taking void* after a local const-removing cast; the callee's documented host-to-device copy does not write the source bytes.",
+      "signature_variants": [
+        {
+          "release_set": "legacy_5_6",
+          "normalized_signature": "fn hipMemcpyHtoD[abi=C](dst:hipdeviceptr_t:mut:in:nullable=unknown,src:void*:mut:in:nullable=unknown,sizebytes:size_t:value:in:nullable=false)->hipError_t",
+          "signature_hash": "sha256:c8c4b30955f248b45d00bc89899e7d853525cb902c70b3e79859f2696268cfb9"
+        },
+        {
+          "release_set": "hip_7",
+          "normalized_signature": "fn hipMemcpyHtoD[abi=C](dst:hipdeviceptr_t:mut:in:nullable=unknown,src:const void*:const:in:nullable=unknown,sizebytes:size_t:value:in:nullable=false)->hipError_t",
+          "signature_hash": "sha256:723df21271bdca7810cef614dcde20639ed6610392f169a165f00e15f7dec103"
+        }
+      ]
+    }
+  ],
+  "device_attributes": [
+    { "name": "hipDeviceAttributeMaxThreadsPerBlock", "value": 56 },
+    { "name": "hipDeviceAttributeMaxBlockDimX", "value": 26 },
+    { "name": "hipDeviceAttributeMaxBlockDimY", "value": 27 },
+    { "name": "hipDeviceAttributeMaxBlockDimZ", "value": 28 },
+    { "name": "hipDeviceAttributeMaxGridDimX", "value": 29 },
+    { "name": "hipDeviceAttributeMaxGridDimY", "value": 30 },
+    { "name": "hipDeviceAttributeMaxGridDimZ", "value": 31 },
+    { "name": "hipDeviceAttributeMaxSharedMemoryPerBlock", "value": 74 },
+    { "name": "hipDeviceAttributeTotalConstantMemory", "value": 83 },
+    { "name": "hipDeviceAttributeWarpSize", "value": 87 },
+    { "name": "hipDeviceAttributeMaxPitch", "value": 58 },
+    { "name": "hipDeviceAttributeMaxRegistersPerBlock", "value": 71 },
+    { "name": "hipDeviceAttributeClockRate", "value": 5 },
+    { "name": "hipDeviceAttributeTextureAlignment", "value": 81 },
+    { "name": "hipDeviceAttributeMultiprocessorCount", "value": 63 },
+    { "name": "hipDeviceAttributeKernelExecTimeout", "value": 18 },
+    { "name": "hipDeviceAttributeIntegrated", "value": 16 },
+    { "name": "hipDeviceAttributeCanMapHostMemory", "value": 3 },
+    { "name": "hipDeviceAttributeComputeMode", "value": 6 },
+    { "name": "hipDeviceAttributeConcurrentKernels", "value": 8 },
+    { "name": "hipDeviceAttributePciBusId", "value": 67 },
+    { "name": "hipDeviceAttributePciDeviceId", "value": 68 },
+    { "name": "hipDeviceAttributeMemoryClockRate", "value": 60 },
+    { "name": "hipDeviceAttributeMemoryBusWidth", "value": 59 },
+    { "name": "hipDeviceAttributeL2CacheSize", "value": 19 },
+    { "name": "hipDeviceAttributeMaxThreadsPerMultiProcessor", "value": 57 },
+    { "name": "hipDeviceAttributeUnifiedAddressing", "value": 85 },
+    { "name": "hipDeviceAttributeComputeCapabilityMajor", "value": 23 },
+    { "name": "hipDeviceAttributeComputeCapabilityMinor", "value": 61 },
+    { "name": "hipDeviceAttributeManagedMemory", "value": 24 },
+    { "name": "hipDeviceAttributePageableMemoryAccess", "value": 65 },
+    { "name": "hipDeviceAttributeConcurrentManagedAccess", "value": 9 }
+  ],
+  "transitive_abi_facts": [
+    {
+      "fact": "hipError_t is an enum returned by value with a 32-bit ABI representation on every supported target",
+      "expected": "i32",
+      "proof": "Pinned header declaration graph and generated 64-bit platform layouts"
+    },
+    {
+      "fact": "hipSuccess",
+      "expected": 0,
+      "proof": "Pinned hipError_t enumerators"
+    },
+    {
+      "fact": "hipDevice_t",
+      "expected": "int32",
+      "proof": "Pinned typedef declarations"
+    },
+    {
+      "fact": "hipDeviceAttribute_t",
+      "expected": "enum-i32",
+      "proof": "Pinned enum declarations and generated platform layouts"
+    },
+    {
+      "fact": "size_t",
+      "expected": "u64 on the reviewed 64-bit targets",
+      "proof": "x86_64-pc-windows-msvc, x86_64-unknown-linux-gnu, and aarch64-unknown-linux-gnu data models"
+    },
+    {
+      "fact": "hipDeviceptr_t",
+      "expected": "void*",
+      "proof": "Pinned typedef declarations"
+    },
+    {
+      "fact": "hipCtx_t, hipStream_t, hipEvent_t, hipModule_t, and hipFunction_t",
+      "expected": "opaque pointer handles; null is the all-bits-zero pointer sentinel",
+      "proof": "Pinned typedef and opaque-struct declaration graph"
+    },
+    {
+      "fact": "hipRuntimeGetVersion output",
+      "expected": "int32 encoded as major*10000000 + minor*100000 + patch",
+      "proof": "Official initialization and version reference linked above"
+    }
+  ],
+  "semantic_reviews": [
+    {
+      "operations": ["hipMalloc", "hipFree"],
+      "finding": "The common adapter preserves the allocation output pointer, byte count, and paired free semantics without changing ownership.",
+      "proof": "The hipMalloc and hipFree documentation blocks in every reviewed hip_runtime_api.h artifact."
+    },
+    {
+      "operations": ["hipCtxCreate", "hipCtxDestroy", "hipCtxSetCurrent", "hipCtxGetCurrent", "hipCtxSynchronize"],
+      "finding": "The common adapter preserves context creation/destruction, thread-current context selection/query, and context synchronization.",
+      "proof": "The context-management documentation blocks in every reviewed hip_runtime_api.h artifact."
+    },
+    {
+      "operations": ["hipModuleLoadData", "hipModuleUnload", "hipModuleGetFunction", "hipModuleLaunchKernel"],
+      "finding": "The common adapter passes module images, function names, launch dimensions, shared-memory bytes, stream, kernel parameters, and extra parameters directly.",
+      "proof": "The module-management and kernel-launch documentation blocks in every reviewed hip_runtime_api.h artifact."
+    },
+    {
+      "operations": ["hipMemcpyHtoD", "hipMemcpyDtoH"],
+      "finding": "The common adapter retains source/destination direction and byte-count semantics.",
+      "proof": "The memory-copy documentation blocks in every reviewed hip_runtime_api.h artifact."
+    },
+    {
+      "operations": ["hipStreamCreateWithFlags", "hipStreamDestroy", "hipStreamSynchronize", "hipEventCreateWithFlags", "hipEventDestroy", "hipEventRecord", "hipEventSynchronize"],
+      "finding": "The common adapter retains stream/event handle lifetime, record, and synchronization semantics.",
+      "proof": "The stream and event documentation blocks in every reviewed hip_runtime_api.h artifact."
+    }
+  ]
+}

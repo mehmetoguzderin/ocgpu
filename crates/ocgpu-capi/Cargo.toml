@@ -1,0 +1,58 @@
+# SPDX-License-Identifier: CC0-1.0
+
+[package]
+name = "ocgpu-capi"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+publish = false
+description = "C99 ABI exports for ocgpu"
+
+[lib]
+# Keep the internal Cargo target distinct from the `ocgpu` CLI binary. On
+# MSVC, two targets named `ocgpu` race to create the same PDB during a
+# workspace build (Cargo issue #6313). cargo-c uses the public library name in
+# `package.metadata.capi.library` below, so installed C artifacts remain
+# `ocgpu` on every platform.
+name = "ocgpu_capi"
+crate-type = ["cdylib", "staticlib", "rlib"]
+
+[features]
+default = ["capi", "cuda", "hip"]
+capi = []
+cuda = ["ocgpu-core/raw-cuda"]
+hip = ["ocgpu-core/raw-hip"]
+flat-c-exports = []
+
+[dependencies]
+ocgpu-core = { package = "ocgpu", path = "../ocgpu", version = "0.1.0", default-features = false }
+ocgpu-abi.workspace = true
+
+[package.metadata.capi]
+min_version = "0.10.24"
+
+[package.metadata.capi.header]
+generation = false
+name = "ocgpu"
+subdirectory = "ocgpu"
+
+[package.metadata.capi.install.include]
+# cargo-c 0.10.24 requires pre-generated headers outside its legacy
+# `assets/<name>.h` location to be declared as install assets explicitly.
+asset = [{ from = "assets/ocgpu/ocgpu.h", to = "ocgpu" }]
+
+[package.metadata.capi.library]
+name = "ocgpu"
+versioning = true
+
+[package.metadata.capi.pkg_config]
+name = "ocgpu"
+filename = "ocgpu"
+description = "Oxidized Compute-oriented GPU API"
+# The installed header is included as <ocgpu/ocgpu.h>, so expose the parent
+# include directory rather than `${includedir}/ocgpu`.
+strip_include_path_components = 1
+
+[lints]
+workspace = true
