@@ -10,11 +10,11 @@ publish = false
 description = "Maintainer-only API inventory extractor and coverage validator for ocgpu"
 
 [dependencies]
-miniz_oxide = "0.8.9"
+miniz_oxide = "0.9.1"
 quote = "1.0.40"
 serde.workspace = true
 serde_json.workspace = true
-syn = { version = "2.0.106", features = ["full", "parsing", "visit"] }
+syn = { version = "3.0.3", features = ["full", "parsing", "visit"] }
 thiserror.workspace = true
 toml.workspace = true
 
