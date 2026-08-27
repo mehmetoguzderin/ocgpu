@@ -3,6 +3,8 @@
 [CmdletBinding()]
 param(
     [Parameter(Mandatory = $true)]
+    [string] $Hip570Inventory,
+    [Parameter(Mandatory = $true)]
     [string] $Hip571Inventory,
     [Parameter(Mandatory = $true)]
     [string] $Hip612Inventory,
@@ -59,7 +61,7 @@ $linuxPlatforms = @(
     'x86_64-unknown-linux-gnu'
 )
 $sources = [ordered]@{
-    'hip-5.7.31541' = [ordered]@{ Path = Resolve-Input $Hip571Inventory; InventoryId = 'hip-profile-5.7.1-review'; Platforms = $allPlatforms; HeaderRole = 'authoritative-hip-header' }
+    'hip-5.7.31541' = [ordered]@{ Path = Resolve-Input $Hip570Inventory; InventoryId = 'hip-profile-5.7.0-review'; Platforms = $allPlatforms; HeaderRole = 'authoritative-hip-header' }
     'hip-5.7.31921' = [ordered]@{ Path = Resolve-Input $Hip571Inventory; InventoryId = 'hip-profile-5.7.1-review'; Platforms = $allPlatforms; HeaderRole = 'authoritative-hip-header' }
     'hip-6.1.40093' = [ordered]@{ Path = Resolve-Input $Hip612Inventory; InventoryId = 'hip-profile-6.1.2-review'; Platforms = $allPlatforms; HeaderRole = 'authoritative-hip-header' }
     'hip-6.2.41134' = [ordered]@{ Path = Resolve-Input $Hip624Inventory; InventoryId = 'hip-profile-6.2.4-review'; Platforms = $allPlatforms; HeaderRole = 'authoritative-hip-header' }
@@ -93,6 +95,21 @@ foreach ($release in $ledger.reviewed_releases) {
     $headerArtifact = $headerArtifacts[0]
     if ([string]::IsNullOrWhiteSpace($headerArtifact.revision)) {
         throw "$($release.id) pinned HIP header artifact has no revision"
+    }
+    $clrArtifacts = @(
+        $inventory.source_artifacts | Where-Object {
+            $_.role -eq 'supporting-clr-source' -and
+            $_.url -eq $release.clr_archive_url -and
+            $_.sha256 -eq $release.clr_archive_sha256 -and
+            $_.path -eq 'hipamd/include'
+        }
+    )
+    if ($clrArtifacts.Count -ne 1) {
+        throw "$($release.id) source inventory does not contain exactly one matching pinned CLR include artifact"
+    }
+    $clrArtifact = $clrArtifacts[0]
+    if ([string]::IsNullOrWhiteSpace($clrArtifact.revision)) {
+        throw "$($release.id) pinned CLR include artifact has no revision"
     }
     $functions = @(
         $inventory.entries |
@@ -166,6 +183,13 @@ foreach ($release in $ledger.reviewed_releases) {
             revision = $headerArtifact.revision
             path = $headerArtifact.path
         }
+        source_clr_artifact = [ordered]@{
+            role = $clrArtifact.role
+            url = $clrArtifact.url
+            sha256 = $clrArtifact.sha256
+            revision = $clrArtifact.revision
+            path = $clrArtifact.path
+        }
         target_abi = [ordered]@{
             pointer_width_bits = 64
             size_t_width_bits = 64
@@ -198,6 +222,6 @@ $document = [ordered]@{
     snapshots = $snapshots
 }
 $destination = Resolve-Input $Output
-$json = $document | ConvertTo-Json -Depth 20
+$json = ($document | ConvertTo-Json -Depth 20) -replace "`r`n?", "`n"
 [IO.File]::WriteAllText($destination, "$json`n", [Text.UTF8Encoding]::new($false))
 Write-Host "Wrote $destination"

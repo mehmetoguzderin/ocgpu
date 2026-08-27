@@ -62954,17 +62954,16 @@
       "inventory_id": "hip-general-7.14.60850",
       "item_kind": "function",
       "item_name": "hipCtxSynchronize",
-      "classification": "covered_adapter",
-      "reason": "hipCtxSynchronize is emitted in the generated hip raw table as ocgpuHipCtxSynchronize from the exact hip-general-7.14.60850 item-kind and normalized-signature hash; runtime loading resolves this callable slot.",
+      "classification": "deprecated_covered",
+      "reason": "hipCtxSynchronize remains emitted in the generated hip raw table as ocgpuHipCtxSynchronize from the exact hip-general-7.14.60850 item-kind and normalized-signature hash; common operation context.synchronize dispatches to hipDeviceSynchronize instead, so this deprecated raw call is not invoked by the common path.",
       "manifest_ids": [
-        "context.synchronize",
         "raw.hip.db78f694"
       ],
       "implementation_symbols": [
         "ocgpuHipCtxSynchronize"
       ],
       "runtime_resolvable": true,
-      "hardware_smoke": true
+      "hardware_smoke": false
     },
     {
       "inventory_id": "hip-general-7.14.60850",
@@ -63573,16 +63572,17 @@
       "inventory_id": "hip-general-7.14.60850",
       "item_kind": "function",
       "item_name": "hipDeviceSynchronize",
-      "classification": "covered_raw_only",
-      "reason": "hipDeviceSynchronize is emitted in the generated hip raw table as ocgpuHipDeviceSynchronize from the exact hip-general-7.14.60850 item-kind and normalized-signature hash; runtime loading resolves this callable slot.",
+      "classification": "covered_adapter",
+      "reason": "hipDeviceSynchronize is emitted in the generated hip raw table as ocgpuHipDeviceSynchronize from the exact hip-general-7.14.60850 item-kind and normalized-signature hash; it also supplies common operation context.synchronize through the reviewed dispatch override from hipCtxSynchronize.",
       "manifest_ids": [
+        "context.synchronize",
         "raw.hip.df9c32fb"
       ],
       "implementation_symbols": [
         "ocgpuHipDeviceSynchronize"
       ],
       "runtime_resolvable": true,
-      "hardware_smoke": false
+      "hardware_smoke": true
     },
     {
       "inventory_id": "hip-general-7.14.60850",
@@ -86015,17 +86015,16 @@
       "inventory_id": "hip-windows-7.2.0",
       "item_kind": "function",
       "item_name": "hipCtxSynchronize",
-      "classification": "covered_adapter",
-      "reason": "hipCtxSynchronize is emitted in the generated hip raw table as ocgpuHipCtxSynchronize from the exact hip-windows-7.2.0 item-kind and normalized-signature hash; runtime loading resolves this callable slot.",
+      "classification": "deprecated_covered",
+      "reason": "hipCtxSynchronize remains emitted in the generated hip raw table as ocgpuHipCtxSynchronize from the exact hip-windows-7.2.0 item-kind and normalized-signature hash; common operation context.synchronize dispatches to hipDeviceSynchronize instead, so this deprecated raw call is not invoked by the common path.",
       "manifest_ids": [
-        "context.synchronize",
         "raw.hip.db78f694"
       ],
       "implementation_symbols": [
         "ocgpuHipCtxSynchronize"
       ],
       "runtime_resolvable": true,
-      "hardware_smoke": true
+      "hardware_smoke": false
     },
     {
       "inventory_id": "hip-windows-7.2.0",
@@ -86559,16 +86558,17 @@
       "inventory_id": "hip-windows-7.2.0",
       "item_kind": "function",
       "item_name": "hipDeviceSynchronize",
-      "classification": "covered_raw_only",
-      "reason": "hipDeviceSynchronize is emitted in the generated hip raw table as ocgpuHipDeviceSynchronize from the exact hip-windows-7.2.0 item-kind and normalized-signature hash; runtime loading resolves this callable slot.",
+      "classification": "covered_adapter",
+      "reason": "hipDeviceSynchronize is emitted in the generated hip raw table as ocgpuHipDeviceSynchronize from the exact hip-windows-7.2.0 item-kind and normalized-signature hash; it also supplies common operation context.synchronize through the reviewed dispatch override from hipCtxSynchronize.",
       "manifest_ids": [
+        "context.synchronize",
         "raw.hip.df9c32fb"
       ],
       "implementation_symbols": [
         "ocgpuHipDeviceSynchronize"
       ],
       "runtime_resolvable": true,
-      "hardware_smoke": false
+      "hardware_smoke": true
     },
     {
       "inventory_id": "hip-windows-7.2.0",
@@ -107471,17 +107471,16 @@
       "inventory_id": "rocmrc-0.5.0",
       "item_kind": "function",
       "item_name": "hipCtxSynchronize",
-      "classification": "covered_adapter",
-      "reason": "hipCtxSynchronize is emitted in the generated hip raw table as ocgpuHipCtxSynchronize from the exact rocmrc-0.5.0 item-kind and normalized-signature hash; runtime loading resolves this callable slot.",
+      "classification": "covered_raw_only",
+      "reason": "hipCtxSynchronize remains emitted in the generated hip raw table as ocgpuHipCtxSynchronize from the exact rocmrc-0.5.0 item-kind and normalized-signature hash; common operation context.synchronize dispatches to hipDeviceSynchronize instead, so this deprecated raw call is not invoked by the common path.",
       "manifest_ids": [
-        "context.synchronize",
         "raw.hip.db78f694"
       ],
       "implementation_symbols": [
         "ocgpuHipCtxSynchronize"
       ],
       "runtime_resolvable": true,
-      "hardware_smoke": true
+      "hardware_smoke": false
     },
     {
       "inventory_id": "rocmrc-0.5.0",
@@ -108015,16 +108014,17 @@
       "inventory_id": "rocmrc-0.5.0",
       "item_kind": "function",
       "item_name": "hipDeviceSynchronize",
-      "classification": "covered_raw_only",
-      "reason": "hipDeviceSynchronize is emitted in the generated hip raw table as ocgpuHipDeviceSynchronize from the exact rocmrc-0.5.0 item-kind and normalized-signature hash; runtime loading resolves this callable slot.",
+      "classification": "covered_adapter",
+      "reason": "hipDeviceSynchronize is emitted in the generated hip raw table as ocgpuHipDeviceSynchronize from the exact rocmrc-0.5.0 item-kind and normalized-signature hash; it also supplies common operation context.synchronize through the reviewed dispatch override from hipCtxSynchronize.",
       "manifest_ids": [
+        "context.synchronize",
         "raw.hip.df9c32fb"
       ],
       "implementation_symbols": [
         "ocgpuHipDeviceSynchronize"
       ],
       "runtime_resolvable": true,
-      "hardware_smoke": false
+      "hardware_smoke": true
     },
     {
       "inventory_id": "rocmrc-0.5.0",

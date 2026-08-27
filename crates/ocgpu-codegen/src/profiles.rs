@@ -416,7 +416,16 @@ pub(super) fn validate_hip_runtime_profiles(
             &str,
             &[&str],
         ) = match release {
-            "hip-5.7.31541" | "hip-5.7.31921" => (
+            "hip-5.7.31541" => (
+                "hip-profile-5.7.0-review",
+                "authoritative-hip-header",
+                &[
+                    "aarch64-unknown-linux-gnu",
+                    "x86_64-pc-windows-msvc",
+                    "x86_64-unknown-linux-gnu",
+                ],
+            ),
+            "hip-5.7.31921" => (
                 "hip-profile-5.7.1-review",
                 "authoritative-hip-header",
                 &[
@@ -480,6 +489,11 @@ pub(super) fn validate_hip_runtime_profiles(
             || snapshot.source_header_artifact.sha256 != ledger_release.hip_header_sha256
             || snapshot.source_header_artifact.path != ledger_release.hip_header_path
             || snapshot.source_header_artifact.revision.trim().is_empty()
+            || snapshot.source_clr_artifact.role != "supporting-clr-source"
+            || snapshot.source_clr_artifact.url != ledger_release.clr_archive_url
+            || snapshot.source_clr_artifact.sha256 != ledger_release.clr_archive_sha256
+            || snapshot.source_clr_artifact.path != "hipamd/include"
+            || snapshot.source_clr_artifact.revision.trim().is_empty()
             || snapshot.target_abi.pointer_width_bits != 64
             || snapshot.target_abi.size_t_width_bits != 64
             || snapshot.target_abi.enum_width_bits != 32
@@ -672,7 +686,7 @@ pub(super) fn validate_hip_runtime_profiles(
     let manifest_common = manifest
         .functions
         .iter()
-        .map(|function| function.hip.vendor_symbol.as_str())
+        .map(|function| function.hip.effective_dispatch_symbol())
         .collect::<BTreeSet<_>>();
     exact_names.insert(adapter.name.as_str());
     if exact_names != manifest_common || exact_names.len() != 26 {
@@ -696,16 +710,34 @@ pub(super) fn validate_hip_runtime_profiles(
             )));
         }
     }
+    if ledger.semantic_reviews.len() != 7 {
+        return Err(invalid("expected seven complete semantic review groups"));
+    }
+    let mut semantic_operations = BTreeSet::new();
+    for review in &ledger.semantic_reviews {
+        if review.operations.is_empty()
+            || review.finding.trim().is_empty()
+            || review.proof.trim().is_empty()
+        {
+            return Err(invalid("semantic review evidence is incomplete"));
+        }
+        for operation in &review.operations {
+            if !semantic_operations.insert(operation.as_str()) {
+                return Err(invalid(format!(
+                    "semantic operation {operation} is reviewed more than once"
+                )));
+            }
+        }
+    }
+    if semantic_operations != exact_names {
+        return Err(invalid(
+            "semantic review operation union differs from the common HIP ABI",
+        ));
+    }
     if attributes.len() != 32
         || ledger.transitive_abi_facts.len() < 8
         || ledger.transitive_abi_facts.iter().any(|fact| {
             fact.fact.trim().is_empty() || fact.proof.trim().is_empty() || fact.expected.is_null()
-        })
-        || ledger.semantic_reviews.len() < 5
-        || ledger.semantic_reviews.iter().any(|review| {
-            review.operations.is_empty()
-                || review.finding.trim().is_empty()
-                || review.proof.trim().is_empty()
         })
         || ledger.library_naming_evidence.len() != 6
         || ledger.library_naming_evidence.iter().any(|evidence| {
@@ -770,7 +802,7 @@ pub(super) fn render_hip_runtime_profiles(
     let common = manifest
         .functions
         .iter()
-        .map(|function| function.hip.vendor_symbol.as_str())
+        .map(|function| function.hip.effective_dispatch_symbol())
         .collect::<Vec<_>>();
     let legacy_exact = common
         .iter()
@@ -823,4 +855,72 @@ pub(super) fn render_hip_runtime_profiles(
     }
     output.push_str("];\n");
     output
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn inputs() -> (ApiManifest, HipRuntimeProfiles, HipRuntimeDeclarations) {
+        (
+            toml::from_str(include_str!("../../../api/ocgpu-api.toml"))
+                .expect("canonical API manifest parses"),
+            serde_json::from_str(include_str!(
+                "../../../oracle/vendor/hip/runtime-profiles.json"
+            ))
+            .expect("HIP profile ledger parses"),
+            serde_json::from_str(include_str!(
+                "../../../oracle/vendor/hip/runtime-profile-declarations.json"
+            ))
+            .expect("HIP profile declarations parse"),
+        )
+    }
+
+    #[test]
+    fn reviewed_profile_declarations_validate() {
+        let (manifest, ledger, declarations) = inputs();
+        validate_hip_runtime_profiles(&manifest, &ledger, &declarations)
+            .expect("reviewed profile evidence is coherent");
+    }
+
+    #[test]
+    fn profile_source_binding_and_platform_drift_fail_closed() {
+        let (manifest, ledger, mut declarations) = inputs();
+        declarations.snapshots[5].source_header_artifact.sha256 =
+            format!("sha256:{}", "0".repeat(64));
+        assert!(validate_hip_runtime_profiles(&manifest, &ledger, &declarations).is_err());
+
+        let (manifest, ledger, mut declarations) = inputs();
+        declarations.snapshots[5]
+            .source_inventory_platforms
+            .remove(0);
+        assert!(validate_hip_runtime_profiles(&manifest, &ledger, &declarations).is_err());
+    }
+
+    #[test]
+    fn profile_device_attribute_drift_fails_closed() {
+        let (manifest, ledger, mut declarations) = inputs();
+        declarations.snapshots[0].device_attributes[0].value += 1;
+        assert!(validate_hip_runtime_profiles(&manifest, &ledger, &declarations).is_err());
+    }
+
+    #[test]
+    fn common_profile_uses_the_reviewed_dispatch_symbol() {
+        let (mut manifest, ledger, declarations) = inputs();
+        let function = manifest
+            .functions
+            .iter_mut()
+            .find(|function| function.id == "context.synchronize")
+            .expect("context synchronization operation exists");
+        function.hip.vendor_symbol = "hipCtxSynchronize".to_owned();
+        function.hip.raw_name = "ocgpuHipCtxSynchronize".to_owned();
+        function.hip.dispatch_symbol = Some("hipDeviceSynchronize".to_owned());
+        function.hip.classification = "covered_adapter".to_owned();
+
+        validate_hip_runtime_profiles(&manifest, &ledger, &declarations)
+            .expect("dispatch symbol agrees with the reviewed runtime profiles");
+        let source = render_hip_runtime_profiles(&manifest, &ledger);
+        assert!(source.contains("\"hipDeviceSynchronize\""));
+        assert!(!source.contains("\"hipCtxSynchronize\""));
+    }
 }

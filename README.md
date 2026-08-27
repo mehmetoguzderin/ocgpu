@@ -78,9 +78,11 @@ The target machine still needs a compatible driver/runtime: `libcuda.so.1` or
 `libamdhip64.so.7`, `.so.6`, or `.so.5` (with unversioned `libamdhip64.so` as a
 verified Linux fallback), or `amdhip64_7.dll`, `amdhip64_6.dll`, or legacy
 `amdhip64.dll` on Windows.
-The HIP loader binds the library name to an explicit major-version profile and
-verifies the runtime-reported version before exposing callable entries. It
-never treats same-named exports from different HIP majors as ABI proof.
+The HIP loader binds each versioned library name to an explicit major profile
+and verifies the runtime-reported version before exposing callable entries.
+The Linux unversioned fallback makes no filename-based major claim and is
+classified solely by a supported runtime-reported version. The loader never
+treats same-named exports from different HIP majors as ABI proof.
 Missing libraries and optional symbols are reported as capabilities or
 structured errors; they never trigger SDK discovery.
 
