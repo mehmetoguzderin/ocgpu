@@ -14,14 +14,18 @@ keywords = ["gpu", "cuda", "hip", "ffi"]
 categories = ["api-bindings", "hardware-support"]
 
 [features]
-default = ["cuda", "hip", "raw-cuda", "raw-hip"]
+default = ["cuda", "hip", "raw-cuda", "raw-hip", "nvrtc", "hiprtc"]
 cuda = ["dep:ocgpu-cuda"]
 hip = ["dep:ocgpu-hip"]
 raw-cuda = ["cuda"]
 raw-hip = ["hip"]
+rtc = ["dep:ocgpu-rtc"]
+nvrtc = ["rtc", "cuda"]
+hiprtc = ["rtc", "hip"]
 explicit-library-path = [
     "ocgpu-cuda?/explicit-library-path",
     "ocgpu-hip?/explicit-library-path",
+    "ocgpu-rtc?/explicit-library-path",
 ]
 global-default-backend = ["cuda", "hip"]
 
@@ -29,6 +33,7 @@ global-default-backend = ["cuda", "hip"]
 ocgpu-abi = { path = "../ocgpu-abi", version = "0.1.0" }
 ocgpu-cuda = { path = "../ocgpu-cuda", version = "0.1.0", optional = true }
 ocgpu-hip = { path = "../ocgpu-hip", version = "0.1.0", optional = true }
+ocgpu-rtc = { path = "../ocgpu-rtc", version = "0.1.0", optional = true }
 
 [dev-dependencies]
 sha2 = "0.10.9"

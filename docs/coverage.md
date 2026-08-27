@@ -50,6 +50,24 @@ maintainer workflow may consult public authoritative material and crates.io, but
 it installs no GPU SDK or vendor compiler and never rewrites reviewed snapshots
 without a human diff.
 
+## Runtime-compiler coverage boundary
+
+NVRTC and HIPRTC are intentionally not added to the five existing oracle
+snapshots or their coverage denominators by the initial RTC capability. The
+common RTC table, `ocgpuNvrtcApi_v1`, and `ocgpuHiprtcApi_v1` have ABI,
+required-field, loader, state-machine, and mocked compilation tests, but no
+exhaustive vendor-API percentage is claimed. Actual runtime compilation and
+launch evidence is recorded separately per compiler and device backend; a CUDA
+driver launch is not NVRTC evidence, and a HIP driver launch is not HIPRTC
+evidence. A future exhaustive raw-compiler metric requires separately pinned,
+reviewed vendor compiler inventories and classifications rather than silently
+expanding a driver/runtime denominator.
+
+Within the eleven-call common RTC profile, nine declarations are exact direct
+intersections. The two HIPRTC pointer-array const-qualification adapters are
+tracked separately and do not inflate exact-common coverage; raw HIPRTC keeps
+the pinned source declarations unchanged.
+
 The exact maintainer path is
 `.github/scripts/extract-official-oracles.ps1`. It verifies both downloaded
 archive hashes and extracted authoritative-header hashes, including CUDA
@@ -101,7 +119,7 @@ The validator rejects:
 - claimed implementation identifiers absent from generated/shipping Rust code;
 - a difference between Windows `.def` and ELF version-script exports; and
 - exported identifiers absent from the manifest, generated inventory, or the
-  three version-negotiation bootstrap exports.
+  six version-negotiation management getters.
 
 ## Reports and embedding
 

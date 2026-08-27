@@ -5,6 +5,9 @@ OCGPU_1.0 {
         ocgpuGetApi;
         ocgpuCuGetApi;
         ocgpuHipGetApi;
+        ocgpuRtcGetApi;
+        ocgpuNvrtcGetApi;
+        ocgpuHiprtcGetApi;
     local:
         *;
 };

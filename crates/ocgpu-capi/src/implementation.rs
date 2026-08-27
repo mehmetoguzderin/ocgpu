@@ -2,12 +2,17 @@
 
 use core::mem;
 use core::ptr;
-#[cfg(any(not(feature = "cuda"), not(feature = "hip")))]
+#[cfg(any(
+    not(feature = "cuda"),
+    not(feature = "hip"),
+    not(feature = "nvrtc"),
+    not(feature = "hiprtc")
+))]
 use ocgpu_abi::OCGPU_ERROR_BACKEND_NOT_FOUND;
 use ocgpu_abi::{
     OCGPU_ABI_VERSION_1, OCGPU_BACKEND_CUDA, OCGPU_BACKEND_HIP, OCGPU_ERROR_ABI_MISMATCH,
     OCGPU_ERROR_INVALID_ARGUMENT, OCGPU_SUCCESS, ocgpuApi_v1, ocgpuBackend, ocgpuCuApi_v1,
-    ocgpuHipApi_v1, ocgpuResult,
+    ocgpuHipApi_v1, ocgpuHiprtcApi_v1, ocgpuNvrtcApi_v1, ocgpuResult, ocgpuRtcApi_v1,
 };
 use std::panic::{AssertUnwindSafe, catch_unwind};
 
@@ -78,6 +83,92 @@ pub(crate) unsafe fn get_hip_api(
     })
 }
 
+pub(crate) unsafe fn get_rtc_api(
+    backend: ocgpuBackend,
+    requested_abi: u32,
+    output_size: usize,
+    output: *mut ocgpuRtcApi_v1,
+) -> ocgpuResult {
+    boundary(|| {
+        validate_request(requested_abi, output_size, output)?;
+        match backend {
+            OCGPU_BACKEND_CUDA => {
+                #[cfg(feature = "nvrtc")]
+                {
+                    let table =
+                        ocgpu_rtc::load_common(backend).map_err(|error| error.as_ocgpu_result())?;
+                    // SAFETY: request validation established the output contract.
+                    unsafe { write_table(output, output_size, &table) };
+                    Ok(())
+                }
+                #[cfg(not(feature = "nvrtc"))]
+                {
+                    Err(OCGPU_ERROR_BACKEND_NOT_FOUND)
+                }
+            }
+            OCGPU_BACKEND_HIP => {
+                #[cfg(feature = "hiprtc")]
+                {
+                    let table =
+                        ocgpu_rtc::load_common(backend).map_err(|error| error.as_ocgpu_result())?;
+                    // SAFETY: request validation established the output contract.
+                    unsafe { write_table(output, output_size, &table) };
+                    Ok(())
+                }
+                #[cfg(not(feature = "hiprtc"))]
+                {
+                    Err(OCGPU_ERROR_BACKEND_NOT_FOUND)
+                }
+            }
+            _ => Err(OCGPU_ERROR_INVALID_ARGUMENT),
+        }
+    })
+}
+
+pub(crate) unsafe fn get_nvrtc_api(
+    requested_abi: u32,
+    output_size: usize,
+    output: *mut ocgpuNvrtcApi_v1,
+) -> ocgpuResult {
+    boundary(|| {
+        validate_request(requested_abi, output_size, output)?;
+        #[cfg(feature = "nvrtc")]
+        {
+            let table = ocgpu_rtc::load_nvrtc_raw().map_err(|error| error.as_ocgpu_result())?;
+            // SAFETY: request validation established the output contract.
+            unsafe { write_table(output, output_size, &table) };
+            Ok(())
+        }
+        #[cfg(not(feature = "nvrtc"))]
+        {
+            let _ = output;
+            Err(OCGPU_ERROR_BACKEND_NOT_FOUND)
+        }
+    })
+}
+
+pub(crate) unsafe fn get_hiprtc_api(
+    requested_abi: u32,
+    output_size: usize,
+    output: *mut ocgpuHiprtcApi_v1,
+) -> ocgpuResult {
+    boundary(|| {
+        validate_request(requested_abi, output_size, output)?;
+        #[cfg(feature = "hiprtc")]
+        {
+            let table = ocgpu_rtc::load_hiprtc_raw().map_err(|error| error.as_ocgpu_result())?;
+            // SAFETY: request validation established the output contract.
+            unsafe { write_table(output, output_size, &table) };
+            Ok(())
+        }
+        #[cfg(not(feature = "hiprtc"))]
+        {
+            let _ = output;
+            Err(OCGPU_ERROR_BACKEND_NOT_FOUND)
+        }
+    })
+}
+
 fn validate_request<T>(
     requested_abi: u32,
     output_size: usize,
@@ -118,10 +209,14 @@ fn boundary(operation: impl FnOnce() -> core::result::Result<(), ocgpuResult>) -
 
 #[cfg(test)]
 mod tests {
-    use super::{TABLE_PREFIX_SIZE, boundary, get_api, validate_request, write_table};
+    use super::{
+        TABLE_PREFIX_SIZE, boundary, get_api, get_hiprtc_api, get_nvrtc_api, get_rtc_api,
+        validate_request, write_table,
+    };
     use ocgpu_abi::{
         OCGPU_ABI_VERSION_1, OCGPU_API_FLAG_HIP_RUNTIME_PROFILE_6, OCGPU_BACKEND_CUDA,
-        OCGPU_ERROR_ABI_MISMATCH, OCGPU_ERROR_INVALID_ARGUMENT, ocgpuApi_v1,
+        OCGPU_ERROR_ABI_MISMATCH, OCGPU_ERROR_INVALID_ARGUMENT, ocgpuApi_v1, ocgpuHiprtcApi_v1,
+        ocgpuNvrtcApi_v1, ocgpuRtcApi_v1,
     };
 
     #[test]
@@ -137,6 +232,36 @@ mod tests {
             )
         };
         assert_eq!(result, OCGPU_ERROR_INVALID_ARGUMENT);
+
+        // SAFETY: each call intentionally supplies a null output. Request
+        // validation must reject it before attempting any RTC library load.
+        unsafe {
+            assert_eq!(
+                get_rtc_api(
+                    OCGPU_BACKEND_CUDA,
+                    OCGPU_ABI_VERSION_1,
+                    size_of::<ocgpuRtcApi_v1>(),
+                    core::ptr::null_mut(),
+                ),
+                OCGPU_ERROR_INVALID_ARGUMENT
+            );
+            assert_eq!(
+                get_nvrtc_api(
+                    OCGPU_ABI_VERSION_1,
+                    size_of::<ocgpuNvrtcApi_v1>(),
+                    core::ptr::null_mut(),
+                ),
+                OCGPU_ERROR_INVALID_ARGUMENT
+            );
+            assert_eq!(
+                get_hiprtc_api(
+                    OCGPU_ABI_VERSION_1,
+                    size_of::<ocgpuHiprtcApi_v1>(),
+                    core::ptr::null_mut(),
+                ),
+                OCGPU_ERROR_INVALID_ARGUMENT
+            );
+        }
     }
 
     #[test]

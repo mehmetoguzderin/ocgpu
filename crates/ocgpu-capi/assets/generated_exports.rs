@@ -136,6 +136,49 @@ pub unsafe extern "C" fn ocgpuHipGetApi(
     unsafe { crate::implementation::get_hip_api(requested_abi, output_size, output) }
 }
 
+/// Negotiate a backend-bound common RTC ABI table.
+///
+/// # Safety
+/// `output` must designate `output_size` writable bytes when non-null.
+#[unsafe(no_mangle)]
+pub unsafe extern "C" fn ocgpuRtcGetApi(
+    backend: ocgpu_abi::ocgpuBackend,
+    requested_abi: u32,
+    output_size: usize,
+    output: *mut ocgpu_abi::ocgpuRtcApi_v1,
+) -> ocgpu_abi::ocgpuResult {
+    // SAFETY: This export forwards its documented output-buffer contract unchanged.
+    unsafe { crate::implementation::get_rtc_api(backend, requested_abi, output_size, output) }
+}
+
+/// Negotiate a raw NVRTC ABI table.
+///
+/// # Safety
+/// `output` must designate `output_size` writable bytes when non-null.
+#[unsafe(no_mangle)]
+pub unsafe extern "C" fn ocgpuNvrtcGetApi(
+    requested_abi: u32,
+    output_size: usize,
+    output: *mut ocgpu_abi::ocgpuNvrtcApi_v1,
+) -> ocgpu_abi::ocgpuResult {
+    // SAFETY: This export forwards its documented output-buffer contract unchanged.
+    unsafe { crate::implementation::get_nvrtc_api(requested_abi, output_size, output) }
+}
+
+/// Negotiate a raw HIPRTC ABI table.
+///
+/// # Safety
+/// `output` must designate `output_size` writable bytes when non-null.
+#[unsafe(no_mangle)]
+pub unsafe extern "C" fn ocgpuHiprtcGetApi(
+    requested_abi: u32,
+    output_size: usize,
+    output: *mut ocgpu_abi::ocgpuHiprtcApi_v1,
+) -> ocgpu_abi::ocgpuResult {
+    // SAFETY: This export forwards its documented output-buffer contract unchanged.
+    unsafe { crate::implementation::get_hiprtc_api(requested_abi, output_size, output) }
+}
+
 /// Manifest-selected result for a panic caught at a management getter boundary.
 pub(crate) const OCGPU_MANAGEMENT_PANIC_RESULT: ocgpu_abi::ocgpuResult =
     ocgpu_abi::OCGPU_ERROR_INTERNAL;

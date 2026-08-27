@@ -40,18 +40,53 @@ leave the other current-layout slots null.
 
 Default top-level runtime lookup never searches CWD. The Rust-only
 `explicit-library-path` feature provides unsafe
-`Driver::<B>::load_from_absolute` for an absolute path. Its caller must trust
-the library and dependency closure, constructors, exact vendor ABI, and file
-identity between validation and OS loading. C ABI v1 deliberately has no
-explicit-path getter and always uses secure default discovery; a future C
-override would require an append-only, version-negotiated design. The first
-initialization attempt for each backend, including its result and chosen path,
-wins for the process lifetime. Loaded library handles then remain live so
-issued function and GPU handles cannot outlive their code.
+`Driver::<B>::load_from_absolute` and the corresponding compiler loader for an
+absolute path. Their caller must trust the library and dependency closure,
+constructors, exact vendor ABI, and file identity between validation and OS
+loading. C ABI v1 deliberately has no explicit-path getter and always uses
+secure default discovery; a future C override would require an append-only,
+version-negotiated design. The first initialization attempt for each driver
+backend or compiler component, including its result and chosen path, wins for
+the process lifetime. Loaded library handles then remain live so issued
+function, program, and GPU handles cannot outlive their code.
 
-Applications must ship suitable precompiled device code: PTX, cubin, or fatbin
-for CUDA and an appropriate HSACO/code object or HIP fat binary for HIP. NVRTC
-and HIPRTC are outside the core deployment contract.
+Applications may ship suitable precompiled device code: PTX, cubin, or fatbin
+for CUDA and an appropriate HSACO/code object or HIP fat binary for HIP.
+Alternatively, the RTC capability compiles a source string in memory and feeds
+the resulting backend image to the same common module/load/launch path. It does
+not invoke `nvcc`, `hipcc`, Clang, or another compute backend.
+
+Runtime compilers are separate native components rather than driver exports:
+
+| Capability | Linux deployment | Windows deployment |
+|---|---|---|
+| NVRTC | compatible `libnvrtc.so` family and its runtime dependencies | matching `nvrtc64_*_0.dll` and `nvrtc-builtins64_*.dll` |
+| HIPRTC | compatible `libhiprtc.so` family and its runtime dependencies | reviewed `hiprtc0702.dll`, `hiprtc0604.dll`, `hiprtc0602.dll`, `hiprtc0601.dll`, or HIP 5.7 `hiprtc.dll`, plus runtime dependencies |
+
+Neither component is linked into the shared or static `ocgpu` library. SDK
+headers, import libraries, static RTC archives, and vendor compiler executables
+remain forbidden build inputs. A runtime-only shared library may be deployed
+with an application under its vendor terms. `ocgpu` never downloads, installs,
+or updates it. The driver and compiler have independent one-time load results:
+an absent compiler is a structured RTC capability failure and does not disable
+enumeration, precompiled modules, or other driver operations.
+
+An explicit RTC library path is a native-code trust boundary. The hardware
+harness accepts it only through `OCGPU_NVRTC_LIBRARY` or
+`OCGPU_HIPRTC_LIBRARY`; the value must be an absolute path to a reviewed file,
+and its dependency directory must contain the matching reviewed runtime
+components. Never point these variables at an untrusted download, a relative
+path, or a writable current directory. On Windows, `nvcuda.dll` has no NVRTC
+exports and `amdhip64.dll` has no HIPRTC API; selecting either driver DLL as a
+compiler is an error rather than a fallback.
+
+The audited laptop has an NVRTC 12.4 DLL pair only in its installed CUDA Toolkit
+directory. Its System32 driver directory has `nvcuda.dll` but no NVRTC library,
+and it has `amdhip64.dll` but no HIPRTC library. The machine therefore proves
+HIP driver execution independently of HIPRTC availability. Supplying a
+compatible, application-local HIPRTC runtime component is required before a
+HIPRTC compile result can honestly be reported; do not substitute direct COMGR,
+OpenCL, an external compiler, or a newer mismatched HIPRTC library.
 
 Inspect a candidate without loading a GPU runtime or executing device code:
 
@@ -212,6 +247,19 @@ The smoke test does not install or update drivers, reset devices or contexts it
 did not create, alter display state, change persistence/power/clock settings,
 loop a workload, or request a reboot. A runner serving an interactive display
 must not carry an `ocgpu` hardware label.
+
+RTC hardware validation is subject to the same rule and runs inside the
+watchdog-supervised test child, not as an unsupervised build step. It compiles
+one fixed, repository-reviewed, headerless source string once per selected
+backend; dispatch input cannot replace the source or add arbitrary compiler
+options. Source, option, diagnostic-log, and generated-image lengths are
+checked before allocation or use. The generated entry point has one block, one
+thread, no loop, no dynamic shared memory, and no device-management operation.
+On the Windows HIP 5 integrated path it remains a true no-op: the existing
+machine evidence permits bounded copies and a no-op launch but does not justify
+a memory-writing HIP kernel. CUDA and HIP RTC work may run concurrently only
+under the distinct dual-execution acknowledgement, with independent programs,
+contexts, streams, events, and bounded workers.
 
 Single-backend workflow jobs run `doctor --json` without `--strict`, because
 strict doctor requires every compiled backend. Dual-runner jobs use strict

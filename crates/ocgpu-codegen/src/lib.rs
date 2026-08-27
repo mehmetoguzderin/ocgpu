@@ -49,6 +49,211 @@ const HIP_RUNTIME_DECLARATIONS_PATH: &str = "oracle/vendor/hip/runtime-profile-d
 const HIP_GENERATED_PROFILES_PATH: &str = "crates/ocgpu-hip/src/generated_profiles.rs";
 const VENDOR_FUNCTION_UNION_PATH: &str = "oracle/vendor/function-union.json";
 
+const MANAGEMENT_GETTER_EXPORTS: &[&str] = &[
+    "ocgpuGetApi",
+    "ocgpuCuGetApi",
+    "ocgpuHipGetApi",
+    "ocgpuRtcGetApi",
+    "ocgpuNvrtcGetApi",
+    "ocgpuHiprtcGetApi",
+];
+
+const RTC_C_TABLE_LAYOUTS: &[(&str, usize, &[&str])] = &[
+    (
+        "ocgpuRtcApi_v1",
+        112,
+        &[
+            "struct_size",
+            "abi_version",
+            "backend",
+            "flags",
+            "rtc_version_major",
+            "rtc_version_minor",
+            "ocgpuRtcGetErrorString",
+            "ocgpuRtcVersion",
+            "ocgpuRtcCreateProgram",
+            "ocgpuRtcDestroyProgram",
+            "ocgpuRtcCompileProgram",
+            "ocgpuRtcGetProgramLogSize",
+            "ocgpuRtcGetProgramLog",
+            "ocgpuRtcAddNameExpression",
+            "ocgpuRtcGetLoweredName",
+            "ocgpuRtcGetCodeSize",
+            "ocgpuRtcGetCode",
+        ],
+    ),
+    (
+        "ocgpuNvrtcApi_v1",
+        192,
+        &[
+            "struct_size",
+            "abi_version",
+            "backend",
+            "flags",
+            "rtc_version_major",
+            "rtc_version_minor",
+            "ocgpuNvrtcGetErrorString",
+            "ocgpuNvrtcVersion",
+            "ocgpuNvrtcCreateProgram",
+            "ocgpuNvrtcDestroyProgram",
+            "ocgpuNvrtcCompileProgram",
+            "ocgpuNvrtcGetProgramLogSize",
+            "ocgpuNvrtcGetProgramLog",
+            "ocgpuNvrtcAddNameExpression",
+            "ocgpuNvrtcGetLoweredName",
+            "ocgpuNvrtcGetPTXSize",
+            "ocgpuNvrtcGetPTX",
+            "ocgpuNvrtcGetNumSupportedArchs",
+            "ocgpuNvrtcGetSupportedArchs",
+            "ocgpuNvrtcGetCUBINSize",
+            "ocgpuNvrtcGetCUBIN",
+            "ocgpuNvrtcGetNVVMSize",
+            "ocgpuNvrtcGetNVVM",
+            "ocgpuNvrtcGetLTOIRSize",
+            "ocgpuNvrtcGetLTOIR",
+            "ocgpuNvrtcGetOptiXIRSize",
+            "ocgpuNvrtcGetOptiXIR",
+        ],
+    ),
+    (
+        "ocgpuHiprtcApi_v1",
+        168,
+        &[
+            "struct_size",
+            "abi_version",
+            "backend",
+            "flags",
+            "rtc_version_major",
+            "rtc_version_minor",
+            "ocgpuHiprtcGetErrorString",
+            "ocgpuHiprtcVersion",
+            "ocgpuHiprtcCreateProgram",
+            "ocgpuHiprtcDestroyProgram",
+            "ocgpuHiprtcCompileProgram",
+            "ocgpuHiprtcGetProgramLogSize",
+            "ocgpuHiprtcGetProgramLog",
+            "ocgpuHiprtcAddNameExpression",
+            "ocgpuHiprtcGetLoweredName",
+            "ocgpuHiprtcGetCodeSize",
+            "ocgpuHiprtcGetCode",
+            "ocgpuHiprtcGetBitcodeSize",
+            "ocgpuHiprtcGetBitcode",
+            "ocgpuHiprtcLinkCreate",
+            "ocgpuHiprtcLinkAddFile",
+            "ocgpuHiprtcLinkAddData",
+            "ocgpuHiprtcLinkComplete",
+            "ocgpuHiprtcLinkDestroy",
+        ],
+    ),
+];
+
+// Hand-authored declarations in ocgpu-abi/src/rtc.rs are outside the
+// canonical CUDA/HIP manifest. Keep them explicit so cbindgen cannot prune a
+// re-exported alias, constant, table, or getter that is part of the C ABI.
+const RTC_CBINDGEN_EXPORTS: &[&str] = &[
+    "ocgpuRtcResult",
+    "ocgpuRtcProgram",
+    "ocgpuRtcLinkState",
+    "ocgpuRtcJitInputType",
+    "ocgpuRtcJitOption",
+    "ocgpuNvrtcResult",
+    "ocgpuNvrtcProgram",
+    "ocgpuHiprtcResult",
+    "ocgpuHiprtcProgram",
+    "ocgpuHiprtcLinkState",
+    "ocgpuHiprtcJitInputType",
+    "ocgpuHiprtcJitOption",
+    "OCGPU_RTC_TABLE_PREFIX_SIZE",
+    "OCGPU_RTC_API_V1_SLOT_COUNT",
+    "OCGPU_NVRTC_API_V1_SLOT_COUNT",
+    "OCGPU_HIPRTC_API_V1_SLOT_COUNT",
+    "OCGPU_RTC_API_FLAG_CODE_IS_PTX",
+    "OCGPU_RTC_API_FLAG_CODE_IS_HIP_CODE_OBJECT",
+    "OCGPU_RTC_SUCCESS",
+    "OCGPU_RTC_ERROR_OUT_OF_MEMORY",
+    "OCGPU_RTC_ERROR_PROGRAM_CREATION_FAILURE",
+    "OCGPU_RTC_ERROR_INVALID_INPUT",
+    "OCGPU_RTC_ERROR_INVALID_PROGRAM",
+    "OCGPU_RTC_ERROR_INVALID_OPTION",
+    "OCGPU_RTC_ERROR_COMPILATION",
+    "OCGPU_RTC_ERROR_BUILTIN_OPERATION_FAILURE",
+    "OCGPU_RTC_ERROR_NO_NAME_EXPRESSIONS_AFTER_COMPILATION",
+    "OCGPU_RTC_ERROR_NO_LOWERED_NAMES_BEFORE_COMPILATION",
+    "OCGPU_RTC_ERROR_NAME_EXPRESSION_NOT_VALID",
+    "OCGPU_RTC_ERROR_INTERNAL_ERROR",
+    "OCGPU_NVRTC_SUCCESS",
+    "OCGPU_NVRTC_ERROR_OUT_OF_MEMORY",
+    "OCGPU_NVRTC_ERROR_PROGRAM_CREATION_FAILURE",
+    "OCGPU_NVRTC_ERROR_INVALID_INPUT",
+    "OCGPU_NVRTC_ERROR_INVALID_PROGRAM",
+    "OCGPU_NVRTC_ERROR_INVALID_OPTION",
+    "OCGPU_NVRTC_ERROR_COMPILATION",
+    "OCGPU_NVRTC_ERROR_BUILTIN_OPERATION_FAILURE",
+    "OCGPU_NVRTC_ERROR_NO_NAME_EXPRESSIONS_AFTER_COMPILATION",
+    "OCGPU_NVRTC_ERROR_NO_LOWERED_NAMES_BEFORE_COMPILATION",
+    "OCGPU_NVRTC_ERROR_NAME_EXPRESSION_NOT_VALID",
+    "OCGPU_NVRTC_ERROR_INTERNAL_ERROR",
+    "OCGPU_NVRTC_ERROR_TIME_FILE_WRITE_FAILED",
+    "OCGPU_HIPRTC_SUCCESS",
+    "OCGPU_HIPRTC_ERROR_OUT_OF_MEMORY",
+    "OCGPU_HIPRTC_ERROR_PROGRAM_CREATION_FAILURE",
+    "OCGPU_HIPRTC_ERROR_INVALID_INPUT",
+    "OCGPU_HIPRTC_ERROR_INVALID_PROGRAM",
+    "OCGPU_HIPRTC_ERROR_INVALID_OPTION",
+    "OCGPU_HIPRTC_ERROR_COMPILATION",
+    "OCGPU_HIPRTC_ERROR_BUILTIN_OPERATION_FAILURE",
+    "OCGPU_HIPRTC_ERROR_NO_NAME_EXPRESSIONS_AFTER_COMPILATION",
+    "OCGPU_HIPRTC_ERROR_NO_LOWERED_NAMES_BEFORE_COMPILATION",
+    "OCGPU_HIPRTC_ERROR_NAME_EXPRESSION_NOT_VALID",
+    "OCGPU_HIPRTC_ERROR_INTERNAL_ERROR",
+    "OCGPU_HIPRTC_ERROR_LINKING",
+    "OCGPU_HIPRTC_JIT_MAX_REGISTERS",
+    "OCGPU_HIPRTC_JIT_THREADS_PER_BLOCK",
+    "OCGPU_HIPRTC_JIT_WALL_TIME",
+    "OCGPU_HIPRTC_JIT_INFO_LOG_BUFFER",
+    "OCGPU_HIPRTC_JIT_INFO_LOG_BUFFER_SIZE_BYTES",
+    "OCGPU_HIPRTC_JIT_ERROR_LOG_BUFFER",
+    "OCGPU_HIPRTC_JIT_ERROR_LOG_BUFFER_SIZE_BYTES",
+    "OCGPU_HIPRTC_JIT_OPTIMIZATION_LEVEL",
+    "OCGPU_HIPRTC_JIT_TARGET_FROM_HIPCONTEXT",
+    "OCGPU_HIPRTC_JIT_TARGET",
+    "OCGPU_HIPRTC_JIT_FALLBACK_STRATEGY",
+    "OCGPU_HIPRTC_JIT_GENERATE_DEBUG_INFO",
+    "OCGPU_HIPRTC_JIT_LOG_VERBOSE",
+    "OCGPU_HIPRTC_JIT_GENERATE_LINE_INFO",
+    "OCGPU_HIPRTC_JIT_CACHE_MODE",
+    "OCGPU_HIPRTC_JIT_NEW_SM3X_OPT",
+    "OCGPU_HIPRTC_JIT_FAST_COMPILE",
+    "OCGPU_HIPRTC_JIT_GLOBAL_SYMBOL_NAMES",
+    "OCGPU_HIPRTC_JIT_GLOBAL_SYMBOL_ADDRESS",
+    "OCGPU_HIPRTC_JIT_GLOBAL_SYMBOL_COUNT",
+    "OCGPU_HIPRTC_JIT_LTO",
+    "OCGPU_HIPRTC_JIT_FTZ",
+    "OCGPU_HIPRTC_JIT_PREC_DIV",
+    "OCGPU_HIPRTC_JIT_PREC_SQRT",
+    "OCGPU_HIPRTC_JIT_FMA",
+    "OCGPU_HIPRTC_JIT_NUM_OPTIONS",
+    "OCGPU_HIPRTC_JIT_IR_TO_ISA_OPT_EXT",
+    "OCGPU_HIPRTC_JIT_IR_TO_ISA_OPT_COUNT_EXT",
+    "OCGPU_HIPRTC_JIT_INPUT_CUBIN",
+    "OCGPU_HIPRTC_JIT_INPUT_PTX",
+    "OCGPU_HIPRTC_JIT_INPUT_FATBINARY",
+    "OCGPU_HIPRTC_JIT_INPUT_OBJECT",
+    "OCGPU_HIPRTC_JIT_INPUT_LIBRARY",
+    "OCGPU_HIPRTC_JIT_INPUT_NVVM",
+    "OCGPU_HIPRTC_JIT_NUM_LEGACY_INPUT_TYPES",
+    "OCGPU_HIPRTC_JIT_INPUT_LLVM_BITCODE",
+    "OCGPU_HIPRTC_JIT_INPUT_LLVM_BUNDLED_BITCODE",
+    "OCGPU_HIPRTC_JIT_INPUT_LLVM_ARCHIVES_OF_BUNDLED_BITCODE",
+    "OCGPU_HIPRTC_JIT_NUM_INPUT_TYPES",
+    "ocgpuRtcApi_v1",
+    "ocgpuNvrtcApi_v1",
+    "ocgpuHiprtcApi_v1",
+    "ocgpuRtcGetApi",
+    "ocgpuNvrtcGetApi",
+    "ocgpuHiprtcGetApi",
+];
+
 /// Whether generated files are written or only compared with their canonical bytes.
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub enum Mode {
@@ -3048,6 +3253,27 @@ fn render_c_layout_test(manifest: &ApiManifest) -> Result<String, Error> {
             .expect("String write");
         }
     }
+    for (table, size, fields) in RTC_C_TABLE_LAYOUTS {
+        let id = upper_snake(table).to_ascii_lowercase();
+        writeln!(
+            output,
+            "struct ocgpu_align_probe_{id} {{ char byte; {table} value; }};\nOCGPU_STATIC_ASSERT({id}_size, sizeof({table}) == {size}u);\nOCGPU_STATIC_ASSERT({id}_align, offsetof(struct ocgpu_align_probe_{id}, value) == 8u);"
+        )
+        .expect("String write");
+        for (index, field) in fields.iter().enumerate() {
+            let expected = if index < 6 {
+                index * 4
+            } else {
+                24 + (index - 6) * 8
+            };
+            writeln!(
+                output,
+                "OCGPU_STATIC_ASSERT({id}_{}_offset, offsetof({table}, {field}) == {expected}u);",
+                upper_snake(field).to_ascii_lowercase()
+            )
+            .expect("String write");
+        }
+    }
     output.push('\n');
     for entry in manifest.constants.iter().filter(|entry| entry.emitted) {
         render_c_constant_assertion(&mut output, entry)?;
@@ -3098,6 +3324,17 @@ fn render_c_layout_test(manifest: &ApiManifest) -> Result<String, Error> {
             .expect("String write");
         }
     }
+    for (table, _, fields) in RTC_C_TABLE_LAYOUTS {
+        let table_id = upper_snake(table).to_ascii_lowercase();
+        for field in fields.iter().skip(6) {
+            let field_id = upper_snake(field).to_ascii_lowercase();
+            writeln!(
+                output,
+                "OCGPU_STATIC_ASSERT({table_id}_{field_id}_pointer_width, sizeof((({table} *)0)->{field}) == sizeof(void (OCGPU_CALL *)(void)));"
+            )
+            .expect("String write");
+        }
+    }
     output.push('\n');
     for table in &manifest.tables {
         let table_id = upper_snake(&table.name).to_ascii_lowercase();
@@ -3114,12 +3351,27 @@ fn render_c_layout_test(manifest: &ApiManifest) -> Result<String, Error> {
     output.push_str(
         "\nvoid ocgpu_generated_calling_convention_check(void)\n\
          {\n\
+             ocgpuRtcApi_v1 rtc_api = {0};\n\
+             ocgpuNvrtcApi_v1 nvrtc_api = {0};\n\
+             ocgpuHiprtcApi_v1 hiprtc_api = {0};\n\
              ocgpuResult (OCGPU_CALL *get_api)(ocgpuBackend, uint32_t, size_t, ocgpuApi_v1 *) = &ocgpuGetApi;\n\
              ocgpuResult (OCGPU_CALL *get_cuda_api)(uint32_t, size_t, ocgpuCuApi_v1 *) = &ocgpuCuGetApi;\n\
              ocgpuResult (OCGPU_CALL *get_hip_api)(uint32_t, size_t, ocgpuHipApi_v1 *) = &ocgpuHipGetApi;\n\
+             ocgpuResult (OCGPU_CALL *get_rtc_api)(ocgpuBackend, uint32_t, size_t, ocgpuRtcApi_v1 *) = &ocgpuRtcGetApi;\n\
+             ocgpuResult (OCGPU_CALL *get_nvrtc_api)(uint32_t, size_t, ocgpuNvrtcApi_v1 *) = &ocgpuNvrtcGetApi;\n\
+             ocgpuResult (OCGPU_CALL *get_hiprtc_api)(uint32_t, size_t, ocgpuHiprtcApi_v1 *) = &ocgpuHiprtcGetApi;\n\
+             const char *(OCGPU_CALL *rtc_get_error_string)(ocgpuRtcResult) = rtc_api.ocgpuRtcGetErrorString;\n\
+             const char *(OCGPU_CALL *nvrtc_get_error_string)(ocgpuNvrtcResult) = nvrtc_api.ocgpuNvrtcGetErrorString;\n\
+             const char *(OCGPU_CALL *hiprtc_get_error_string)(ocgpuHiprtcResult) = hiprtc_api.ocgpuHiprtcGetErrorString;\n\
              (void)get_api;\n\
              (void)get_cuda_api;\n\
              (void)get_hip_api;\n\
+             (void)get_rtc_api;\n\
+             (void)get_nvrtc_api;\n\
+             (void)get_hiprtc_api;\n\
+             (void)rtc_get_error_string;\n\
+             (void)nvrtc_get_error_string;\n\
+             (void)hiprtc_get_error_string;\n\
          }\n",
     );
     Ok(output)
@@ -3524,6 +3776,7 @@ fn render_header(workspace_root: &Path, manifest: &ApiManifest) -> Result<String
         .iter()
         .map(|entry| entry.name.clone())
         .chain(manifest.tables.iter().map(|entry| entry.name.clone()))
+        .chain(RTC_CBINDGEN_EXPORTS.iter().map(|name| (*name).to_owned()))
         .collect();
     let bindings = cbindgen::Builder::new()
         .with_crate(workspace_root.join("crates/ocgpu-abi"))
@@ -3535,6 +3788,14 @@ fn render_header(workspace_root: &Path, manifest: &ApiManifest) -> Result<String
     let raw = String::from_utf8(bytes)
         .map_err(|error| Error::Cbindgen(format!("header was not UTF-8: {error}")))?;
     decorate_header(&raw, manifest)
+}
+
+fn decorate_function_pointer_calling_convention(line: &str) -> String {
+    if line.contains("(*ocgpu") {
+        line.replacen("(*ocgpu", "(OCGPU_CALL *ocgpu", 1)
+    } else {
+        line.to_owned()
+    }
 }
 
 // Header decoration owns the C99 normalization, ABI decoration, and generated
@@ -3592,16 +3853,12 @@ fn decorate_header(raw: &str, manifest: &ApiManifest) -> Result<String, Error> {
             }
             _ => {}
         }
-        let line = if line.contains(" (*ocgpu") {
-            line.replacen(" (*ocgpu", " (OCGPU_CALL *ocgpu", 1)
-        } else {
-            line.to_owned()
-        };
+        let line = decorate_function_pointer_calling_convention(line);
         writeln!(c99, "{line}").expect("String write");
         index += 1;
     }
     output = expand_overaligned_records(&c99, manifest)?;
-    for getter in ["ocgpuGetApi", "ocgpuCuGetApi", "ocgpuHipGetApi"] {
+    for getter in MANAGEMENT_GETTER_EXPORTS {
         output = output.replace(
             &format!("ocgpuResult {getter}("),
             &format!("OCGPU_API ocgpuResult OCGPU_CALL {getter}("),
@@ -3912,16 +4169,30 @@ fn c_declaration(rust_type: &str, name: &str) -> String {
 }
 
 fn render_def() -> String {
-    "; SPDX-License-Identifier: CC0-1.0\n; Generated by ocgpu-codegen. Do not edit.\nEXPORTS\n    ocgpuGetApi\n    ocgpuCuGetApi\n    ocgpuHipGetApi\n".to_owned()
+    let mut output = String::from(
+        "; SPDX-License-Identifier: CC0-1.0\n; Generated by ocgpu-codegen. Do not edit.\nEXPORTS\n",
+    );
+    for name in MANAGEMENT_GETTER_EXPORTS {
+        writeln!(output, "    {name}").expect("String write");
+    }
+    output
 }
 
 fn render_map() -> String {
-    "/* SPDX-License-Identifier: CC0-1.0 */\n/* Generated by ocgpu-codegen. Do not edit. */\nOCGPU_1.0 {\n    global:\n        ocgpuGetApi;\n        ocgpuCuGetApi;\n        ocgpuHipGetApi;\n    local:\n        *;\n};\n".to_owned()
+    let mut output = String::from(
+        "/* SPDX-License-Identifier: CC0-1.0 */\n/* Generated by ocgpu-codegen. Do not edit. */\nOCGPU_1.0 {\n    global:\n",
+    );
+    for name in MANAGEMENT_GETTER_EXPORTS {
+        writeln!(output, "        {name};").expect("String write");
+    }
+    output.push_str("    local:\n        *;\n};\n");
+    output
 }
 
 fn flat_export_names(manifest: &ApiManifest) -> Vec<String> {
-    let mut names = ["ocgpuGetApi", "ocgpuCuGetApi", "ocgpuHipGetApi"]
-        .into_iter()
+    let mut names = MANAGEMENT_GETTER_EXPORTS
+        .iter()
+        .copied()
         .map(str::to_owned)
         .collect::<Vec<_>>();
     names.extend(
@@ -4060,6 +4331,46 @@ fn render_export_shims(manifest: &ApiManifest) -> String {
      ) -> ocgpu_abi::ocgpuResult {\n\
      \t// SAFETY: This export forwards its documented output-buffer contract unchanged.\n\
      \tunsafe { crate::implementation::get_hip_api(requested_abi, output_size, output) }\n\
+     }\n\n\
+     /// Negotiate a backend-bound common RTC ABI table.\n\
+     ///\n\
+     /// # Safety\n\
+     /// `output` must designate `output_size` writable bytes when non-null.\n\
+     #[unsafe(no_mangle)]\n\
+     pub unsafe extern \"C\" fn ocgpuRtcGetApi(\n\
+     \tbackend: ocgpu_abi::ocgpuBackend,\n\
+     \trequested_abi: u32,\n\
+     \toutput_size: usize,\n\
+     \toutput: *mut ocgpu_abi::ocgpuRtcApi_v1,\n\
+     ) -> ocgpu_abi::ocgpuResult {\n\
+     \t// SAFETY: This export forwards its documented output-buffer contract unchanged.\n\
+     \tunsafe { crate::implementation::get_rtc_api(backend, requested_abi, output_size, output) }\n\
+     }\n\n\
+     /// Negotiate a raw NVRTC ABI table.\n\
+     ///\n\
+     /// # Safety\n\
+     /// `output` must designate `output_size` writable bytes when non-null.\n\
+     #[unsafe(no_mangle)]\n\
+     pub unsafe extern \"C\" fn ocgpuNvrtcGetApi(\n\
+     \trequested_abi: u32,\n\
+     \toutput_size: usize,\n\
+     \toutput: *mut ocgpu_abi::ocgpuNvrtcApi_v1,\n\
+     ) -> ocgpu_abi::ocgpuResult {\n\
+     \t// SAFETY: This export forwards its documented output-buffer contract unchanged.\n\
+     \tunsafe { crate::implementation::get_nvrtc_api(requested_abi, output_size, output) }\n\
+     }\n\n\
+     /// Negotiate a raw HIPRTC ABI table.\n\
+     ///\n\
+     /// # Safety\n\
+     /// `output` must designate `output_size` writable bytes when non-null.\n\
+     #[unsafe(no_mangle)]\n\
+     pub unsafe extern \"C\" fn ocgpuHiprtcGetApi(\n\
+     \trequested_abi: u32,\n\
+     \toutput_size: usize,\n\
+     \toutput: *mut ocgpu_abi::ocgpuHiprtcApi_v1,\n\
+     ) -> ocgpu_abi::ocgpuResult {\n\
+     \t// SAFETY: This export forwards its documented output-buffer contract unchanged.\n\
+     \tunsafe { crate::implementation::get_hiprtc_api(requested_abi, output_size, output) }\n\
      }\n"
     .to_owned();
     output = output.replace(
@@ -4476,6 +4787,90 @@ mod tests {
         assert!(output.contains(&format!("fn {hip}(")));
         assert!(output.contains("#[cfg(feature = \"cuda\")]"));
         assert!(output.contains("#[cfg(feature = \"hip\")]"));
+    }
+
+    #[test]
+    fn manual_rtc_cbindgen_inventory_is_complete() {
+        let source = include_str!("../../ocgpu-abi/src/rtc.rs");
+        let mut declared = BTreeSet::new();
+        for line in source.lines().map(str::trim_start) {
+            let declaration = ["pub type ", "pub const ", "pub struct ", "pub fn "]
+                .into_iter()
+                .find_map(|prefix| line.strip_prefix(prefix));
+            if let Some(declaration) = declaration {
+                let name = declaration
+                    .split(|character: char| !character.is_ascii_alphanumeric() && character != '_')
+                    .next()
+                    .expect("public RTC declaration has a name");
+                declared.insert(name);
+            }
+        }
+        let configured = RTC_CBINDGEN_EXPORTS
+            .iter()
+            .copied()
+            .collect::<BTreeSet<_>>();
+        assert_eq!(configured, declared);
+    }
+
+    #[test]
+    fn rtc_getters_cover_exports_shims_and_c_calling_conventions() {
+        let manifest = canonical_manifest();
+        let def = render_def();
+        let map = render_map();
+        let flat = flat_export_names(&manifest);
+        let shims = render_export_shims(&manifest);
+        let c_layout = render_c_layout_test(&manifest).expect("C layout test renders");
+
+        for getter in MANAGEMENT_GETTER_EXPORTS {
+            assert_eq!(def.matches(getter).count(), 1);
+            assert_eq!(map.matches(getter).count(), 1);
+            assert!(flat.iter().any(|name| name == getter));
+        }
+        for (getter, implementation) in [
+            ("ocgpuRtcGetApi", "get_rtc_api"),
+            ("ocgpuNvrtcGetApi", "get_nvrtc_api"),
+            ("ocgpuHiprtcGetApi", "get_hiprtc_api"),
+        ] {
+            assert!(shims.contains(&format!("pub unsafe extern \"C\" fn {getter}(")));
+            assert!(shims.contains(&format!("crate::implementation::{implementation}(")));
+            assert!(c_layout.contains(&format!("= &{getter};")));
+        }
+        for (table, size, fields) in RTC_C_TABLE_LAYOUTS {
+            let id = upper_snake(table).to_ascii_lowercase();
+            assert!(c_layout.contains(&format!(
+                "OCGPU_STATIC_ASSERT({id}_size, sizeof({table}) == {size}u);"
+            )));
+            for field in fields.iter().skip(6) {
+                let field_id = upper_snake(field).to_ascii_lowercase();
+                assert!(c_layout.contains(&format!(
+                    "OCGPU_STATIC_ASSERT({id}_{field_id}_pointer_width"
+                )));
+            }
+        }
+        assert!(
+            c_layout.contains("const char *(OCGPU_CALL *rtc_get_error_string)(ocgpuRtcResult)")
+        );
+        assert!(
+            c_layout.contains("const char *(OCGPU_CALL *nvrtc_get_error_string)(ocgpuNvrtcResult)")
+        );
+        assert!(
+            c_layout
+                .contains("const char *(OCGPU_CALL *hiprtc_get_error_string)(ocgpuHiprtcResult)")
+        );
+    }
+
+    #[test]
+    fn c_header_calling_convention_decorator_handles_pointer_returns() {
+        assert_eq!(
+            decorate_function_pointer_calling_convention("ocgpuResult (*ocgpuValue)(void);"),
+            "ocgpuResult (OCGPU_CALL *ocgpuValue)(void);"
+        );
+        assert_eq!(
+            decorate_function_pointer_calling_convention(
+                "const char *(*ocgpuText)(int32_t value);"
+            ),
+            "const char *(OCGPU_CALL *ocgpuText)(int32_t value);"
+        );
     }
 
     #[test]

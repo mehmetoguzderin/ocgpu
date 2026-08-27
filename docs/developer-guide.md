@@ -5,8 +5,9 @@
 ## Prerequisites
 
 Install the Rust toolchain named in `rust-toolchain.toml`. A normal checkout does
-not need a CUDA Toolkit, ROCm/HIP SDK, vendor header, vendor compiler, import
-library, `bindgen`, Clang, or libclang. GCC or Clang is needed only for the strict
+not need a CUDA Toolkit, ROCm/HIP SDK, vendor header, vendor compiler,
+NVRTC/HIPRTC header or import/static library, `bindgen`, Clang, or libclang. GCC
+or Clang is needed only for the strict
 C99 checks; the maintenance check also compiles the advertised header-only C++
 mode while C99 remains the normative consumer ABI. `cargo-c
 0.10.24+cargo-0.98.0` is needed only when staging the C package. On Linux,
@@ -14,8 +15,8 @@ plain cargo-c output is a development artifact; production packaging must use
 the mapped final-link and export/SONAME audit documented in `docs/release.md`.
 
 The publishable Rust source chain is `ocgpu-abi`, `ocgpu-loader`, `ocgpu-cuda`,
-`ocgpu-hip`, then `ocgpu`; all inter-crate dependencies carry an explicit
-Cargo-compatible `0.1.0` registry requirement as well as a workspace path.
+`ocgpu-hip`, `ocgpu-rtc`, then `ocgpu`; all inter-crate dependencies carry an
+explicit Cargo-compatible `0.1.0` registry requirement as well as a workspace path.
 `ocgpu-capi` and `ocgpu-cli` are shipping C and binary packages but are not
 registry packages. `ocgpu-codegen`,
 `ocgpu-oracle`, and `xtask` are repository maintenance tools. In particular,
@@ -53,7 +54,10 @@ CC=clang cargo run -p xtask -- c99
 The CI workflow additionally compiles, links, and safely runs enumeration-only
 consumers against both shared and static `ocgpu` libraries on ordinary hosted
 runners. Device allocation, context creation, module loading, and launches occur
-only in the separately acknowledged hardware workflow.
+only in separately acknowledged hardware execution. SDK-free hosted tests cover
+RTC ABI layout, complete common-table validation, secure loader behavior,
+mocked compilation, and missing-compiler diagnostics without loading a GPU or a
+vendor compiler library.
 
 On a labelled hardware runner, use `cargo run -p xtask -- hardware-smoke` after
 setting the documented opt-in and explicit mode variables. The xtask compiles
@@ -62,6 +66,27 @@ Cargo's artifact report, and supervises that process with a 45-second watchdog.
 The `coexistence` mode is the non-executing dual-runtime check; `all` is a
 separately acknowledged simultaneous one-thread launch on both backends and is
 not a synonym for running the two single-backend tests.
+
+The RTC integration target is `rtc_hardware_smoke`. It is not an ordinary
+stress test: `OCGPU_RTC_SMOKE_BACKEND` selects exactly `cuda`, `hip`, or `both`,
+and `OCGPU_NVRTC_LIBRARY`/`OCGPU_HIPRTC_LIBRARY` identify reviewed absolute
+compiler-library paths. The kernel source is fixed in the test, but architecture
+is an explicit operator input: set `OCGPU_NVRTC_ARCH` to one validated
+`compute_<target>` identifier and/or `OCGPU_HIPRTC_ARCH` to one validated
+`gfx<target>` identifier for the selected mode. Set
+`OCGPU_RUN_RTC_HARDWARE_SMOKE=1` and invoke exactly:
+
+```sh
+cargo run -p xtask -- rtc-hardware-smoke
+```
+
+The xtask validates the acknowledgement and inputs before starting the
+watchdog-backed child. The first run must use
+`OCGPU_RTC_COMPILE_ONLY=1` so compilation, diagnostics, lowering, and code
+retrieval pass without creating a driver context or executing GPU work. Only
+then remove `OCGPU_RTC_COMPILE_ONLY` and invoke the same command once for the
+bounded launch. Do not invoke the test executable directly, loop it, add a
+benchmark, or replace the no-op HIP 5 kernel with a memory-writing kernel.
 
 For the optional flat C ABI, build cargo-c with `--features flat-c-exports` and
 define `OCGPU_ENABLE_FLAT_C_EXPORTS` in the consumer before including
@@ -96,6 +121,22 @@ Secure default runtime discovery is safe. The optional Rust
 the trust, constructor, ABI, dependency-closure, and file-identity contract of
 `Driver::<B>::load_from_absolute`. C ABI v1 exposes no path override.
 
+RTC is a separate capability from the driver. Keep its one-time loader state
+and common table independent, make every common RTC slot mandatory after a
+successful load, and retain vendor-only calls in nullable raw NVRTC/HIPRTC
+tables. Do not put RTC slots into the driver common table, which would make a
+missing compiler disable ordinary device use. Normalized compiled bytes must
+flow back through common `ocgpuModuleLoadData`, function lookup, and launch;
+tests should not bypass that path with raw CUDA/HIP calls.
+
+Preserve the reviewed RTC constness boundary: nine common entries are direct.
+HIPRTC 5.7.1's `CreateProgram` and `CompileProgram` outer string-array pointers
+differ from NVRTC only in const qualification despite being documented `[in]`.
+The HIP common table therefore uses two allocation-free adapters; the HIP raw
+table retains the exact mutable-outer-pointer declarations. Adapter tests must
+prove unchanged pointer/count forwarding and must never substitute a casted,
+source-incompatible function pointer.
+
 ## Editing the API
 
 1. Change the canonical manifest and its provenance fields.
@@ -107,7 +148,9 @@ the trust, constructor, ABI, dependency-closure, and file-identity contract of
    output direction, callback nullability, symbol aliases, version floors, and
    target masks in the generated diff.
 5. Add or update Rust, ABI, loader, C99, and negative tests appropriate to the
-   change.
+   change. RTC changes require a missing-library test, every-required-slot
+   validation, bounded compile-log/code retrieval, and source-to-common-launch
+   coverage for each available backend.
 6. Run `cargo run -p xtask -- ci` and the import-table workflow.
 
 For a HIP-major change, also update the exact per-profile compatibility ledger,

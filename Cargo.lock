@@ -323,6 +323,7 @@ dependencies = [
  "ocgpu-abi",
  "ocgpu-cuda",
  "ocgpu-hip",
+ "ocgpu-rtc",
  "sha2",
 ]
 
@@ -336,6 +337,7 @@ version = "0.1.0"
 dependencies = [
  "ocgpu",
  "ocgpu-abi",
+ "ocgpu-rtc",
 ]
 
 [[package]]
@@ -391,6 +393,14 @@ dependencies = [
  "syn 3.0.3",
  "thiserror 2.0.20",
  "toml 1.1.4+spec-1.1.0",
+]
+
+[[package]]
+name = "ocgpu-rtc"
+version = "0.1.0"
+dependencies = [
+ "ocgpu-abi",
+ "ocgpu-loader",
 ]
 
 [[package]]

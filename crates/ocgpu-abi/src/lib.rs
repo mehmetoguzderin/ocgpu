@@ -9,5 +9,7 @@
 compile_error!("ocgpu ABI version 1 supports only 64-bit targets");
 
 mod generated;
+mod rtc;
 
 pub use generated::*;
+pub use rtc::*;

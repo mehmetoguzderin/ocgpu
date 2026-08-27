@@ -9,25 +9,26 @@ must equal the workspace package version and use `vMAJOR.MINOR.PATCH`.
 
 From a clean checkout of the intended tag:
 
-1. With Rust 1.85.0, run a locked `--all-features` check over all seven public
-   shipping artifacts, then a `--no-default-features` check over the six
+1. With Rust 1.85.0, run a locked `--all-features` check over all eight public
+   shipping artifacts, then a `--no-default-features` check over the seven
    feature-configurable library crates (excluding the CLI so it cannot re-enable
    library defaults through feature unification).
 2. Run `cargo run -p xtask -- ci` with Rust 1.97.1.
 3. Run the strict C99 workflow with GCC and Clang and the MSVC ABI job.
-4. Run Linux and Windows import-table inspection and confirm no CUDA or HIP
-   runtime appears as a linked dependency.
+4. Run Linux and Windows import-table inspection and confirm no CUDA, HIP,
+   NVRTC, HIPRTC, or OpenCL runtime appears as a linked dependency.
 5. Cross-build `aarch64-unknown-linux-gnu` and inspect its dynamic section.
 6. Run `cargo audit --deny warnings` against the committed lockfile.
-7. Verify `cargo tree -p ocgpu -p ocgpu-capi -p ocgpu-cli` contains neither
-   oracle crate, `bindgen`, libclang, nor a vendor SDK build helper.
+7. Verify `cargo tree -p ocgpu-rtc -p ocgpu -p ocgpu-capi -p ocgpu-cli`
+   contains neither an oracle crate, `bindgen`, libclang, nor a vendor SDK build
+   helper.
 8. Review the canonical manifest, generated header, export lists, normalized
    snapshots, coverage classifications, and raw-DEFLATE report for a clean
    generation diff.
 9. Run each applicable hardware job on a dedicated labelled runner. Record a
-   failed or unavailable platform explicitly; never substitute one HIP platform
-   inventory for another.
-10. Build the five Rust source packages in dependency order and inspect every
+   failed or unavailable driver or compiler explicitly; never substitute HIP
+   execution for HIPRTC evidence or one HIP platform inventory for another.
+10. Build the six Rust source packages in dependency order and inspect every
    archive path before attestation.
 
 ## Package construction
@@ -54,7 +55,7 @@ linker-dependent. Each binary package contains:
 - the project README.
 
 Release publication is blocked on its own locked Rust 1.85.0 all-feature
-seven-artifact and no-default six-library checks, RustSec lockfile audit, strict
+eight-artifact and no-default seven-library checks, RustSec lockfile audit, strict
 C99/C++ and generated-layout checks, x64 Linux mapped-ELF audit, case-exact
 Windows PE import/export audit, and a separate aarch64 Rust/C cross-build with
 exact exports and vendor-`DT_NEEDED` rejection. The publication job depends on
@@ -63,20 +64,22 @@ job; it does not assume that a sibling workflow succeeded.
 
 The verify, x64 package, and aarch64 release jobs first run the same
 repository-owned SDK-free preflight used by CI. It rejects toolkit roots,
-compiler/configuration tools, vendor headers, and link-time SDK artifacts while
-allowing independently installed driver runtimes needed for runtime-only smoke
-testing.
+compiler/configuration tools, vendor headers, and link-time SDK artifacts,
+including NVRTC/HIPRTC import/static libraries and source link directives, as
+well as tracked vendor binaries. Dynamically loaded driver and runtime-compiler
+shared libraries remain permitted deployment capabilities when separately
+installed or application-deployed.
 
 Plain `cargo cinstall` is therefore suitable for local staging, but its
 unversioned Linux shared object is not a production release artifact.
 
 A separate release job invokes one multi-package `cargo package --locked
 --no-verify` operation for `ocgpu-abi`, `ocgpu-loader`, `ocgpu-cuda`,
-`ocgpu-hip`, and `ocgpu`. Packaging the workspace set together lets Cargo
+`ocgpu-hip`, `ocgpu-rtc`, and `ocgpu`. Packaging the workspace set together lets Cargo
 prepare the exact path-and-version dependency chain before any version exists in
 the registry. The job inspects each archive for required local paths, generates
-SHA-256 checksums, attests the five `.crate` files, and attaches them to the tag.
-It first fetches the exact lockfile graph, then extracts all five archives,
+SHA-256 checksums, attests the six `.crate` files, and attaches them to the tag.
+It first fetches the exact lockfile graph, then extracts all six archives,
 patches a tiny consumer to the normalized packaged manifests, and runs `cargo
 check --offline --all-features`. Thus `--no-verify` skips Cargo's per-package
 registry-resolution verifier while the release job still proves the packaged
@@ -112,11 +115,11 @@ Reserved fields remain zero. Thirty-two-bit targets are outside ABI v1.
 The repository release workflow does not call `cargo publish`, store a
 crates.io credential, or claim registry availability. If maintainers separately
 authorize registry publication, authenticate only in a protected environment
-and publish `ocgpu-abi`, then `ocgpu-loader`, then `ocgpu-cuda` and `ocgpu-hip`,
-and finally `ocgpu`. Wait until crates.io resolves each prerequisite version
-before publishing its dependants. The tag, source archive, and registry package
-must have the same version and content; a GitHub `.crate` attachment is not
-evidence of registry publication.
+and publish `ocgpu-abi`, then `ocgpu-loader`, then `ocgpu-cuda`, `ocgpu-hip`,
+and `ocgpu-rtc`, and finally `ocgpu`. Wait until crates.io resolves each
+prerequisite version before publishing its dependants. The tag, source archive,
+and registry package must have the same version and content; a GitHub `.crate`
+attachment is not evidence of registry publication.
 
 ## Recovery
 

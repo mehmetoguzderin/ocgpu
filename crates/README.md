@@ -7,7 +7,7 @@ chain. Registry publication, when separately authorized, must follow this
 dependency order:
 
 1. `ocgpu-abi` and `ocgpu-loader`;
-2. `ocgpu-cuda` and `ocgpu-hip`;
+2. `ocgpu-cuda`, `ocgpu-hip`, and `ocgpu-rtc`;
 3. `ocgpu`.
 
 `ocgpu` owns its FFI declarations, secure dynamic loading, backend dispatch,

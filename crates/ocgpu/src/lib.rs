@@ -56,6 +56,27 @@ pub mod raw {
     pub mod hip {
         pub use ocgpu_hip::*;
     }
+
+    /// Runtime compiler ABI declarations and validated raw-table access.
+    #[cfg(feature = "rtc")]
+    pub mod rtc {
+        pub use ocgpu_abi::{ocgpuHiprtcApi_v1, ocgpuNvrtcApi_v1};
+        pub use ocgpu_rtc::{
+            CompilerKind, Hiprtc, Nvrtc, RtcBackend, load_hiprtc_raw, load_nvrtc_raw,
+        };
+    }
+}
+
+/// Backend-neutral runtime compilation through dynamically loaded NVRTC or
+/// HIPRTC.
+///
+/// Both compiler markers expose the same [`rtc::Compiler`] and
+/// [`rtc::Program`] calls. Successful loading validates all eleven common
+/// operations once; vendor-only operations remain available through each
+/// compiler's nullable raw table.
+#[cfg(feature = "rtc")]
+pub mod rtc {
+    pub use ocgpu_rtc::*;
 }
 
 /// Stable name of the validated common profile.

@@ -4,3 +4,6 @@ EXPORTS
     ocgpuGetApi
     ocgpuCuGetApi
     ocgpuHipGetApi
+    ocgpuRtcGetApi
+    ocgpuNvrtcGetApi
+    ocgpuHiprtcGetApi

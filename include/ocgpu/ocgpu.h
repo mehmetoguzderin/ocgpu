@@ -5185,6 +5185,11 @@
 #define OCGPU_CU_API_V1_LAYOUT_HASH 637377700198461643
 
 /**
+ * Number of public HIPRTC 5.7.1 function slots.
+ */
+#define OCGPU_HIPRTC_API_V1_SLOT_COUNT 18
+
+/**
  * Expected 64-bit layout fingerprint.
  */
 #define OCGPU_HIP_API_V1_LAYOUT_HASH 12332723622166256825ull
@@ -9092,6 +9097,35 @@
  * Stable integer constant.
  */
 #define OCGPU_HIP_hipUserObjectNoDestructorSync ((int32_t)1)
+
+/**
+ * Number of public NVRTC 12.4 function slots.
+ */
+#define OCGPU_NVRTC_API_V1_SLOT_COUNT 21
+
+/**
+ * Common code getters return a HIP loadable code-object image when this bit is set.
+ *
+ * Mutually exclusive with [`OCGPU_RTC_API_FLAG_CODE_IS_PTX`].
+ */
+#define OCGPU_RTC_API_FLAG_CODE_IS_HIP_CODE_OBJECT (1 << 1)
+
+/**
+ * Common code getters return NVIDIA PTX text when this bit is set.
+ *
+ * Mutually exclusive with [`OCGPU_RTC_API_FLAG_CODE_IS_HIP_CODE_OBJECT`].
+ */
+#define OCGPU_RTC_API_FLAG_CODE_IS_PTX (1 << 0)
+
+/**
+ * Number of mandatory backend-neutral RTC ABI v1 function slots.
+ */
+#define OCGPU_RTC_API_V1_SLOT_COUNT 11
+
+/**
+ * Size shared by the metadata prefix of every RTC ABI v1 table.
+ */
+#define OCGPU_RTC_TABLE_PREFIX_SIZE 24
 
 /**
  * Complete vendor record (layout fnv1a64:46d7654a0b1871f8).
@@ -19519,7 +19553,7 @@ typedef struct ocgpuHipApi_v1 {
   /**
    * Nullable when unavailable.
    */
-  const char *(*ocgpuHipApiName)(uint32_t id);
+  const char *(OCGPU_CALL *ocgpuHipApiName)(uint32_t id);
   /**
    * Nullable when unavailable.
    */
@@ -19695,11 +19729,11 @@ typedef struct ocgpuHipApi_v1 {
   /**
    * Nullable when unavailable.
    */
-  const char *(*ocgpuHipGetErrorName)(ocgpuHipError_t hip_error);
+  const char *(OCGPU_CALL *ocgpuHipGetErrorName)(ocgpuHipError_t hip_error);
   /**
    * Nullable when unavailable.
    */
-  const char *(*ocgpuHipGetErrorString)(ocgpuHipError_t hipError);
+  const char *(OCGPU_CALL *ocgpuHipGetErrorString)(ocgpuHipError_t hipError);
   /**
    * Nullable when unavailable.
    */
@@ -19755,11 +19789,11 @@ typedef struct ocgpuHipApi_v1 {
   /**
    * Nullable when unavailable.
    */
-  const char *(*ocgpuHipKernelNameRef)(ocgpuHipFunction_t f);
+  const char *(OCGPU_CALL *ocgpuHipKernelNameRef)(ocgpuHipFunction_t f);
   /**
    * Nullable when unavailable.
    */
-  const char *(*ocgpuHipKernelNameRefByPtr)(const void *hostFunction, ocgpuHipStream_t stream);
+  const char *(OCGPU_CALL *ocgpuHipKernelNameRefByPtr)(const void *hostFunction, ocgpuHipStream_t stream);
   /**
    * Nullable when unavailable.
    */
@@ -22596,6 +22630,405 @@ typedef struct ocgpuHipApi_v1 {
   ocgpuHipError_t (OCGPU_CALL *ocgpuHipGetDeviceProperties)(struct ocgpuHipDeviceProp_tR0600 *prop,
                                                  int32_t deviceId);
 } ocgpuHipApi_v1;
+
+/**
+ * Backend-neutral runtime-compilation result code.
+ */
+typedef int32_t ocgpuRtcResult;
+
+/**
+ * Raw HIPRTC result code.
+ */
+typedef ocgpuRtcResult ocgpuHiprtcResult;
+
+/**
+ * Opaque backend-neutral runtime-compilation program handle.
+ */
+typedef void *ocgpuRtcProgram;
+
+/**
+ * Raw HIPRTC program handle.
+ */
+typedef ocgpuRtcProgram ocgpuHiprtcProgram;
+
+/**
+ * Backend-neutral runtime-compilation linker option kind.
+ */
+typedef int32_t ocgpuRtcJitOption;
+
+/**
+ * Raw HIPRTC linker option kind.
+ */
+typedef ocgpuRtcJitOption ocgpuHiprtcJitOption;
+
+/**
+ * Opaque backend-neutral runtime-compilation link-state handle.
+ */
+typedef void *ocgpuRtcLinkState;
+
+/**
+ * Raw HIPRTC link-state handle.
+ */
+typedef ocgpuRtcLinkState ocgpuHiprtcLinkState;
+
+/**
+ * Backend-neutral runtime-compilation linker input kind.
+ */
+typedef int32_t ocgpuRtcJitInputType;
+
+/**
+ * Raw HIPRTC linker input kind.
+ */
+typedef ocgpuRtcJitInputType ocgpuHiprtcJitInputType;
+
+/**
+ * Complete public HIPRTC 5.7.1 function table.
+ */
+typedef struct ocgpuHiprtcApi_v1 {
+  /**
+   * Bytes understood by the producer.
+   */
+  uint32_t struct_size;
+  /**
+   * Negotiated ABI version.
+   */
+  uint32_t abi_version;
+  /**
+   * Backend bound to every entry.
+   */
+  ocgpuBackend backend;
+  /**
+   * Negotiated RTC capability bits.
+   */
+  uint32_t flags;
+  /**
+   * HIPRTC major version.
+   */
+  int32_t rtc_version_major;
+  /**
+   * HIPRTC minor version.
+   */
+  int32_t rtc_version_minor;
+  /**
+   * Raw `hiprtcGetErrorString`.
+   */
+  const char *(OCGPU_CALL *ocgpuHiprtcGetErrorString)(ocgpuHiprtcResult result);
+  /**
+   * Raw `hiprtcVersion`.
+   */
+  ocgpuHiprtcResult (OCGPU_CALL *ocgpuHiprtcVersion)(int32_t *major, int32_t *minor);
+  /**
+   * Raw `hiprtcCreateProgram`.
+   */
+  ocgpuHiprtcResult (OCGPU_CALL *ocgpuHiprtcCreateProgram)(ocgpuHiprtcProgram *program,
+                                                const char *source,
+                                                const char *name,
+                                                int32_t header_count,
+                                                const char **headers,
+                                                const char **include_names);
+  /**
+   * Raw `hiprtcDestroyProgram`.
+   */
+  ocgpuHiprtcResult (OCGPU_CALL *ocgpuHiprtcDestroyProgram)(ocgpuHiprtcProgram *program);
+  /**
+   * Raw `hiprtcCompileProgram`.
+   */
+  ocgpuHiprtcResult (OCGPU_CALL *ocgpuHiprtcCompileProgram)(ocgpuHiprtcProgram program,
+                                                 int32_t option_count,
+                                                 const char **options);
+  /**
+   * Raw `hiprtcGetProgramLogSize`.
+   */
+  ocgpuHiprtcResult (OCGPU_CALL *ocgpuHiprtcGetProgramLogSize)(ocgpuHiprtcProgram program, size_t *log_size);
+  /**
+   * Raw `hiprtcGetProgramLog`.
+   */
+  ocgpuHiprtcResult (OCGPU_CALL *ocgpuHiprtcGetProgramLog)(ocgpuHiprtcProgram program, char *log);
+  /**
+   * Raw `hiprtcAddNameExpression`.
+   */
+  ocgpuHiprtcResult (OCGPU_CALL *ocgpuHiprtcAddNameExpression)(ocgpuHiprtcProgram program,
+                                                    const char *name_expression);
+  /**
+   * Raw `hiprtcGetLoweredName`.
+   */
+  ocgpuHiprtcResult (OCGPU_CALL *ocgpuHiprtcGetLoweredName)(ocgpuHiprtcProgram program,
+                                                 const char *name_expression,
+                                                 const char **lowered_name);
+  /**
+   * Raw `hiprtcGetCodeSize`.
+   */
+  ocgpuHiprtcResult (OCGPU_CALL *ocgpuHiprtcGetCodeSize)(ocgpuHiprtcProgram program, size_t *code_size);
+  /**
+   * Raw `hiprtcGetCode`.
+   */
+  ocgpuHiprtcResult (OCGPU_CALL *ocgpuHiprtcGetCode)(ocgpuHiprtcProgram program, char *code);
+  /**
+   * Raw `hiprtcGetBitcodeSize`.
+   */
+  ocgpuHiprtcResult (OCGPU_CALL *ocgpuHiprtcGetBitcodeSize)(ocgpuHiprtcProgram program, size_t *bitcode_size);
+  /**
+   * Raw `hiprtcGetBitcode`.
+   */
+  ocgpuHiprtcResult (OCGPU_CALL *ocgpuHiprtcGetBitcode)(ocgpuHiprtcProgram program, char *bitcode);
+  /**
+   * Raw `hiprtcLinkCreate`.
+   */
+  ocgpuHiprtcResult (OCGPU_CALL *ocgpuHiprtcLinkCreate)(uint32_t option_count,
+                                             ocgpuHiprtcJitOption *options,
+                                             void **option_values,
+                                             ocgpuHiprtcLinkState *link_state);
+  /**
+   * Raw `hiprtcLinkAddFile`.
+   */
+  ocgpuHiprtcResult (OCGPU_CALL *ocgpuHiprtcLinkAddFile)(ocgpuHiprtcLinkState link_state,
+                                              ocgpuHiprtcJitInputType input_type,
+                                              const char *file_path,
+                                              uint32_t option_count,
+                                              ocgpuHiprtcJitOption *options,
+                                              void **option_values);
+  /**
+   * Raw `hiprtcLinkAddData`.
+   */
+  ocgpuHiprtcResult (OCGPU_CALL *ocgpuHiprtcLinkAddData)(ocgpuHiprtcLinkState link_state,
+                                              ocgpuHiprtcJitInputType input_type,
+                                              void *image,
+                                              size_t image_size,
+                                              const char *name,
+                                              uint32_t option_count,
+                                              ocgpuHiprtcJitOption *options,
+                                              void **option_values);
+  /**
+   * Raw `hiprtcLinkComplete`.
+   */
+  ocgpuHiprtcResult (OCGPU_CALL *ocgpuHiprtcLinkComplete)(ocgpuHiprtcLinkState link_state,
+                                               void **binary,
+                                               size_t *binary_size);
+  /**
+   * Raw `hiprtcLinkDestroy`.
+   */
+  ocgpuHiprtcResult (OCGPU_CALL *ocgpuHiprtcLinkDestroy)(ocgpuHiprtcLinkState link_state);
+} ocgpuHiprtcApi_v1;
+
+/**
+ * Raw NVRTC result code.
+ */
+typedef ocgpuRtcResult ocgpuNvrtcResult;
+
+/**
+ * Raw NVRTC program handle.
+ */
+typedef ocgpuRtcProgram ocgpuNvrtcProgram;
+
+/**
+ * Complete public NVRTC 12.4 function table.
+ *
+ * The private `__nvrtcCPEx` PE export is intentionally not part of this
+ * public ABI table.
+ */
+typedef struct ocgpuNvrtcApi_v1 {
+  /**
+   * Bytes understood by the producer.
+   */
+  uint32_t struct_size;
+  /**
+   * Negotiated ABI version.
+   */
+  uint32_t abi_version;
+  /**
+   * Backend bound to every entry.
+   */
+  ocgpuBackend backend;
+  /**
+   * Negotiated RTC capability bits.
+   */
+  uint32_t flags;
+  /**
+   * NVRTC major version.
+   */
+  int32_t rtc_version_major;
+  /**
+   * NVRTC minor version.
+   */
+  int32_t rtc_version_minor;
+  /**
+   * Raw `nvrtcGetErrorString`.
+   */
+  const char *(OCGPU_CALL *ocgpuNvrtcGetErrorString)(ocgpuNvrtcResult result);
+  /**
+   * Raw `nvrtcVersion`.
+   */
+  ocgpuNvrtcResult (OCGPU_CALL *ocgpuNvrtcVersion)(int32_t *major, int32_t *minor);
+  /**
+   * Raw `nvrtcCreateProgram`.
+   */
+  ocgpuNvrtcResult (OCGPU_CALL *ocgpuNvrtcCreateProgram)(ocgpuNvrtcProgram *program,
+                                              const char *source,
+                                              const char *name,
+                                              int32_t header_count,
+                                              const char *const *headers,
+                                              const char *const *include_names);
+  /**
+   * Raw `nvrtcDestroyProgram`.
+   */
+  ocgpuNvrtcResult (OCGPU_CALL *ocgpuNvrtcDestroyProgram)(ocgpuNvrtcProgram *program);
+  /**
+   * Raw `nvrtcCompileProgram`.
+   */
+  ocgpuNvrtcResult (OCGPU_CALL *ocgpuNvrtcCompileProgram)(ocgpuNvrtcProgram program,
+                                               int32_t option_count,
+                                               const char *const *options);
+  /**
+   * Raw `nvrtcGetProgramLogSize`.
+   */
+  ocgpuNvrtcResult (OCGPU_CALL *ocgpuNvrtcGetProgramLogSize)(ocgpuNvrtcProgram program, size_t *log_size);
+  /**
+   * Raw `nvrtcGetProgramLog`.
+   */
+  ocgpuNvrtcResult (OCGPU_CALL *ocgpuNvrtcGetProgramLog)(ocgpuNvrtcProgram program, char *log);
+  /**
+   * Raw `nvrtcAddNameExpression`.
+   */
+  ocgpuNvrtcResult (OCGPU_CALL *ocgpuNvrtcAddNameExpression)(ocgpuNvrtcProgram program,
+                                                  const char *name_expression);
+  /**
+   * Raw `nvrtcGetLoweredName`.
+   */
+  ocgpuNvrtcResult (OCGPU_CALL *ocgpuNvrtcGetLoweredName)(ocgpuNvrtcProgram program,
+                                               const char *name_expression,
+                                               const char **lowered_name);
+  /**
+   * Raw `nvrtcGetPTXSize`.
+   */
+  ocgpuNvrtcResult (OCGPU_CALL *ocgpuNvrtcGetPTXSize)(ocgpuNvrtcProgram program, size_t *ptx_size);
+  /**
+   * Raw `nvrtcGetPTX`.
+   */
+  ocgpuNvrtcResult (OCGPU_CALL *ocgpuNvrtcGetPTX)(ocgpuNvrtcProgram program, char *ptx);
+  /**
+   * Raw `nvrtcGetNumSupportedArchs`.
+   */
+  ocgpuNvrtcResult (OCGPU_CALL *ocgpuNvrtcGetNumSupportedArchs)(int32_t *architecture_count);
+  /**
+   * Raw `nvrtcGetSupportedArchs`.
+   */
+  ocgpuNvrtcResult (OCGPU_CALL *ocgpuNvrtcGetSupportedArchs)(int32_t *architectures);
+  /**
+   * Raw `nvrtcGetCUBINSize`.
+   */
+  ocgpuNvrtcResult (OCGPU_CALL *ocgpuNvrtcGetCUBINSize)(ocgpuNvrtcProgram program, size_t *cubin_size);
+  /**
+   * Raw `nvrtcGetCUBIN`.
+   */
+  ocgpuNvrtcResult (OCGPU_CALL *ocgpuNvrtcGetCUBIN)(ocgpuNvrtcProgram program, char *cubin);
+  /**
+   * Raw deprecated `nvrtcGetNVVMSize`.
+   */
+  ocgpuNvrtcResult (OCGPU_CALL *ocgpuNvrtcGetNVVMSize)(ocgpuNvrtcProgram program, size_t *nvvm_size);
+  /**
+   * Raw deprecated `nvrtcGetNVVM`.
+   */
+  ocgpuNvrtcResult (OCGPU_CALL *ocgpuNvrtcGetNVVM)(ocgpuNvrtcProgram program, char *nvvm);
+  /**
+   * Raw `nvrtcGetLTOIRSize`.
+   */
+  ocgpuNvrtcResult (OCGPU_CALL *ocgpuNvrtcGetLTOIRSize)(ocgpuNvrtcProgram program, size_t *lto_ir_size);
+  /**
+   * Raw `nvrtcGetLTOIR`.
+   */
+  ocgpuNvrtcResult (OCGPU_CALL *ocgpuNvrtcGetLTOIR)(ocgpuNvrtcProgram program, char *lto_ir);
+  /**
+   * Raw `nvrtcGetOptiXIRSize`.
+   */
+  ocgpuNvrtcResult (OCGPU_CALL *ocgpuNvrtcGetOptiXIRSize)(ocgpuNvrtcProgram program, size_t *optix_ir_size);
+  /**
+   * Raw `nvrtcGetOptiXIR`.
+   */
+  ocgpuNvrtcResult (OCGPU_CALL *ocgpuNvrtcGetOptiXIR)(ocgpuNvrtcProgram program, char *optix_ir);
+} ocgpuNvrtcApi_v1;
+
+/**
+ * Mandatory-on-success backend-neutral runtime-compilation ABI table.
+ */
+typedef struct ocgpuRtcApi_v1 {
+  /**
+   * Bytes understood by the producer.
+   */
+  uint32_t struct_size;
+  /**
+   * Negotiated ABI version.
+   */
+  uint32_t abi_version;
+  /**
+   * Backend bound to every entry.
+   */
+  ocgpuBackend backend;
+  /**
+   * Negotiated RTC capability bits.
+   */
+  uint32_t flags;
+  /**
+   * Runtime-compiler major version.
+   */
+  int32_t rtc_version_major;
+  /**
+   * Runtime-compiler minor version.
+   */
+  int32_t rtc_version_minor;
+  /**
+   * Returns the stable string for a backend-compatible RTC result.
+   */
+  const char *(OCGPU_CALL *ocgpuRtcGetErrorString)(ocgpuRtcResult result);
+  /**
+   * Queries the runtime-compiler version.
+   */
+  ocgpuRtcResult (OCGPU_CALL *ocgpuRtcVersion)(int32_t *major, int32_t *minor);
+  /**
+   * Creates a runtime-compilation program.
+   */
+  ocgpuRtcResult (OCGPU_CALL *ocgpuRtcCreateProgram)(ocgpuRtcProgram *program,
+                                          const char *source,
+                                          const char *name,
+                                          int32_t header_count,
+                                          const char *const *headers,
+                                          const char *const *include_names);
+  /**
+   * Destroys a runtime-compilation program.
+   */
+  ocgpuRtcResult (OCGPU_CALL *ocgpuRtcDestroyProgram)(ocgpuRtcProgram *program);
+  /**
+   * Compiles a runtime-compilation program.
+   */
+  ocgpuRtcResult (OCGPU_CALL *ocgpuRtcCompileProgram)(ocgpuRtcProgram program,
+                                           int32_t option_count,
+                                           const char *const *options);
+  /**
+   * Queries the compilation-log byte count.
+   */
+  ocgpuRtcResult (OCGPU_CALL *ocgpuRtcGetProgramLogSize)(ocgpuRtcProgram program, size_t *log_size);
+  /**
+   * Copies the compilation log.
+   */
+  ocgpuRtcResult (OCGPU_CALL *ocgpuRtcGetProgramLog)(ocgpuRtcProgram program, char *log);
+  /**
+   * Registers a name expression before compilation.
+   */
+  ocgpuRtcResult (OCGPU_CALL *ocgpuRtcAddNameExpression)(ocgpuRtcProgram program, const char *name_expression);
+  /**
+   * Resolves a registered expression to its lowered name.
+   */
+  ocgpuRtcResult (OCGPU_CALL *ocgpuRtcGetLoweredName)(ocgpuRtcProgram program,
+                                           const char *name_expression,
+                                           const char **lowered_name);
+  /**
+   * Queries the backend-native loadable-code byte count.
+   */
+  ocgpuRtcResult (OCGPU_CALL *ocgpuRtcGetCodeSize)(ocgpuRtcProgram program, size_t *code_size);
+  /**
+   * Copies backend-native loadable code.
+   */
+  ocgpuRtcResult (OCGPU_CALL *ocgpuRtcGetCode)(ocgpuRtcProgram program, char *code);
+} ocgpuRtcApi_v1;
 
 /**
  * Stable ABI integer typedef.
@@ -25919,6 +26352,266 @@ typedef struct ocgpuHipMemFabricHandle_st ocgpuHipMemFabricHandle_t;
 #define OCGPU_ERROR_SYMBOL_UNAVAILABLE ((ocgpuResult)-4)
 
 /**
+ * Exact HIPRTC 5.7.1 builtin-operation-failure code.
+ */
+#define OCGPU_HIPRTC_ERROR_BUILTIN_OPERATION_FAILURE 7
+
+/**
+ * Exact HIPRTC 5.7.1 compilation-failure code.
+ */
+#define OCGPU_HIPRTC_ERROR_COMPILATION 6
+
+/**
+ * Exact HIPRTC 5.7.1 internal-error code.
+ */
+#define OCGPU_HIPRTC_ERROR_INTERNAL_ERROR 11
+
+/**
+ * Exact HIPRTC 5.7.1 invalid-input code.
+ */
+#define OCGPU_HIPRTC_ERROR_INVALID_INPUT 3
+
+/**
+ * Exact HIPRTC 5.7.1 invalid-option code.
+ */
+#define OCGPU_HIPRTC_ERROR_INVALID_OPTION 5
+
+/**
+ * Exact HIPRTC 5.7.1 invalid-program code.
+ */
+#define OCGPU_HIPRTC_ERROR_INVALID_PROGRAM 4
+
+/**
+ * Exact HIPRTC 5.7.1 linking-failure code.
+ */
+#define OCGPU_HIPRTC_ERROR_LINKING 100
+
+/**
+ * Exact HIPRTC 5.7.1 invalid-name-expression code.
+ */
+#define OCGPU_HIPRTC_ERROR_NAME_EXPRESSION_NOT_VALID 10
+
+/**
+ * Exact HIPRTC 5.7.1 early-lowered-name code.
+ */
+#define OCGPU_HIPRTC_ERROR_NO_LOWERED_NAMES_BEFORE_COMPILATION 9
+
+/**
+ * Exact HIPRTC 5.7.1 late-name-expression code.
+ */
+#define OCGPU_HIPRTC_ERROR_NO_NAME_EXPRESSIONS_AFTER_COMPILATION 8
+
+/**
+ * Exact HIPRTC 5.7.1 out-of-memory code.
+ */
+#define OCGPU_HIPRTC_ERROR_OUT_OF_MEMORY 1
+
+/**
+ * Exact HIPRTC 5.7.1 program-creation-failure code.
+ */
+#define OCGPU_HIPRTC_ERROR_PROGRAM_CREATION_FAILURE 2
+
+/**
+ * Exact HIPRTC 5.7.1 cache-mode linker option.
+ */
+#define OCGPU_HIPRTC_JIT_CACHE_MODE 14
+
+/**
+ * Exact HIPRTC 5.7.1 error-log-buffer linker option.
+ */
+#define OCGPU_HIPRTC_JIT_ERROR_LOG_BUFFER 5
+
+/**
+ * Exact HIPRTC 5.7.1 error-log-size linker option.
+ */
+#define OCGPU_HIPRTC_JIT_ERROR_LOG_BUFFER_SIZE_BYTES 6
+
+/**
+ * Exact HIPRTC 5.7.1 fallback-strategy linker option.
+ */
+#define OCGPU_HIPRTC_JIT_FALLBACK_STRATEGY 10
+
+/**
+ * Exact HIPRTC 5.7.1 fast-compile linker option.
+ */
+#define OCGPU_HIPRTC_JIT_FAST_COMPILE 16
+
+/**
+ * Exact HIPRTC 5.7.1 fused-multiply-add linker option.
+ */
+#define OCGPU_HIPRTC_JIT_FMA 24
+
+/**
+ * Exact HIPRTC 5.7.1 flush-to-zero linker option.
+ */
+#define OCGPU_HIPRTC_JIT_FTZ 21
+
+/**
+ * Exact HIPRTC 5.7.1 debug-information linker option.
+ */
+#define OCGPU_HIPRTC_JIT_GENERATE_DEBUG_INFO 11
+
+/**
+ * Exact HIPRTC 5.7.1 line-information linker option.
+ */
+#define OCGPU_HIPRTC_JIT_GENERATE_LINE_INFO 13
+
+/**
+ * Exact HIPRTC 5.7.1 global-symbol-address linker option.
+ */
+#define OCGPU_HIPRTC_JIT_GLOBAL_SYMBOL_ADDRESS 18
+
+/**
+ * Exact HIPRTC 5.7.1 global-symbol-count linker option.
+ */
+#define OCGPU_HIPRTC_JIT_GLOBAL_SYMBOL_COUNT 19
+
+/**
+ * Exact HIPRTC 5.7.1 global-symbol-names linker option.
+ */
+#define OCGPU_HIPRTC_JIT_GLOBAL_SYMBOL_NAMES 17
+
+/**
+ * Exact HIPRTC 5.7.1 information-log-buffer linker option.
+ */
+#define OCGPU_HIPRTC_JIT_INFO_LOG_BUFFER 3
+
+/**
+ * Exact HIPRTC 5.7.1 information-log-size linker option.
+ */
+#define OCGPU_HIPRTC_JIT_INFO_LOG_BUFFER_SIZE_BYTES 4
+
+/**
+ * Exact HIPRTC 5.7.1 cubin input kind.
+ */
+#define OCGPU_HIPRTC_JIT_INPUT_CUBIN 0
+
+/**
+ * Exact HIPRTC 5.7.1 fat-binary input kind.
+ */
+#define OCGPU_HIPRTC_JIT_INPUT_FATBINARY 2
+
+/**
+ * Exact HIPRTC 5.7.1 library input kind.
+ */
+#define OCGPU_HIPRTC_JIT_INPUT_LIBRARY 4
+
+/**
+ * Exact HIPRTC 5.7.1 archive-of-bundled-bitcode input kind.
+ */
+#define OCGPU_HIPRTC_JIT_INPUT_LLVM_ARCHIVES_OF_BUNDLED_BITCODE 102
+
+/**
+ * Exact HIPRTC 5.7.1 LLVM-bitcode input kind.
+ */
+#define OCGPU_HIPRTC_JIT_INPUT_LLVM_BITCODE 100
+
+/**
+ * Exact HIPRTC 5.7.1 bundled-LLVM-bitcode input kind.
+ */
+#define OCGPU_HIPRTC_JIT_INPUT_LLVM_BUNDLED_BITCODE 101
+
+/**
+ * Exact HIPRTC 5.7.1 NVVM input kind.
+ */
+#define OCGPU_HIPRTC_JIT_INPUT_NVVM 5
+
+/**
+ * Exact HIPRTC 5.7.1 object input kind.
+ */
+#define OCGPU_HIPRTC_JIT_INPUT_OBJECT 3
+
+/**
+ * Exact HIPRTC 5.7.1 PTX input kind.
+ */
+#define OCGPU_HIPRTC_JIT_INPUT_PTX 1
+
+/**
+ * Exact HIPRTC 5.7.1 AMD IR-to-ISA option-count extension.
+ */
+#define OCGPU_HIPRTC_JIT_IR_TO_ISA_OPT_COUNT_EXT 10001
+
+/**
+ * Exact HIPRTC 5.7.1 AMD IR-to-ISA option-list extension.
+ */
+#define OCGPU_HIPRTC_JIT_IR_TO_ISA_OPT_EXT 10000
+
+/**
+ * Exact HIPRTC 5.7.1 verbose-log linker option.
+ */
+#define OCGPU_HIPRTC_JIT_LOG_VERBOSE 12
+
+/**
+ * Exact HIPRTC 5.7.1 link-time-optimization linker option.
+ */
+#define OCGPU_HIPRTC_JIT_LTO 20
+
+/**
+ * Exact HIPRTC 5.7.1 maximum-registers linker option.
+ */
+#define OCGPU_HIPRTC_JIT_MAX_REGISTERS 0
+
+/**
+ * Exact HIPRTC 5.7.1 new-SM3X linker option.
+ */
+#define OCGPU_HIPRTC_JIT_NEW_SM3X_OPT 15
+
+/**
+ * Exact HIPRTC 5.7.1 total input-kind count.
+ */
+#define OCGPU_HIPRTC_JIT_NUM_INPUT_TYPES 9
+
+/**
+ * Exact HIPRTC 5.7.1 legacy input-kind count.
+ */
+#define OCGPU_HIPRTC_JIT_NUM_LEGACY_INPUT_TYPES 6
+
+/**
+ * Exact HIPRTC 5.7.1 ordinary linker-option count.
+ */
+#define OCGPU_HIPRTC_JIT_NUM_OPTIONS 25
+
+/**
+ * Exact HIPRTC 5.7.1 optimization-level linker option.
+ */
+#define OCGPU_HIPRTC_JIT_OPTIMIZATION_LEVEL 7
+
+/**
+ * Exact HIPRTC 5.7.1 precise-division linker option.
+ */
+#define OCGPU_HIPRTC_JIT_PREC_DIV 22
+
+/**
+ * Exact HIPRTC 5.7.1 precise-square-root linker option.
+ */
+#define OCGPU_HIPRTC_JIT_PREC_SQRT 23
+
+/**
+ * Exact HIPRTC 5.7.1 explicit-target linker option.
+ */
+#define OCGPU_HIPRTC_JIT_TARGET 9
+
+/**
+ * Exact HIPRTC 5.7.1 current-context-target linker option.
+ */
+#define OCGPU_HIPRTC_JIT_TARGET_FROM_HIPCONTEXT 8
+
+/**
+ * Exact HIPRTC 5.7.1 threads-per-block linker option.
+ */
+#define OCGPU_HIPRTC_JIT_THREADS_PER_BLOCK 1
+
+/**
+ * Exact HIPRTC 5.7.1 wall-time linker option.
+ */
+#define OCGPU_HIPRTC_JIT_WALL_TIME 2
+
+/**
+ * Exact HIPRTC 5.7.1 success code.
+ */
+#define OCGPU_HIPRTC_SUCCESS 0
+
+/**
  * Backend-native mapping for `OCGPU_DEVICE_ATTRIBUTE_CAN_MAP_HOST_MEMORY`.
  */
 #define OCGPU_HIP_DEVICE_ATTRIBUTE_CAN_MAP_HOST_MEMORY ((ocgpuHipDeviceAttribute_t)3)
@@ -26084,6 +26777,131 @@ typedef struct ocgpuHipMemFabricHandle_st ocgpuHipMemFabricHandle_t;
 #define OCGPU_HIP_SUCCESS ((ocgpuHipError_t)0)
 
 /**
+ * Exact NVRTC 12.4 builtin-operation-failure code.
+ */
+#define OCGPU_NVRTC_ERROR_BUILTIN_OPERATION_FAILURE 7
+
+/**
+ * Exact NVRTC 12.4 compilation-failure code.
+ */
+#define OCGPU_NVRTC_ERROR_COMPILATION 6
+
+/**
+ * Exact NVRTC 12.4 internal-error code.
+ */
+#define OCGPU_NVRTC_ERROR_INTERNAL_ERROR 11
+
+/**
+ * Exact NVRTC 12.4 invalid-input code.
+ */
+#define OCGPU_NVRTC_ERROR_INVALID_INPUT 3
+
+/**
+ * Exact NVRTC 12.4 invalid-option code.
+ */
+#define OCGPU_NVRTC_ERROR_INVALID_OPTION 5
+
+/**
+ * Exact NVRTC 12.4 invalid-program code.
+ */
+#define OCGPU_NVRTC_ERROR_INVALID_PROGRAM 4
+
+/**
+ * Exact NVRTC 12.4 invalid-name-expression code.
+ */
+#define OCGPU_NVRTC_ERROR_NAME_EXPRESSION_NOT_VALID 10
+
+/**
+ * Exact NVRTC 12.4 early-lowered-name code.
+ */
+#define OCGPU_NVRTC_ERROR_NO_LOWERED_NAMES_BEFORE_COMPILATION 9
+
+/**
+ * Exact NVRTC 12.4 late-name-expression code.
+ */
+#define OCGPU_NVRTC_ERROR_NO_NAME_EXPRESSIONS_AFTER_COMPILATION 8
+
+/**
+ * Exact NVRTC 12.4 out-of-memory code.
+ */
+#define OCGPU_NVRTC_ERROR_OUT_OF_MEMORY 1
+
+/**
+ * Exact NVRTC 12.4 program-creation-failure code.
+ */
+#define OCGPU_NVRTC_ERROR_PROGRAM_CREATION_FAILURE 2
+
+/**
+ * Exact NVRTC 12.4 time-file-write-failure code.
+ */
+#define OCGPU_NVRTC_ERROR_TIME_FILE_WRITE_FAILED 12
+
+/**
+ * Exact NVRTC 12.4 success code.
+ */
+#define OCGPU_NVRTC_SUCCESS 0
+
+/**
+ * A runtime compiler builtin operation failed.
+ */
+#define OCGPU_RTC_ERROR_BUILTIN_OPERATION_FAILURE 7
+
+/**
+ * Device-code compilation failed.
+ */
+#define OCGPU_RTC_ERROR_COMPILATION 6
+
+/**
+ * An internal runtime compiler error occurred.
+ */
+#define OCGPU_RTC_ERROR_INTERNAL_ERROR 11
+
+/**
+ * A runtime compiler input was invalid.
+ */
+#define OCGPU_RTC_ERROR_INVALID_INPUT 3
+
+/**
+ * A runtime compiler option was invalid.
+ */
+#define OCGPU_RTC_ERROR_INVALID_OPTION 5
+
+/**
+ * A runtime compiler program handle was invalid.
+ */
+#define OCGPU_RTC_ERROR_INVALID_PROGRAM 4
+
+/**
+ * A name expression was not valid.
+ */
+#define OCGPU_RTC_ERROR_NAME_EXPRESSION_NOT_VALID 10
+
+/**
+ * A lowered name was requested before compilation.
+ */
+#define OCGPU_RTC_ERROR_NO_LOWERED_NAMES_BEFORE_COMPILATION 9
+
+/**
+ * A name expression was added after compilation.
+ */
+#define OCGPU_RTC_ERROR_NO_NAME_EXPRESSIONS_AFTER_COMPILATION 8
+
+/**
+ * Runtime compiler allocation failed.
+ */
+#define OCGPU_RTC_ERROR_OUT_OF_MEMORY 1
+
+/**
+ * Runtime compiler program creation failed.
+ */
+#define OCGPU_RTC_ERROR_PROGRAM_CREATION_FAILURE 2
+
+/**
+ * Successful runtime compilation.
+ */
+#define OCGPU_RTC_SUCCESS 0
+
+/**
  * Stable integer constant.
  */
 #define OCGPU_SUCCESS ((ocgpuResult)0)
@@ -26113,6 +26931,28 @@ extern OCGPU_API ocgpuResult OCGPU_CALL ocgpuGetApi(ocgpuBackend backend,
 extern OCGPU_API ocgpuResult OCGPU_CALL ocgpuHipGetApi(uint32_t requested_abi,
                                   size_t output_size,
                                   struct ocgpuHipApi_v1 *output);
+
+/**
+ * Negotiates a raw HIPRTC ABI table.
+ */
+extern OCGPU_API ocgpuResult OCGPU_CALL ocgpuHiprtcGetApi(uint32_t requested_abi,
+                                     size_t output_size,
+                                     struct ocgpuHiprtcApi_v1 *output);
+
+/**
+ * Negotiates a raw NVRTC ABI table.
+ */
+extern OCGPU_API ocgpuResult OCGPU_CALL ocgpuNvrtcGetApi(uint32_t requested_abi,
+                                    size_t output_size,
+                                    struct ocgpuNvrtcApi_v1 *output);
+
+/**
+ * Negotiates a backend-bound common RTC ABI table.
+ */
+extern OCGPU_API ocgpuResult OCGPU_CALL ocgpuRtcGetApi(ocgpuBackend backend,
+                                  uint32_t requested_abi,
+                                  size_t output_size,
+                                  struct ocgpuRtcApi_v1 *output);
 
 #if defined(OCGPU_ENABLE_FLAT_C_EXPORTS)
 /* Convenience ABI: unified leaf calls take `ocgpuBackend` first; raw CUDA/HIP

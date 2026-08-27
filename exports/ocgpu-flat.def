@@ -1126,6 +1126,7 @@ EXPORTS
     ocgpuHipUserObjectRelease
     ocgpuHipUserObjectRetain
     ocgpuHipWaitExternalSemaphoresAsync
+    ocgpuHiprtcGetApi
     ocgpuInit
     ocgpuLaunchKernel
     ocgpuMemAlloc
@@ -1135,6 +1136,8 @@ EXPORTS
     ocgpuModuleGetFunction
     ocgpuModuleLoadData
     ocgpuModuleUnload
+    ocgpuNvrtcGetApi
+    ocgpuRtcGetApi
     ocgpuStreamCreate
     ocgpuStreamDestroy
     ocgpuStreamSynchronize

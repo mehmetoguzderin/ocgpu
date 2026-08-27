@@ -7,6 +7,7 @@ members = [
     "crates/ocgpu-loader",
     "crates/ocgpu-cuda",
     "crates/ocgpu-hip",
+    "crates/ocgpu-rtc",
     "crates/ocgpu",
     "crates/ocgpu-capi",
     "crates/ocgpu-cli",
@@ -32,6 +33,7 @@ ocgpu-abi = { path = "crates/ocgpu-abi", version = "0.1.0" }
 ocgpu-loader = { path = "crates/ocgpu-loader", version = "0.1.0" }
 ocgpu-cuda = { path = "crates/ocgpu-cuda", version = "0.1.0" }
 ocgpu-hip = { path = "crates/ocgpu-hip", version = "0.1.0" }
+ocgpu-rtc = { path = "crates/ocgpu-rtc", version = "0.1.0" }
 ocgpu = { path = "crates/ocgpu", version = "0.1.0" }
 serde = { version = "1.0.219", features = ["derive"] }
 serde_json = "1.0.142"

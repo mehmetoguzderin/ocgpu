@@ -1674,15 +1674,22 @@ fn validate_exports(
             ));
         }
     }
-    let bootstrap = ["ocgpuGetApi", "ocgpuCuGetApi", "ocgpuHipGetApi"]
-        .into_iter()
-        .map(str::to_owned)
-        .collect::<BTreeSet<_>>();
+    let management_getters = [
+        "ocgpuGetApi",
+        "ocgpuCuGetApi",
+        "ocgpuHipGetApi",
+        "ocgpuRtcGetApi",
+        "ocgpuNvrtcGetApi",
+        "ocgpuHiprtcGetApi",
+    ]
+    .into_iter()
+    .map(str::to_owned)
+    .collect::<BTreeSet<_>>();
     for symbol in def_exports {
         if !expected.contains(symbol)
             && !manifest_symbols.contains(symbol)
             && !generated_symbols.contains(symbol)
-            && !bootstrap.contains(symbol)
+            && !management_getters.contains(symbol)
         {
             errors.push(format!(
                 "public export {symbol} is absent from the canonical manifest"

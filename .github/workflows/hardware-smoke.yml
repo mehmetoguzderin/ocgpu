@@ -21,6 +21,11 @@ on:
         default: windows
         type: choice
         options: [windows, linux]
+      run_rtc_smoke:
+        description: Also compile and launch the fixed no-op through the selected runtime compiler
+        required: true
+        default: false
+        type: boolean
       hip_linux_smoke_module:
         description: Absolute Linux-runner path to a reviewed, architecture-matched HIP smoke code object
         required: false
@@ -60,6 +65,7 @@ jobs:
     env:
       OCGPU_SELECTED_MODE: ${{ inputs.backend }}
       OCGPU_DISPATCH_ACK: ${{ inputs.acknowledgement }}
+      OCGPU_RTC_REQUESTED: ${{ inputs.run_rtc_smoke }}
     steps:
       - name: Validate explicit dispatch acknowledgement
         shell: pwsh
@@ -67,6 +73,9 @@ jobs:
           $expected = if ($env:OCGPU_SELECTED_MODE -ceq 'all') { 'RUN_BOUNDED_DUAL_GPU_SMOKE' } else { 'RUN_BOUNDED_GPU_SMOKE' }
           if ($env:OCGPU_DISPATCH_ACK -cne $expected) {
             throw "Mode '$env:OCGPU_SELECTED_MODE' requires acknowledgement '$expected'."
+          }
+          if ($env:OCGPU_RTC_REQUESTED -ieq 'true' -and $env:OCGPU_SELECTED_MODE -ceq 'coexistence') {
+            throw 'RTC smoke executes GPU work and cannot be combined with discovery-only coexistence mode.'
           }
 
   nvidia-linux:
@@ -80,6 +89,26 @@ jobs:
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       - run: cargo run -p xtask -- hardware-smoke
+      - name: Stage opt-in NVRTC compile without CUDA execution
+        if: inputs.run_rtc_smoke
+        env:
+          OCGPU_RUN_RTC_HARDWARE_SMOKE: "1"
+          OCGPU_RTC_SMOKE_BACKEND: cuda
+          OCGPU_NVRTC_LIBRARY: ${{ vars.OCGPU_NVRTC_LIBRARY_LINUX }}
+          OCGPU_NVRTC_ARCH: ${{ vars.OCGPU_NVRTC_ARCH_LINUX }}
+          OCGPU_RTC_COMPILE_ONLY: "1"
+        run: cargo run -p xtask -- rtc-hardware-smoke
+      - name: Run opt-in NVRTC compile and CUDA launch
+        if: inputs.run_rtc_smoke
+        env:
+          OCGPU_RUN_RTC_HARDWARE_SMOKE: "1"
+          OCGPU_RTC_SMOKE_BACKEND: cuda
+          OCGPU_NVRTC_LIBRARY: ${{ vars.OCGPU_NVRTC_LIBRARY_LINUX }}
+          OCGPU_NVRTC_ARCH: ${{ vars.OCGPU_NVRTC_ARCH_LINUX }}
+        shell: pwsh
+        run: |
+          Remove-Item Env:OCGPU_RTC_COMPILE_ONLY -ErrorAction SilentlyContinue
+          cargo run -p xtask -- rtc-hardware-smoke
       - run: cargo run -p ocgpu-cli -- doctor --json
       - name: Validate CUDA symbol coverage and required core
         shell: pwsh
@@ -98,6 +127,26 @@ jobs:
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       - run: cargo run -p xtask -- hardware-smoke
+      - name: Stage opt-in NVRTC compile without CUDA execution
+        if: inputs.run_rtc_smoke
+        env:
+          OCGPU_RUN_RTC_HARDWARE_SMOKE: "1"
+          OCGPU_RTC_SMOKE_BACKEND: cuda
+          OCGPU_NVRTC_LIBRARY: ${{ vars.OCGPU_NVRTC_LIBRARY_WINDOWS }}
+          OCGPU_NVRTC_ARCH: ${{ vars.OCGPU_NVRTC_ARCH_WINDOWS }}
+          OCGPU_RTC_COMPILE_ONLY: "1"
+        run: cargo run -p xtask -- rtc-hardware-smoke
+      - name: Run opt-in NVRTC compile and CUDA launch
+        if: inputs.run_rtc_smoke
+        env:
+          OCGPU_RUN_RTC_HARDWARE_SMOKE: "1"
+          OCGPU_RTC_SMOKE_BACKEND: cuda
+          OCGPU_NVRTC_LIBRARY: ${{ vars.OCGPU_NVRTC_LIBRARY_WINDOWS }}
+          OCGPU_NVRTC_ARCH: ${{ vars.OCGPU_NVRTC_ARCH_WINDOWS }}
+        shell: pwsh
+        run: |
+          Remove-Item Env:OCGPU_RTC_COMPILE_ONLY -ErrorAction SilentlyContinue
+          cargo run -p xtask -- rtc-hardware-smoke
       - run: cargo run -p ocgpu-cli -- doctor --json
       - name: Validate CUDA symbol coverage and required core
         shell: pwsh
@@ -138,6 +187,26 @@ jobs:
             throw 'HIP fixture must be a nonempty regular file no larger than 8 MiB'
           }
       - run: cargo run -p xtask -- hardware-smoke
+      - name: Stage opt-in HIPRTC compile without HIP execution
+        if: inputs.run_rtc_smoke
+        env:
+          OCGPU_RUN_RTC_HARDWARE_SMOKE: "1"
+          OCGPU_RTC_SMOKE_BACKEND: hip
+          OCGPU_HIPRTC_LIBRARY: ${{ vars.OCGPU_HIPRTC_LIBRARY_LINUX }}
+          OCGPU_HIPRTC_ARCH: ${{ vars.OCGPU_HIPRTC_ARCH_LINUX }}
+          OCGPU_RTC_COMPILE_ONLY: "1"
+        run: cargo run -p xtask -- rtc-hardware-smoke
+      - name: Run opt-in HIPRTC compile and HIP launch
+        if: inputs.run_rtc_smoke
+        env:
+          OCGPU_RUN_RTC_HARDWARE_SMOKE: "1"
+          OCGPU_RTC_SMOKE_BACKEND: hip
+          OCGPU_HIPRTC_LIBRARY: ${{ vars.OCGPU_HIPRTC_LIBRARY_LINUX }}
+          OCGPU_HIPRTC_ARCH: ${{ vars.OCGPU_HIPRTC_ARCH_LINUX }}
+        shell: pwsh
+        run: |
+          Remove-Item Env:OCGPU_RTC_COMPILE_ONLY -ErrorAction SilentlyContinue
+          cargo run -p xtask -- rtc-hardware-smoke
       - run: cargo run -p ocgpu-cli -- doctor --json
       - name: Validate HIP symbol coverage and required core
         shell: pwsh
@@ -178,6 +247,26 @@ jobs:
             throw 'HIP fixture must be a nonempty regular file no larger than 8 MiB'
           }
       - run: cargo run -p xtask -- hardware-smoke
+      - name: Stage opt-in HIPRTC compile without HIP execution
+        if: inputs.run_rtc_smoke
+        env:
+          OCGPU_RUN_RTC_HARDWARE_SMOKE: "1"
+          OCGPU_RTC_SMOKE_BACKEND: hip
+          OCGPU_HIPRTC_LIBRARY: ${{ vars.OCGPU_HIPRTC_LIBRARY_WINDOWS }}
+          OCGPU_HIPRTC_ARCH: ${{ vars.OCGPU_HIPRTC_ARCH_WINDOWS }}
+          OCGPU_RTC_COMPILE_ONLY: "1"
+        run: cargo run -p xtask -- rtc-hardware-smoke
+      - name: Run opt-in HIPRTC compile and HIP launch
+        if: inputs.run_rtc_smoke
+        env:
+          OCGPU_RUN_RTC_HARDWARE_SMOKE: "1"
+          OCGPU_RTC_SMOKE_BACKEND: hip
+          OCGPU_HIPRTC_LIBRARY: ${{ vars.OCGPU_HIPRTC_LIBRARY_WINDOWS }}
+          OCGPU_HIPRTC_ARCH: ${{ vars.OCGPU_HIPRTC_ARCH_WINDOWS }}
+        shell: pwsh
+        run: |
+          Remove-Item Env:OCGPU_RTC_COMPILE_ONLY -ErrorAction SilentlyContinue
+          cargo run -p xtask -- rtc-hardware-smoke
       - run: cargo run -p ocgpu-cli -- doctor --json
       - name: Validate Windows HIP symbol coverage and required core
         shell: pwsh
@@ -220,6 +309,30 @@ jobs:
             throw 'HIP fixture must be a nonempty regular file no larger than 8 MiB'
           }
       - run: cargo run -p xtask -- hardware-smoke
+      - name: Stage opt-in NVRTC and HIPRTC compilation without GPU execution
+        if: inputs.run_rtc_smoke && inputs.backend == 'all'
+        env:
+          OCGPU_RUN_RTC_HARDWARE_SMOKE: "1"
+          OCGPU_RTC_SMOKE_BACKEND: both
+          OCGPU_NVRTC_LIBRARY: ${{ vars.OCGPU_NVRTC_LIBRARY_LINUX }}
+          OCGPU_NVRTC_ARCH: ${{ vars.OCGPU_NVRTC_ARCH_LINUX }}
+          OCGPU_HIPRTC_LIBRARY: ${{ vars.OCGPU_HIPRTC_LIBRARY_LINUX }}
+          OCGPU_HIPRTC_ARCH: ${{ vars.OCGPU_HIPRTC_ARCH_LINUX }}
+          OCGPU_RTC_COMPILE_ONLY: "1"
+        run: cargo run -p xtask -- rtc-hardware-smoke
+      - name: Run opt-in concurrent NVRTC and HIPRTC compile/launch smoke
+        if: inputs.run_rtc_smoke && inputs.backend == 'all'
+        env:
+          OCGPU_RUN_RTC_HARDWARE_SMOKE: "1"
+          OCGPU_RTC_SMOKE_BACKEND: both
+          OCGPU_NVRTC_LIBRARY: ${{ vars.OCGPU_NVRTC_LIBRARY_LINUX }}
+          OCGPU_NVRTC_ARCH: ${{ vars.OCGPU_NVRTC_ARCH_LINUX }}
+          OCGPU_HIPRTC_LIBRARY: ${{ vars.OCGPU_HIPRTC_LIBRARY_LINUX }}
+          OCGPU_HIPRTC_ARCH: ${{ vars.OCGPU_HIPRTC_ARCH_LINUX }}
+        shell: pwsh
+        run: |
+          Remove-Item Env:OCGPU_RTC_COMPILE_ONLY -ErrorAction SilentlyContinue
+          cargo run -p xtask -- rtc-hardware-smoke
       - run: cargo run -p ocgpu-cli -- doctor --strict --json
       - name: Validate both symbol inventories and required cores
         shell: pwsh
@@ -264,6 +377,30 @@ jobs:
             throw 'HIP fixture must be a nonempty regular file no larger than 8 MiB'
           }
       - run: cargo run -p xtask -- hardware-smoke
+      - name: Stage opt-in NVRTC and HIPRTC compilation without GPU execution
+        if: inputs.run_rtc_smoke && inputs.backend == 'all'
+        env:
+          OCGPU_RUN_RTC_HARDWARE_SMOKE: "1"
+          OCGPU_RTC_SMOKE_BACKEND: both
+          OCGPU_NVRTC_LIBRARY: ${{ vars.OCGPU_NVRTC_LIBRARY_WINDOWS }}
+          OCGPU_NVRTC_ARCH: ${{ vars.OCGPU_NVRTC_ARCH_WINDOWS }}
+          OCGPU_HIPRTC_LIBRARY: ${{ vars.OCGPU_HIPRTC_LIBRARY_WINDOWS }}
+          OCGPU_HIPRTC_ARCH: ${{ vars.OCGPU_HIPRTC_ARCH_WINDOWS }}
+          OCGPU_RTC_COMPILE_ONLY: "1"
+        run: cargo run -p xtask -- rtc-hardware-smoke
+      - name: Run opt-in concurrent NVRTC and HIPRTC compile/launch smoke
+        if: inputs.run_rtc_smoke && inputs.backend == 'all'
+        env:
+          OCGPU_RUN_RTC_HARDWARE_SMOKE: "1"
+          OCGPU_RTC_SMOKE_BACKEND: both
+          OCGPU_NVRTC_LIBRARY: ${{ vars.OCGPU_NVRTC_LIBRARY_WINDOWS }}
+          OCGPU_NVRTC_ARCH: ${{ vars.OCGPU_NVRTC_ARCH_WINDOWS }}
+          OCGPU_HIPRTC_LIBRARY: ${{ vars.OCGPU_HIPRTC_LIBRARY_WINDOWS }}
+          OCGPU_HIPRTC_ARCH: ${{ vars.OCGPU_HIPRTC_ARCH_WINDOWS }}
+        shell: pwsh
+        run: |
+          Remove-Item Env:OCGPU_RTC_COMPILE_ONLY -ErrorAction SilentlyContinue
+          cargo run -p xtask -- rtc-hardware-smoke
       - run: cargo run -p ocgpu-cli -- doctor --strict --json
       - name: Validate both symbol inventories and required cores
         shell: pwsh

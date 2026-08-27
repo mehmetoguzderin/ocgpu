@@ -15,5 +15,6 @@ ocgpu-abi = { path = "../ocgpu-abi-0.1.0" }
 ocgpu-loader = { path = "../ocgpu-loader-0.1.0" }
 ocgpu-cuda = { path = "../ocgpu-cuda-0.1.0" }
 ocgpu-hip = { path = "../ocgpu-hip-0.1.0" }
+ocgpu-rtc = { path = "../ocgpu-rtc-0.1.0" }
 
 [workspace]

@@ -29,6 +29,10 @@ pub enum Backend {
     Cuda,
     /// AMD HIP runtime's driver-shaped API.
     Hip,
+    /// NVIDIA Runtime Compilation library.
+    Nvrtc,
+    /// AMD HIP Runtime Compilation library.
+    Hiprtc,
 }
 
 impl Backend {
@@ -38,6 +42,8 @@ impl Backend {
         match self {
             Self::Cuda => "CUDA",
             Self::Hip => "HIP",
+            Self::Nvrtc => "NVRTC",
+            Self::Hiprtc => "HIPRTC",
         }
     }
 
@@ -49,6 +55,20 @@ impl Backend {
             Self::Cuda => &["nvcuda.dll"],
             #[cfg(target_os = "windows")]
             Self::Hip => &["amdhip64_7.dll", "amdhip64_6.dll", "amdhip64.dll"],
+            #[cfg(target_os = "windows")]
+            Self::Nvrtc => &[
+                "nvrtc64_130_0.dll",
+                "nvrtc64_120_0.dll",
+                "nvrtc64_112_0.dll",
+            ],
+            #[cfg(target_os = "windows")]
+            Self::Hiprtc => &[
+                "hiprtc0702.dll",
+                "hiprtc0604.dll",
+                "hiprtc0602.dll",
+                "hiprtc0601.dll",
+                "hiprtc.dll",
+            ],
             #[cfg(target_os = "linux")]
             Self::Cuda => &["libcuda.so.1"],
             #[cfg(target_os = "linux")]
@@ -58,9 +78,34 @@ impl Backend {
                 "libamdhip64.so.5",
                 "libamdhip64.so",
             ],
+            #[cfg(target_os = "linux")]
+            Self::Nvrtc => &[
+                "libnvrtc.so.13",
+                "libnvrtc.so.12",
+                "libnvrtc.so.11",
+                "libnvrtc.so",
+            ],
+            #[cfg(target_os = "linux")]
+            Self::Hiprtc => &[
+                "libhiprtc.so.7",
+                "libhiprtc.so.6",
+                "libhiprtc.so.5",
+                "libhiprtc.so",
+            ],
             #[cfg(not(any(target_os = "linux", target_os = "windows")))]
             _ => &[],
         }
+    }
+
+    /// Whether secure default loading may search the application directory.
+    ///
+    /// Display-driver libraries are operating-system components and remain
+    /// restricted to System32 on Windows. Runtime compiler libraries are
+    /// application-deployable components, so an executable may bundle them
+    /// beside itself without enabling current-directory or ambient-PATH search.
+    #[must_use]
+    pub const fn application_deployable(self) -> bool {
+        matches!(self, Self::Nvrtc | Self::Hiprtc)
     }
 }
 
@@ -368,11 +413,15 @@ impl Library {
 
 static CUDA_LIBRARY: OnceLock<Result<Library, LoadError>> = OnceLock::new();
 static HIP_LIBRARY: OnceLock<Result<Library, LoadError>> = OnceLock::new();
+static NVRTC_LIBRARY: OnceLock<Result<Library, LoadError>> = OnceLock::new();
+static HIPRTC_LIBRARY: OnceLock<Result<Library, LoadError>> = OnceLock::new();
 
 fn slot(backend: Backend) -> &'static OnceLock<Result<Library, LoadError>> {
     match backend {
         Backend::Cuda => &CUDA_LIBRARY,
         Backend::Hip => &HIP_LIBRARY,
+        Backend::Nvrtc => &NVRTC_LIBRARY,
+        Backend::Hiprtc => &HIPRTC_LIBRARY,
     }
 }
 
@@ -444,7 +493,13 @@ fn open_candidates(backend: Backend) -> Result<Library, LoadError> {
     let mut attempts = Vec::with_capacity(candidates.len());
     for candidate in candidates {
         // SAFETY: platform loading uses fixed, NUL-free names and secure flags.
-        match unsafe { platform::open(Path::new(candidate), false) } {
+        match unsafe {
+            platform::open(
+                Path::new(candidate),
+                false,
+                backend.application_deployable(),
+            )
+        } {
             Ok((handle, loaded_path)) => {
                 return Ok(Library {
                     handle,
@@ -465,7 +520,7 @@ unsafe fn open_exact(backend: Backend, path: &Path) -> Result<Library, LoadError
     // platform loading excludes CWD for this top-level target, and the caller
     // guarantees that the native code and dependency closure are trusted and
     // ABI-correct.
-    match unsafe { platform::open(path, true) } {
+    match unsafe { platform::open(path, true, backend.application_deployable()) } {
         Ok((handle, loaded_path)) => Ok(Library {
             handle,
             backend,
@@ -538,6 +593,7 @@ mod platform {
     type HModule = *mut c_void;
 
     const LOAD_LIBRARY_SEARCH_DLL_LOAD_DIR: u32 = 0x0000_0100;
+    const LOAD_LIBRARY_SEARCH_APPLICATION_DIR: u32 = 0x0000_0200;
     const LOAD_LIBRARY_SEARCH_SYSTEM32: u32 = 0x0000_0800;
 
     #[link(name = "kernel32")]
@@ -550,6 +606,7 @@ mod platform {
     pub(super) unsafe fn open(
         path: &Path,
         explicit: bool,
+        application_deployable: bool,
     ) -> Result<(NonNull<c_void>, PathBuf), OpenFailure> {
         let candidate = path.to_path_buf();
         let mut wide: Vec<u16> = path.as_os_str().encode_wide().collect();
@@ -563,6 +620,8 @@ mod platform {
         wide.push(0);
         let flags = if explicit {
             LOAD_LIBRARY_SEARCH_DLL_LOAD_DIR | LOAD_LIBRARY_SEARCH_SYSTEM32
+        } else if application_deployable {
+            LOAD_LIBRARY_SEARCH_APPLICATION_DIR | LOAD_LIBRARY_SEARCH_SYSTEM32
         } else {
             // Driver-supplied CUDA and HIP runtimes reside in System32. Restricting
             // a bare DLL name to that directory categorically excludes the CWD.
@@ -693,6 +752,7 @@ mod platform {
     pub(super) unsafe fn open(
         path: &Path,
         explicit: bool,
+        _application_deployable: bool,
     ) -> Result<(NonNull<c_void>, PathBuf), OpenFailure> {
         let candidate = path.to_path_buf();
         let library_path = std::env::var_os("LD_LIBRARY_PATH");
@@ -1460,6 +1520,7 @@ mod platform {
     pub(super) unsafe fn open(
         path: &Path,
         _explicit: bool,
+        _application_deployable: bool,
     ) -> Result<(NonNull<c_void>, PathBuf), OpenFailure> {
         Err(OpenFailure {
             candidate: path.to_path_buf(),
@@ -1500,7 +1561,7 @@ mod tests {
 
     #[test]
     fn candidates_are_fixed_basenames() {
-        for backend in [Backend::Cuda, Backend::Hip] {
+        for backend in [Backend::Cuda, Backend::Hip, Backend::Nvrtc, Backend::Hiprtc] {
             for candidate in backend.candidates() {
                 let path = std::path::Path::new(candidate);
                 assert_eq!(
@@ -1513,6 +1574,60 @@ mod tests {
                 assert!(!candidate.as_bytes().contains(&0));
             }
         }
+    }
+
+    #[test]
+    fn only_runtime_compilers_are_application_deployable() {
+        assert!(!Backend::Cuda.application_deployable());
+        assert!(!Backend::Hip.application_deployable());
+        assert!(Backend::Nvrtc.application_deployable());
+        assert!(Backend::Hiprtc.application_deployable());
+    }
+
+    #[cfg(target_os = "windows")]
+    #[test]
+    fn rtc_candidates_match_supported_windows_abis() {
+        assert_eq!(
+            Backend::Nvrtc.candidates(),
+            &[
+                "nvrtc64_130_0.dll",
+                "nvrtc64_120_0.dll",
+                "nvrtc64_112_0.dll",
+            ]
+        );
+        assert_eq!(
+            Backend::Hiprtc.candidates(),
+            &[
+                "hiprtc0702.dll",
+                "hiprtc0604.dll",
+                "hiprtc0602.dll",
+                "hiprtc0601.dll",
+                "hiprtc.dll",
+            ]
+        );
+    }
+
+    #[cfg(target_os = "linux")]
+    #[test]
+    fn rtc_candidates_are_versioned_before_unversioned_fallbacks() {
+        assert_eq!(
+            Backend::Nvrtc.candidates(),
+            &[
+                "libnvrtc.so.13",
+                "libnvrtc.so.12",
+                "libnvrtc.so.11",
+                "libnvrtc.so",
+            ]
+        );
+        assert_eq!(
+            Backend::Hiprtc.candidates(),
+            &[
+                "libhiprtc.so.7",
+                "libhiprtc.so.6",
+                "libhiprtc.so.5",
+                "libhiprtc.so",
+            ]
+        );
     }
 
     #[cfg(target_os = "windows")]
