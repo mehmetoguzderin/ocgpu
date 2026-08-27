@@ -341,9 +341,9 @@
       "signature_hash": "sha256:4b9c2270c65b8c38df393c7ed582e65973297e11a90e87d2a9bd8fb0c0beda84"
     },
     {
-      "name": "hipCtxSynchronize",
+      "name": "hipDeviceSynchronize",
       "release_set": "all_reviewed",
-      "signature_hash": "sha256:f9264c898f10283aa36c840dc6d4d87f04114640925d3671c01e48d884c7433d"
+      "signature_hash": "sha256:899fd342f3d0568faa8ba877d13bed22e8d795eff2f6bc98f170368e06b19c4c"
     },
     {
       "name": "hipMalloc",
@@ -547,9 +547,9 @@
       "proof": "The hipMalloc and hipFree documentation blocks in every reviewed hip_runtime_api.h artifact."
     },
     {
-      "operations": ["hipCtxCreate", "hipCtxDestroy", "hipCtxSetCurrent", "hipCtxGetCurrent", "hipCtxSynchronize"],
-      "finding": "The common adapter preserves context creation/destruction, thread-current context selection/query, and context synchronization.",
-      "proof": "The context-management documentation blocks in every reviewed hip_runtime_api.h artifact."
+      "operations": ["hipCtxCreate", "hipCtxDestroy", "hipCtxSetCurrent", "hipCtxGetCurrent", "hipDeviceSynchronize"],
+      "finding": "The common adapter preserves context creation/destruction and thread-current context selection/query, while context-wide completion uses the supported device synchronization API because HIP contexts are device-backed.",
+      "proof": "The context- and device-management documentation blocks in every reviewed hip_runtime_api.h artifact; AMD marks the hipCtx compatibility API deprecated."
     },
     {
       "operations": ["hipModuleLoadData", "hipModuleUnload", "hipModuleGetFunction", "hipModuleLaunchKernel"],

@@ -209,7 +209,7 @@ pub type CtxDestroyFn = unsafe extern "C" fn(ocgpuContext) -> ocgpuResult;
 pub type CtxSetCurrentFn = unsafe extern "C" fn(ocgpuContext) -> ocgpuResult;
 /// `hipCtxGetCurrent` ABI.
 pub type CtxGetCurrentFn = unsafe extern "C" fn(*mut ocgpuContext) -> ocgpuResult;
-/// `hipCtxSynchronize` ABI.
+/// Common context-synchronization ABI backed by `hipDeviceSynchronize`.
 pub type CtxSynchronizeFn = unsafe extern "C" fn() -> ocgpuResult;
 /// Unified allocation ABI adapted over `hipMalloc`.
 pub type MemAllocFn = unsafe extern "C" fn(*mut ocgpuDeviceptr, usize) -> ocgpuResult;
@@ -630,7 +630,7 @@ pub struct UnvalidatedApi {
     pub ctx_set_current: Option<CtxSetCurrentFn>,
     /// Optional `hipCtxGetCurrent`.
     pub ctx_get_current: Option<CtxGetCurrentFn>,
-    /// Optional `hipCtxSynchronize`.
+    /// Optional common context synchronization backed by `hipDeviceSynchronize`.
     pub ctx_synchronize: Option<CtxSynchronizeFn>,
     /// Optional unified adapter over `hipMalloc`.
     pub mem_alloc: Option<MemAllocFn>,
@@ -764,7 +764,7 @@ pub struct ValidatedCoreApi {
     pub ctx_set_current: CtxSetCurrentFn,
     /// Validated `hipCtxGetCurrent`.
     pub ctx_get_current: CtxGetCurrentFn,
-    /// Validated `hipCtxSynchronize`.
+    /// Validated common context synchronization backed by `hipDeviceSynchronize`.
     pub ctx_synchronize: CtxSynchronizeFn,
     /// Validated unified allocation adapter over `hipMalloc`.
     pub mem_alloc: MemAllocFn,
@@ -924,7 +924,7 @@ fn validate(raw: &'static UnvalidatedApi) -> Result<ValidatedCoreApi, Error> {
     check!(ctx_destroy, "hipCtxDestroy");
     check!(ctx_set_current, "hipCtxSetCurrent");
     check!(ctx_get_current, "hipCtxGetCurrent");
-    check!(ctx_synchronize, "hipCtxSynchronize");
+    check!(ctx_synchronize, "hipDeviceSynchronize");
     check!(mem_alloc, "hipMalloc");
     check!(mem_free, "hipFree");
     check!(memcpy_htod, "hipMemcpyHtoD");
@@ -1679,8 +1679,11 @@ fn build_from_profile_source<S: SymbolSource>(
     let ctx_destroy = resolve_field!(CtxDestroyFn, "hipCtxDestroy", ["hipCtxDestroy"]);
     let ctx_set_current = resolve_field!(CtxSetCurrentFn, "hipCtxSetCurrent", ["hipCtxSetCurrent"]);
     let ctx_get_current = resolve_field!(CtxGetCurrentFn, "hipCtxGetCurrent", ["hipCtxGetCurrent"]);
-    let ctx_synchronize =
-        resolve_field!(CtxSynchronizeFn, "hipCtxSynchronize", ["hipCtxSynchronize"]);
+    let ctx_synchronize = resolve_field!(
+        CtxSynchronizeFn,
+        "hipDeviceSynchronize",
+        ["hipDeviceSynchronize"]
+    );
     let malloc = resolve_field!(MallocFn, "hipMalloc", ["hipMalloc"]);
     let free = resolve_field!(FreeFn, "hipFree", ["hipFree"]);
     if let Some(target) = malloc {
@@ -2746,6 +2749,66 @@ mod tests {
     }
 
     #[test]
+    fn common_context_sync_requires_device_sync_but_not_deprecated_ctx_sync() {
+        let without_deprecated_ctx_sync = Box::leak(Box::new(
+            build_from_source(
+                &MockLibrary {
+                    proc_success_version: None,
+                    missing: BTreeSet::from(["hipCtxSynchronize"]),
+                },
+                "mock-hip-without-deprecated-ctx-sync".into(),
+            )
+            .expect("generated descriptors must fit the mock raw table"),
+        ));
+        let validated = validate(without_deprecated_ctx_sync)
+            .expect("the deprecated raw context call is not part of the common core");
+        assert!(
+            without_deprecated_ctx_sync
+                .raw_table()
+                .ocgpuHipCtxSynchronize
+                .is_none()
+        );
+        assert!(
+            without_deprecated_ctx_sync
+                .raw_table()
+                .ocgpuHipDeviceSynchronize
+                .is_some()
+        );
+        assert!(validated.common_table().ocgpuCtxSynchronize.is_some());
+        assert!(
+            !without_deprecated_ctx_sync
+                .diagnostics
+                .symbol("hipCtxSynchronize")
+                .expect("the raw inventory reports the deprecated call")
+                .required
+        );
+        assert!(
+            without_deprecated_ctx_sync
+                .diagnostics
+                .symbol("hipDeviceSynchronize")
+                .expect("the common synchronization call is reported")
+                .required
+        );
+
+        let without_device_sync = Box::leak(Box::new(
+            build_from_source(
+                &MockLibrary {
+                    proc_success_version: None,
+                    missing: BTreeSet::from(["hipDeviceSynchronize"]),
+                },
+                "mock-hip-without-device-sync".into(),
+            )
+            .expect("generated descriptors must fit the mock raw table"),
+        ));
+        let error = validate(without_device_sync)
+            .expect_err("the common core must require device synchronization");
+        let super::Error::MissingCoreSymbols { symbols, .. } = error else {
+            panic!("unexpected error category")
+        };
+        assert_eq!(symbols, ["hipDeviceSynchronize"]);
+    }
+
+    #[test]
     fn raw_memory_slots_use_exact_pointer_typed_hip_abis() {
         let table = ocgpu_abi::ocgpuHipApi_v1::default();
         let _: Option<super::MallocFn> = table.ocgpuHipMalloc;
@@ -2880,7 +2943,7 @@ mod tests {
     #[test]
     #[allow(clippy::too_many_lines)]
     fn generated_resolution_metadata_is_slot_aligned_and_fail_closed() {
-        const REVIEWED_PROC_SYMBOLS: &[&str] = &[
+        const COMMON_REQUIRED_SYMBOLS: &[&str] = &[
             "hipInit",
             "hipDriverGetVersion",
             "hipGetDeviceCount",
@@ -2891,7 +2954,7 @@ mod tests {
             "hipCtxDestroy",
             "hipCtxSetCurrent",
             "hipCtxGetCurrent",
-            "hipCtxSynchronize",
+            "hipDeviceSynchronize",
             "hipMalloc",
             "hipFree",
             "hipMemcpyHtoD",
@@ -2950,9 +3013,15 @@ mod tests {
 
             let proc_enabled =
                 descriptor.proc_version_linux > 0 || descriptor.proc_version_windows > 0;
+            let proc_reviewed = if descriptor.canonical == "hipCtxSynchronize" {
+                true
+            } else if descriptor.canonical == "hipDeviceSynchronize" {
+                false
+            } else {
+                COMMON_REQUIRED_SYMBOLS.contains(&descriptor.canonical)
+            };
             assert_eq!(
-                proc_enabled,
-                REVIEWED_PROC_SYMBOLS.contains(&descriptor.canonical),
+                proc_enabled, proc_reviewed,
                 "unreviewed HIP raw slot enabled proc lookup: {}",
                 descriptor.canonical
             );
@@ -2960,7 +3029,12 @@ mod tests {
                 .diagnostics
                 .symbol(descriptor.canonical)
                 .expect("every emitted slot must have one diagnostic row");
-            assert_eq!(report.required, proc_enabled);
+            assert_eq!(
+                report.required,
+                COMMON_REQUIRED_SYMBOLS.contains(&descriptor.canonical),
+                "common required-symbol classification drifted for {}",
+                descriptor.canonical
+            );
             let applicable = super::platform_is_applicable(descriptor.platform_mask);
             if descriptor.direct_names.first().copied() != Some(descriptor.canonical) {
                 let direct_report = direct_raw

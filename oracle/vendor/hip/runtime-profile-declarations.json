@@ -145,9 +145,9 @@
                                                               ]
                                             },
                                             {
-                                                "name":  "hipCtxSynchronize",
-                                                "normalized_signature":  "fn hipCtxSynchronize[abi=C]()-\u003ehipError_t",
-                                                "signature_hash":  "sha256:f9264c898f10283aa36c840dc6d4d87f04114640925d3671c01e48d884c7433d",
+                                                "name":  "hipDeviceSynchronize",
+                                                "normalized_signature":  "fn hipDeviceSynchronize[abi=C]()-\u003ehipError_t",
+                                                "signature_hash":  "sha256:899fd342f3d0568faa8ba877d13bed22e8d795eff2f6bc98f170368e06b19c4c",
                                                 "platforms":  [
                                                                   "aarch64-unknown-linux-gnu",
                                                                   "x86_64-pc-windows-msvc",
@@ -902,9 +902,9 @@
                                                               ]
                                             },
                                             {
-                                                "name":  "hipCtxSynchronize",
-                                                "normalized_signature":  "fn hipCtxSynchronize[abi=C]()-\u003ehipError_t",
-                                                "signature_hash":  "sha256:f9264c898f10283aa36c840dc6d4d87f04114640925d3671c01e48d884c7433d",
+                                                "name":  "hipDeviceSynchronize",
+                                                "normalized_signature":  "fn hipDeviceSynchronize[abi=C]()-\u003ehipError_t",
+                                                "signature_hash":  "sha256:899fd342f3d0568faa8ba877d13bed22e8d795eff2f6bc98f170368e06b19c4c",
                                                 "platforms":  [
                                                                   "aarch64-unknown-linux-gnu",
                                                                   "x86_64-pc-windows-msvc",
@@ -1659,9 +1659,9 @@
                                                               ]
                                             },
                                             {
-                                                "name":  "hipCtxSynchronize",
-                                                "normalized_signature":  "fn hipCtxSynchronize[abi=C]()-\u003ehipError_t",
-                                                "signature_hash":  "sha256:f9264c898f10283aa36c840dc6d4d87f04114640925d3671c01e48d884c7433d",
+                                                "name":  "hipDeviceSynchronize",
+                                                "normalized_signature":  "fn hipDeviceSynchronize[abi=C]()-\u003ehipError_t",
+                                                "signature_hash":  "sha256:899fd342f3d0568faa8ba877d13bed22e8d795eff2f6bc98f170368e06b19c4c",
                                                 "platforms":  [
                                                                   "aarch64-unknown-linux-gnu",
                                                                   "x86_64-pc-windows-msvc",
@@ -2416,9 +2416,9 @@
                                                               ]
                                             },
                                             {
-                                                "name":  "hipCtxSynchronize",
-                                                "normalized_signature":  "fn hipCtxSynchronize[abi=C]()-\u003ehipError_t",
-                                                "signature_hash":  "sha256:f9264c898f10283aa36c840dc6d4d87f04114640925d3671c01e48d884c7433d",
+                                                "name":  "hipDeviceSynchronize",
+                                                "normalized_signature":  "fn hipDeviceSynchronize[abi=C]()-\u003ehipError_t",
+                                                "signature_hash":  "sha256:899fd342f3d0568faa8ba877d13bed22e8d795eff2f6bc98f170368e06b19c4c",
                                                 "platforms":  [
                                                                   "aarch64-unknown-linux-gnu",
                                                                   "x86_64-pc-windows-msvc",
@@ -3173,9 +3173,9 @@
                                                               ]
                                             },
                                             {
-                                                "name":  "hipCtxSynchronize",
-                                                "normalized_signature":  "fn hipCtxSynchronize[abi=C]()-\u003ehipError_t",
-                                                "signature_hash":  "sha256:f9264c898f10283aa36c840dc6d4d87f04114640925d3671c01e48d884c7433d",
+                                                "name":  "hipDeviceSynchronize",
+                                                "normalized_signature":  "fn hipDeviceSynchronize[abi=C]()-\u003ehipError_t",
+                                                "signature_hash":  "sha256:899fd342f3d0568faa8ba877d13bed22e8d795eff2f6bc98f170368e06b19c4c",
                                                 "platforms":  [
                                                                   "aarch64-unknown-linux-gnu",
                                                                   "x86_64-pc-windows-msvc",
@@ -3930,9 +3930,9 @@
                                                               ]
                                             },
                                             {
-                                                "name":  "hipCtxSynchronize",
-                                                "normalized_signature":  "fn hipCtxSynchronize[abi=C]()-\u003ehipError_t",
-                                                "signature_hash":  "sha256:f9264c898f10283aa36c840dc6d4d87f04114640925d3671c01e48d884c7433d",
+                                                "name":  "hipDeviceSynchronize",
+                                                "normalized_signature":  "fn hipDeviceSynchronize[abi=C]()-\u003ehipError_t",
+                                                "signature_hash":  "sha256:899fd342f3d0568faa8ba877d13bed22e8d795eff2f6bc98f170368e06b19c4c",
                                                 "platforms":  [
                                                                   "aarch64-unknown-linux-gnu",
                                                                   "x86_64-pc-windows-msvc",
@@ -4675,9 +4675,9 @@
                                                               ]
                                             },
                                             {
-                                                "name":  "hipCtxSynchronize",
-                                                "normalized_signature":  "fn hipCtxSynchronize[abi=C]()-\u003ehipError_t",
-                                                "signature_hash":  "sha256:f9264c898f10283aa36c840dc6d4d87f04114640925d3671c01e48d884c7433d",
+                                                "name":  "hipDeviceSynchronize",
+                                                "normalized_signature":  "fn hipDeviceSynchronize[abi=C]()-\u003ehipError_t",
+                                                "signature_hash":  "sha256:899fd342f3d0568faa8ba877d13bed22e8d795eff2f6bc98f170368e06b19c4c",
                                                 "platforms":  [
                                                                   "aarch64-unknown-linux-gnu",
                                                                   "x86_64-unknown-linux-gnu"

@@ -6,21 +6,43 @@ on:
   workflow_dispatch:
     inputs:
       acknowledgement:
-        description: Type RUN_BOUNDED_GPU_SMOKE to enable the labelled self-hosted jobs
+        description: Use RUN_BOUNDED_GPU_SMOKE, or RUN_BOUNDED_DUAL_GPU_SMOKE for all
         required: true
         type: string
       backend:
-        description: Select the dedicated runner family to exercise
+        description: Select one backend, safe dual-runtime coexistence, or reviewed dual execution
         required: true
-        default: all
+        default: coexistence
         type: choice
-        options: [all, cuda, hip]
+        options: [coexistence, cuda, hip, all]
+      runner_os:
+        description: Select the labelled runner operating system for this dispatch
+        required: true
+        default: windows
+        type: choice
+        options: [windows, linux]
       hip_linux_smoke_module:
-        description: Absolute Linux-runner path to a reviewed, architecture-matched HIP no-op code object
+        description: Absolute Linux-runner path to a reviewed, architecture-matched HIP smoke code object
+        required: false
+        type: string
+      hip_linux_smoke_arch:
+        description: Exact reviewed AMDGPU target in the Linux fixture (for example gfx1100)
+        required: false
+        type: string
+      hip_linux_smoke_sha256:
+        description: SHA-256 of the reviewed Linux HIP fixture
         required: false
         type: string
       hip_windows_smoke_module:
-        description: Absolute Windows-runner path to a reviewed, architecture-matched HIP no-op code object
+        description: Absolute Windows-runner path to a reviewed, architecture-matched HIP smoke code object
+        required: false
+        type: string
+      hip_windows_smoke_arch:
+        description: Exact reviewed AMDGPU target in the Windows fixture (for example gfx1100)
+        required: false
+        type: string
+      hip_windows_smoke_sha256:
+        description: SHA-256 of the reviewed Windows HIP fixture
         required: false
         type: string
 
@@ -32,8 +54,24 @@ concurrency:
   cancel-in-progress: false
 
 jobs:
+  authorize:
+    runs-on: ubuntu-latest
+    timeout-minutes: 2
+    env:
+      OCGPU_SELECTED_MODE: ${{ inputs.backend }}
+      OCGPU_DISPATCH_ACK: ${{ inputs.acknowledgement }}
+    steps:
+      - name: Validate explicit dispatch acknowledgement
+        shell: pwsh
+        run: |
+          $expected = if ($env:OCGPU_SELECTED_MODE -ceq 'all') { 'RUN_BOUNDED_DUAL_GPU_SMOKE' } else { 'RUN_BOUNDED_GPU_SMOKE' }
+          if ($env:OCGPU_DISPATCH_ACK -cne $expected) {
+            throw "Mode '$env:OCGPU_SELECTED_MODE' requires acknowledgement '$expected'."
+          }
+
   nvidia-linux:
-    if: inputs.acknowledgement == 'RUN_BOUNDED_GPU_SMOKE' && inputs.backend != 'hip'
+    needs: authorize
+    if: inputs.backend == 'cuda' && inputs.runner_os == 'linux'
     runs-on: [self-hosted, linux, x64, ocgpu, nvidia]
     timeout-minutes: 15
     env:
@@ -41,16 +79,17 @@ jobs:
       OCGPU_SMOKE_BACKEND: cuda
     steps:
       - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
-      - run: cargo test -p ocgpu --test hardware_smoke --all-features -- --nocapture
+      - run: cargo run -p xtask -- hardware-smoke
       - run: cargo run -p ocgpu-cli -- doctor --json
-      - name: Resolve every applicable CUDA manifest symbol
+      - name: Validate CUDA symbol coverage and required core
         shell: pwsh
         run: |
           cargo run -q -p ocgpu-cli -- symbols --backend cuda --all --json | Set-Content -Encoding utf8 symbols.json
           ./.github/scripts/assert-hardware-symbols.ps1 -Backend cuda -SymbolsJson symbols.json -GeneratedInventory crates/ocgpu-codegen/generated/api-inventory.json
 
   nvidia-windows:
-    if: inputs.acknowledgement == 'RUN_BOUNDED_GPU_SMOKE' && inputs.backend != 'hip'
+    needs: authorize
+    if: inputs.backend == 'cuda' && inputs.runner_os == 'windows'
     runs-on: [self-hosted, windows, x64, ocgpu, nvidia]
     timeout-minutes: 15
     env:
@@ -58,56 +97,178 @@ jobs:
       OCGPU_SMOKE_BACKEND: cuda
     steps:
       - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
-      - run: cargo test -p ocgpu --test hardware_smoke --all-features -- --nocapture
+      - run: cargo run -p xtask -- hardware-smoke
       - run: cargo run -p ocgpu-cli -- doctor --json
-      - name: Resolve every applicable CUDA manifest symbol
+      - name: Validate CUDA symbol coverage and required core
         shell: pwsh
         run: |
           cargo run -q -p ocgpu-cli -- symbols --backend cuda --all --json | Set-Content -Encoding utf8 symbols.json
           ./.github/scripts/assert-hardware-symbols.ps1 -Backend cuda -SymbolsJson symbols.json -GeneratedInventory crates/ocgpu-codegen/generated/api-inventory.json
 
   amd-linux:
-    if: inputs.acknowledgement == 'RUN_BOUNDED_GPU_SMOKE' && inputs.backend != 'cuda'
+    needs: authorize
+    if: inputs.backend == 'hip' && inputs.runner_os == 'linux'
     runs-on: [self-hosted, linux, x64, ocgpu, amd]
     timeout-minutes: 15
     env:
       OCGPU_RUN_HARDWARE_SMOKE: "1"
       OCGPU_SMOKE_BACKEND: hip
       OCGPU_HIP_SMOKE_MODULE: ${{ inputs.hip_linux_smoke_module }}
+      OCGPU_HIP_SMOKE_ARCH: ${{ inputs.hip_linux_smoke_arch }}
+      OCGPU_HIP_SMOKE_SHA256: ${{ inputs.hip_linux_smoke_sha256 }}
     steps:
       - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
-      - name: Require a runner-local Linux HIP fixture
+      - name: Preflight the runner-local Linux HIP fixture
         shell: pwsh
         run: |
-          if (-not [IO.Path]::IsPathRooted($env:OCGPU_HIP_SMOKE_MODULE)) { throw "hip_linux_smoke_module must be an absolute path" }
-          if (-not (Test-Path -LiteralPath $env:OCGPU_HIP_SMOKE_MODULE -PathType Leaf)) { throw "Linux HIP fixture does not exist on this runner" }
-      - run: cargo test -p ocgpu --test hardware_smoke --all-features -- --nocapture
+          if (-not [IO.Path]::IsPathRooted($env:OCGPU_HIP_SMOKE_MODULE)) { throw 'hip_linux_smoke_module must be an absolute path' }
+          $resolved = (Resolve-Path -LiteralPath $env:OCGPU_HIP_SMOKE_MODULE -ErrorAction Stop).ProviderPath
+          $item = Get-Item -LiteralPath $resolved
+          if (-not $item.PSIsContainer -and $item.Length -gt 0 -and $item.Length -le 8MB) {
+            if ($env:OCGPU_HIP_SMOKE_SHA256 -cnotmatch '^[0-9a-fA-F]{64}$') { throw 'hip_linux_smoke_sha256 must be exactly 64 hexadecimal digits' }
+            $actualHash = (Get-FileHash -LiteralPath $resolved -Algorithm SHA256).Hash
+            if ($actualHash -cne $env:OCGPU_HIP_SMOKE_SHA256.ToUpperInvariant()) { throw "HIP fixture SHA-256 mismatch: $actualHash" }
+            $inspection = cargo run -q -p ocgpu-cli -- module inspect $resolved --json | ConvertFrom-Json
+            if ($LASTEXITCODE -ne 0) { throw 'HIP fixture inspection failed' }
+            if ($inspection.format -cnotin @('hsaco', 'hip_fat_binary')) { throw "HIP fixture format '$($inspection.format)' is not loadable AMDGPU device code" }
+            if (@($inspection.amdgpu_architectures).Count -eq 0) { throw 'HIP fixture has no explicit AMDGPU architecture' }
+            if ($env:OCGPU_HIP_SMOKE_ARCH -cnotin @($inspection.amdgpu_architectures)) { throw "HIP fixture architectures '$(@($inspection.amdgpu_architectures) -join ', ')' do not contain expected '$env:OCGPU_HIP_SMOKE_ARCH'" }
+            Write-Host "Preflighted HIP target IDs: $(@($inspection.amdgpu_target_ids) -join ', '); architectures: $(@($inspection.amdgpu_architectures) -join ', ')"
+          } else {
+            throw 'HIP fixture must be a nonempty regular file no larger than 8 MiB'
+          }
+      - run: cargo run -p xtask -- hardware-smoke
       - run: cargo run -p ocgpu-cli -- doctor --json
-      - name: Resolve every applicable HIP manifest symbol
+      - name: Validate HIP symbol coverage and required core
         shell: pwsh
         run: |
           cargo run -q -p ocgpu-cli -- symbols --backend hip --all --json | Set-Content -Encoding utf8 symbols.json
           ./.github/scripts/assert-hardware-symbols.ps1 -Backend hip -SymbolsJson symbols.json -GeneratedInventory crates/ocgpu-codegen/generated/api-inventory.json
 
   amd-windows:
-    if: inputs.acknowledgement == 'RUN_BOUNDED_GPU_SMOKE' && inputs.backend != 'cuda'
+    needs: authorize
+    if: inputs.backend == 'hip' && inputs.runner_os == 'windows'
     runs-on: [self-hosted, windows, x64, ocgpu, amd]
     timeout-minutes: 15
     env:
       OCGPU_RUN_HARDWARE_SMOKE: "1"
       OCGPU_SMOKE_BACKEND: hip
       OCGPU_HIP_SMOKE_MODULE: ${{ inputs.hip_windows_smoke_module }}
+      OCGPU_HIP_SMOKE_ARCH: ${{ inputs.hip_windows_smoke_arch }}
+      OCGPU_HIP_SMOKE_SHA256: ${{ inputs.hip_windows_smoke_sha256 }}
     steps:
       - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
-      - name: Require a runner-local Windows HIP fixture
+      - name: Preflight the runner-local Windows HIP fixture
         shell: pwsh
         run: |
-          if (-not [IO.Path]::IsPathRooted($env:OCGPU_HIP_SMOKE_MODULE)) { throw "hip_windows_smoke_module must be an absolute path" }
-          if (-not (Test-Path -LiteralPath $env:OCGPU_HIP_SMOKE_MODULE -PathType Leaf)) { throw "Windows HIP fixture does not exist on this runner" }
-      - run: cargo test -p ocgpu --test hardware_smoke --all-features -- --nocapture
+          if (-not [IO.Path]::IsPathRooted($env:OCGPU_HIP_SMOKE_MODULE)) { throw 'hip_windows_smoke_module must be an absolute path' }
+          $resolved = (Resolve-Path -LiteralPath $env:OCGPU_HIP_SMOKE_MODULE -ErrorAction Stop).ProviderPath
+          $item = Get-Item -LiteralPath $resolved
+          if (-not $item.PSIsContainer -and $item.Length -gt 0 -and $item.Length -le 8MB) {
+            if ($env:OCGPU_HIP_SMOKE_SHA256 -cnotmatch '^[0-9a-fA-F]{64}$') { throw 'hip_windows_smoke_sha256 must be exactly 64 hexadecimal digits' }
+            $actualHash = (Get-FileHash -LiteralPath $resolved -Algorithm SHA256).Hash
+            if ($actualHash -cne $env:OCGPU_HIP_SMOKE_SHA256.ToUpperInvariant()) { throw "HIP fixture SHA-256 mismatch: $actualHash" }
+            $inspection = cargo run -q -p ocgpu-cli -- module inspect $resolved --json | ConvertFrom-Json
+            if ($LASTEXITCODE -ne 0) { throw 'HIP fixture inspection failed' }
+            if ($inspection.format -cnotin @('hsaco', 'hip_fat_binary')) { throw "HIP fixture format '$($inspection.format)' is not loadable AMDGPU device code" }
+            if (@($inspection.amdgpu_architectures).Count -eq 0) { throw 'HIP fixture has no explicit AMDGPU architecture' }
+            if ($env:OCGPU_HIP_SMOKE_ARCH -cnotin @($inspection.amdgpu_architectures)) { throw "HIP fixture architectures '$(@($inspection.amdgpu_architectures) -join ', ')' do not contain expected '$env:OCGPU_HIP_SMOKE_ARCH'" }
+            Write-Host "Preflighted HIP target IDs: $(@($inspection.amdgpu_target_ids) -join ', '); architectures: $(@($inspection.amdgpu_architectures) -join ', ')"
+          } else {
+            throw 'HIP fixture must be a nonempty regular file no larger than 8 MiB'
+          }
+      - run: cargo run -p xtask -- hardware-smoke
       - run: cargo run -p ocgpu-cli -- doctor --json
-      - name: Resolve every applicable Windows HIP manifest symbol
+      - name: Validate Windows HIP symbol coverage and required core
         shell: pwsh
         run: |
           cargo run -q -p ocgpu-cli -- symbols --backend hip --all --json | Set-Content -Encoding utf8 symbols.json
           ./.github/scripts/assert-hardware-symbols.ps1 -Backend hip -SymbolsJson symbols.json -GeneratedInventory crates/ocgpu-codegen/generated/api-inventory.json
+
+  dual-linux:
+    needs: authorize
+    if: (inputs.backend == 'all' || inputs.backend == 'coexistence') && inputs.runner_os == 'linux'
+    runs-on: [self-hosted, linux, x64, ocgpu, amd, nvidia]
+    timeout-minutes: 15
+    env:
+      OCGPU_RUN_HARDWARE_SMOKE: "1"
+      OCGPU_SMOKE_BACKEND: ${{ inputs.backend }}
+      OCGPU_ALLOW_DUAL_EXECUTION: ${{ inputs.backend == 'all' && '1' || '0' }}
+      OCGPU_HIP_SMOKE_MODULE: ${{ inputs.hip_linux_smoke_module }}
+      OCGPU_HIP_SMOKE_ARCH: ${{ inputs.hip_linux_smoke_arch }}
+      OCGPU_HIP_SMOKE_SHA256: ${{ inputs.hip_linux_smoke_sha256 }}
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+      - name: Preflight the runner-local Linux HIP fixture for dual execution
+        if: inputs.backend == 'all'
+        shell: pwsh
+        run: |
+          if (-not [IO.Path]::IsPathRooted($env:OCGPU_HIP_SMOKE_MODULE)) { throw 'hip_linux_smoke_module must be an absolute path' }
+          $resolved = (Resolve-Path -LiteralPath $env:OCGPU_HIP_SMOKE_MODULE -ErrorAction Stop).ProviderPath
+          $item = Get-Item -LiteralPath $resolved
+          if (-not $item.PSIsContainer -and $item.Length -gt 0 -and $item.Length -le 8MB) {
+            if ($env:OCGPU_HIP_SMOKE_SHA256 -cnotmatch '^[0-9a-fA-F]{64}$') { throw 'hip_linux_smoke_sha256 must be exactly 64 hexadecimal digits' }
+            $actualHash = (Get-FileHash -LiteralPath $resolved -Algorithm SHA256).Hash
+            if ($actualHash -cne $env:OCGPU_HIP_SMOKE_SHA256.ToUpperInvariant()) { throw "HIP fixture SHA-256 mismatch: $actualHash" }
+            $inspection = cargo run -q -p ocgpu-cli -- module inspect $resolved --json | ConvertFrom-Json
+            if ($LASTEXITCODE -ne 0) { throw 'HIP fixture inspection failed' }
+            if ($inspection.format -cnotin @('hsaco', 'hip_fat_binary')) { throw "HIP fixture format '$($inspection.format)' is not loadable AMDGPU device code" }
+            if (@($inspection.amdgpu_architectures).Count -eq 0) { throw 'HIP fixture has no explicit AMDGPU architecture' }
+            if ($env:OCGPU_HIP_SMOKE_ARCH -cnotin @($inspection.amdgpu_architectures)) { throw "HIP fixture architectures '$(@($inspection.amdgpu_architectures) -join ', ')' do not contain expected '$env:OCGPU_HIP_SMOKE_ARCH'" }
+            Write-Host "Preflighted HIP target IDs: $(@($inspection.amdgpu_target_ids) -join ', '); architectures: $(@($inspection.amdgpu_architectures) -join ', ')"
+          } else {
+            throw 'HIP fixture must be a nonempty regular file no larger than 8 MiB'
+          }
+      - run: cargo run -p xtask -- hardware-smoke
+      - run: cargo run -p ocgpu-cli -- doctor --strict --json
+      - name: Validate both symbol inventories and required cores
+        shell: pwsh
+        run: |
+          cargo run -q -p ocgpu-cli -- symbols --backend cuda --all --json | Set-Content -Encoding utf8 cuda-symbols.json
+          ./.github/scripts/assert-hardware-symbols.ps1 -Backend cuda -SymbolsJson cuda-symbols.json -GeneratedInventory crates/ocgpu-codegen/generated/api-inventory.json
+          cargo run -q -p ocgpu-cli -- symbols --backend hip --all --json | Set-Content -Encoding utf8 hip-symbols.json
+          ./.github/scripts/assert-hardware-symbols.ps1 -Backend hip -SymbolsJson hip-symbols.json -GeneratedInventory crates/ocgpu-codegen/generated/api-inventory.json
+
+  dual-windows:
+    needs: authorize
+    if: (inputs.backend == 'all' || inputs.backend == 'coexistence') && inputs.runner_os == 'windows'
+    runs-on: [self-hosted, windows, x64, ocgpu, amd, nvidia]
+    timeout-minutes: 15
+    env:
+      OCGPU_RUN_HARDWARE_SMOKE: "1"
+      OCGPU_SMOKE_BACKEND: ${{ inputs.backend }}
+      OCGPU_ALLOW_DUAL_EXECUTION: ${{ inputs.backend == 'all' && '1' || '0' }}
+      OCGPU_HIP_SMOKE_MODULE: ${{ inputs.hip_windows_smoke_module }}
+      OCGPU_HIP_SMOKE_ARCH: ${{ inputs.hip_windows_smoke_arch }}
+      OCGPU_HIP_SMOKE_SHA256: ${{ inputs.hip_windows_smoke_sha256 }}
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+      - name: Preflight the runner-local Windows HIP fixture for dual execution
+        if: inputs.backend == 'all'
+        shell: pwsh
+        run: |
+          if (-not [IO.Path]::IsPathRooted($env:OCGPU_HIP_SMOKE_MODULE)) { throw 'hip_windows_smoke_module must be an absolute path' }
+          $resolved = (Resolve-Path -LiteralPath $env:OCGPU_HIP_SMOKE_MODULE -ErrorAction Stop).ProviderPath
+          $item = Get-Item -LiteralPath $resolved
+          if (-not $item.PSIsContainer -and $item.Length -gt 0 -and $item.Length -le 8MB) {
+            if ($env:OCGPU_HIP_SMOKE_SHA256 -cnotmatch '^[0-9a-fA-F]{64}$') { throw 'hip_windows_smoke_sha256 must be exactly 64 hexadecimal digits' }
+            $actualHash = (Get-FileHash -LiteralPath $resolved -Algorithm SHA256).Hash
+            if ($actualHash -cne $env:OCGPU_HIP_SMOKE_SHA256.ToUpperInvariant()) { throw "HIP fixture SHA-256 mismatch: $actualHash" }
+            $inspection = cargo run -q -p ocgpu-cli -- module inspect $resolved --json | ConvertFrom-Json
+            if ($LASTEXITCODE -ne 0) { throw 'HIP fixture inspection failed' }
+            if ($inspection.format -cnotin @('hsaco', 'hip_fat_binary')) { throw "HIP fixture format '$($inspection.format)' is not loadable AMDGPU device code" }
+            if (@($inspection.amdgpu_architectures).Count -eq 0) { throw 'HIP fixture has no explicit AMDGPU architecture' }
+            if ($env:OCGPU_HIP_SMOKE_ARCH -cnotin @($inspection.amdgpu_architectures)) { throw "HIP fixture architectures '$(@($inspection.amdgpu_architectures) -join ', ')' do not contain expected '$env:OCGPU_HIP_SMOKE_ARCH'" }
+            Write-Host "Preflighted HIP target IDs: $(@($inspection.amdgpu_target_ids) -join ', '); architectures: $(@($inspection.amdgpu_architectures) -join ', ')"
+          } else {
+            throw 'HIP fixture must be a nonempty regular file no larger than 8 MiB'
+          }
+      - run: cargo run -p xtask -- hardware-smoke
+      - run: cargo run -p ocgpu-cli -- doctor --strict --json
+      - name: Validate both symbol inventories and required cores
+        shell: pwsh
+        run: |
+          cargo run -q -p ocgpu-cli -- symbols --backend cuda --all --json | Set-Content -Encoding utf8 cuda-symbols.json
+          ./.github/scripts/assert-hardware-symbols.ps1 -Backend cuda -SymbolsJson cuda-symbols.json -GeneratedInventory crates/ocgpu-codegen/generated/api-inventory.json
+          cargo run -q -p ocgpu-cli -- symbols --backend hip --all --json | Set-Content -Encoding utf8 hip-symbols.json
+          ./.github/scripts/assert-hardware-symbols.ps1 -Backend hip -SymbolsJson hip-symbols.json -GeneratedInventory crates/ocgpu-codegen/generated/api-inventory.json
