@@ -30,6 +30,24 @@ jobs:
       - run: cargo +1.97.1 cbuild --target x86_64-unknown-linux-gnu --release -p ocgpu-capi
       - name: Build backend-disabled flat C ABI
         run: CARGO_TARGET_DIR=target/flat cargo +1.97.1 cbuild --target x86_64-unknown-linux-gnu --release -p ocgpu-capi --no-default-features --features flat-c-exports
+      - name: Materialize build-tree SONAME aliases
+        run: |
+          for directory in target/x86_64-unknown-linux-gnu/release target/flat/x86_64-unknown-linux-gnu/release; do
+            library="$directory/libocgpu.so"
+            soname="$(readelf -d "$library" | sed -n -E 's/.*\(SONAME\).*\[([^]]+)\].*/\1/p')"
+            if [[ "$soname" != libocgpu.so.* ]]; then
+              echo "unexpected or missing ocgpu SONAME '$soname' in $library" >&2
+              exit 1
+            fi
+            soname_path="$directory/$soname"
+            if [[ ! -e "$soname_path" ]]; then
+              if [[ -L "$soname_path" ]]; then
+                echo "cargo-c produced a dangling SONAME alias: $soname_path" >&2
+                exit 1
+              fi
+              ln -s "$(basename "$(realpath "$library")")" "$soname_path"
+            fi
+          done
       - name: Compile header and example as strict ISO C99
         run: |
           ${{ matrix.cc }} -std=c99 -pedantic-errors -Wall -Wextra -Werror -Iinclude -c tests/c99/header_compile.c -o target/header-${{ matrix.cc }}.o
