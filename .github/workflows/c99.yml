@@ -4,6 +4,7 @@ name: C99 and packaging ABI
 
 on:
   push:
+    branches: [main]
   pull_request:
 
 permissions:
@@ -26,9 +27,9 @@ jobs:
       - run: rustup toolchain install 1.97.1 --profile minimal
       - run: cargo +1.97.1 install cargo-c --version '0.10.24+cargo-0.98.0' --locked
       - run: cargo +1.97.1 run -p ocgpu-codegen -- check
-      - run: cargo +1.97.1 cbuild --release -p ocgpu-capi
+      - run: cargo +1.97.1 cbuild --target x86_64-unknown-linux-gnu --release -p ocgpu-capi
       - name: Build backend-disabled flat C ABI
-        run: CARGO_TARGET_DIR=target/flat cargo +1.97.1 cbuild --release -p ocgpu-capi --no-default-features --features flat-c-exports
+        run: CARGO_TARGET_DIR=target/flat cargo +1.97.1 cbuild --target x86_64-unknown-linux-gnu --release -p ocgpu-capi --no-default-features --features flat-c-exports
       - name: Compile header and example as strict ISO C99
         run: |
           ${{ matrix.cc }} -std=c99 -pedantic-errors -Wall -Wextra -Werror -Iinclude -c tests/c99/header_compile.c -o target/header-${{ matrix.cc }}.o
@@ -41,17 +42,17 @@ jobs:
         run: clang++ -std=c++17 -pedantic-errors -Wall -Wextra -Werror -Wreserved-identifier -Iinclude -c tests/c99/header_cpp_compile.cpp -o target/header-cpp-clang.o
       - name: Link and safely run shared and static consumers
         run: |
-          ${{ matrix.cc }} target/header-${{ matrix.cc }}.o -Ltarget/release -locgpu -Wl,-rpath,'$ORIGIN/release' -o target/header-shared-${{ matrix.cc }}
-          ${{ matrix.cc }} target/enumerate-${{ matrix.cc }}.o -Ltarget/release -locgpu -Wl,-rpath,'$ORIGIN/release' -o target/enumerate-shared-${{ matrix.cc }}
-          ${{ matrix.cc }} target/header-${{ matrix.cc }}.o target/release/libocgpu.a -ldl -lpthread -lm -o target/header-static-${{ matrix.cc }}
-          ${{ matrix.cc }} target/enumerate-${{ matrix.cc }}.o target/release/libocgpu.a -ldl -lpthread -lm -o target/enumerate-static-${{ matrix.cc }}
+          ${{ matrix.cc }} target/header-${{ matrix.cc }}.o -Ltarget/x86_64-unknown-linux-gnu/release -locgpu -Wl,-rpath,'$ORIGIN/x86_64-unknown-linux-gnu/release' -o target/header-shared-${{ matrix.cc }}
+          ${{ matrix.cc }} target/enumerate-${{ matrix.cc }}.o -Ltarget/x86_64-unknown-linux-gnu/release -locgpu -Wl,-rpath,'$ORIGIN/x86_64-unknown-linux-gnu/release' -o target/enumerate-shared-${{ matrix.cc }}
+          ${{ matrix.cc }} target/header-${{ matrix.cc }}.o target/x86_64-unknown-linux-gnu/release/libocgpu.a -ldl -lpthread -lm -o target/header-static-${{ matrix.cc }}
+          ${{ matrix.cc }} target/enumerate-${{ matrix.cc }}.o target/x86_64-unknown-linux-gnu/release/libocgpu.a -ldl -lpthread -lm -o target/enumerate-static-${{ matrix.cc }}
           target/header-shared-${{ matrix.cc }}
           target/enumerate-shared-${{ matrix.cc }}
           target/header-static-${{ matrix.cc }}
           target/enumerate-static-${{ matrix.cc }}
       - name: Link and safely run the backend-disabled flat C ABI consumer
         run: |
-          ${{ matrix.cc }} target/header-flat-${{ matrix.cc }}.o -Ltarget/flat/release -locgpu -Wl,-rpath,'$ORIGIN/flat/release' -o target/header-flat-${{ matrix.cc }}
+          ${{ matrix.cc }} target/header-flat-${{ matrix.cc }}.o -Ltarget/flat/x86_64-unknown-linux-gnu/release -locgpu -Wl,-rpath,'$ORIGIN/flat/x86_64-unknown-linux-gnu/release' -o target/header-flat-${{ matrix.cc }}
           target/header-flat-${{ matrix.cc }}
 
   windows-abi:
@@ -63,37 +64,49 @@ jobs:
       - name: Assert the runner has no vendor SDK
         shell: pwsh
         run: ./.github/scripts/assert-sdk-free.ps1
+      - name: Locate the MSVC developer shell
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = "Stop"
+          $vswhere = "${env:ProgramFiles(x86)}\Microsoft Visual Studio\Installer\vswhere.exe"
+          if (-not (Test-Path -LiteralPath $vswhere)) { throw "vswhere.exe not found" }
+          $vsInstall = (& $vswhere -latest -products * -requires Microsoft.VisualStudio.Component.VC.Tools.x86.x64 -property installationPath | Select-Object -First 1)
+          if ($LASTEXITCODE -ne 0 -or -not $vsInstall) { throw "Visual Studio C++ tools not found" }
+          $vcvars64 = Join-Path $vsInstall "VC\Auxiliary\Build\vcvars64.bat"
+          if (-not (Test-Path -LiteralPath $vcvars64)) { throw "vcvars64.bat not found at $vcvars64" }
+          "VCVARS64=$vcvars64" >> $env:GITHUB_ENV
       - name: Install pinned Rust toolchain
         run: rustup toolchain install 1.97.1 --profile minimal
       - name: Install exact C packager
         run: cargo +1.97.1 install cargo-c --version '0.10.24+cargo-0.98.0' --locked
       - name: Build C libraries
-        run: cargo +1.97.1 cbuild --release -p ocgpu-capi
+        run: cargo +1.97.1 cbuild --target x86_64-pc-windows-msvc --release -p ocgpu-capi
       - name: Build backend-disabled flat C ABI
         shell: pwsh
         run: |
           $env:CARGO_TARGET_DIR = "target/flat"
-          cargo +1.97.1 cbuild --release -p ocgpu-capi --no-default-features --features flat-c-exports
+          cargo +1.97.1 cbuild --target x86_64-pc-windows-msvc --release -p ocgpu-capi --no-default-features --features flat-c-exports
           if ($LASTEXITCODE -ne 0) { throw "flat C ABI build failed with $LASTEXITCODE" }
       - name: Compile and link with the MSVC ABI
         shell: cmd
         run: |
-          call "%ProgramFiles%\Microsoft Visual Studio\2022\Enterprise\VC\Auxiliary\Build\vcvars64.bat"
+          call "%VCVARS64%"
+          if errorlevel 1 exit /b %errorlevel%
           cl /nologo /W4 /WX /wd4324 /wd4146 /wd4308 /Iinclude /c tests\abi\generated_layout.c /Fotarget\generated-layout-msvc.obj
           if errorlevel 1 exit /b %errorlevel%
           cl /nologo /W4 /WX /wd4324 /wd4146 /wd4308 /DOCGPU_ENABLE_FLAT_C_EXPORTS /DOCGPU_ENABLE_CUDA /DOCGPU_ENABLE_HIP /Iinclude /c tests\abi\generated_layout.c /Fotarget\generated-layout-flat-msvc.obj
           if errorlevel 1 exit /b %errorlevel%
           cl /nologo /W4 /WX /permissive- /std:c++17 /TP /Iinclude /c tests\c99\header_cpp_compile.cpp /Fotarget\header-cpp-msvc.obj
           if errorlevel 1 exit /b %errorlevel%
-          cl /nologo /W4 /WX /Iinclude tests\c99\header_compile.c /link /LIBPATH:target\release ocgpu.dll.lib /OUT:target\header-shared-msvc.exe
+          cl /nologo /W4 /WX /Iinclude tests\c99\header_compile.c /link /LIBPATH:target\x86_64-pc-windows-msvc\release ocgpu.dll.lib /OUT:target\header-shared-msvc.exe
           if errorlevel 1 exit /b %errorlevel%
-          cl /nologo /W4 /WX /Iinclude tests\c99\enumerate.c /link /LIBPATH:target\release ocgpu.dll.lib /OUT:target\enumerate-shared-msvc.exe
+          cl /nologo /W4 /WX /Iinclude tests\c99\enumerate.c /link /LIBPATH:target\x86_64-pc-windows-msvc\release ocgpu.dll.lib /OUT:target\enumerate-shared-msvc.exe
           if errorlevel 1 exit /b %errorlevel%
-          cl /nologo /W4 /WX /Iinclude tests\c99\header_compile.c /link /LIBPATH:target\release ocgpu.lib ws2_32.lib ntdll.lib userenv.lib dbghelp.lib /OUT:target\header-static-msvc.exe
+          cl /nologo /W4 /WX /Iinclude tests\c99\header_compile.c /link /LIBPATH:target\x86_64-pc-windows-msvc\release ocgpu.lib ws2_32.lib ntdll.lib userenv.lib dbghelp.lib /OUT:target\header-static-msvc.exe
           if errorlevel 1 exit /b %errorlevel%
-          cl /nologo /W4 /WX /Iinclude tests\c99\enumerate.c /link /LIBPATH:target\release ocgpu.lib ws2_32.lib ntdll.lib userenv.lib dbghelp.lib /OUT:target\enumerate-static-msvc.exe
+          cl /nologo /W4 /WX /Iinclude tests\c99\enumerate.c /link /LIBPATH:target\x86_64-pc-windows-msvc\release ocgpu.lib ws2_32.lib ntdll.lib userenv.lib dbghelp.lib /OUT:target\enumerate-static-msvc.exe
           if errorlevel 1 exit /b %errorlevel%
-          set PATH=%CD%\target\release;%PATH%
+          set PATH=%CD%\target\x86_64-pc-windows-msvc\release;%PATH%
           target\header-shared-msvc.exe
           if errorlevel 1 exit /b %errorlevel%
           target\enumerate-shared-msvc.exe
@@ -102,8 +115,8 @@ jobs:
           if errorlevel 1 exit /b %errorlevel%
           target\enumerate-static-msvc.exe
           if errorlevel 1 exit /b %errorlevel%
-          cl /nologo /W4 /WX /DOCGPU_ENABLE_FLAT_C_EXPORTS /DOCGPU_ENABLE_CUDA /DOCGPU_ENABLE_HIP /Iinclude tests\c99\header_compile.c /link /LIBPATH:target\flat\release ocgpu.dll.lib /OUT:target\header-flat-msvc.exe
+          cl /nologo /W4 /WX /DOCGPU_ENABLE_FLAT_C_EXPORTS /DOCGPU_ENABLE_CUDA /DOCGPU_ENABLE_HIP /Iinclude tests\c99\header_compile.c /link /LIBPATH:target\flat\x86_64-pc-windows-msvc\release ocgpu.dll.lib /OUT:target\header-flat-msvc.exe
           if errorlevel 1 exit /b %errorlevel%
-          set PATH=%CD%\target\flat\release;%PATH%
+          set PATH=%CD%\target\flat\x86_64-pc-windows-msvc\release;%PATH%
           target\header-flat-msvc.exe
           if errorlevel 1 exit /b %errorlevel%
