@@ -55,6 +55,14 @@ consumers against both shared and static `ocgpu` libraries on ordinary hosted
 runners. Device allocation, context creation, module loading, and launches occur
 only in the separately acknowledged hardware workflow.
 
+On a labelled hardware runner, use `cargo run -p xtask -- hardware-smoke` after
+setting the documented opt-in and explicit mode variables. The xtask compiles
+the integration test without running it, locates the exact test executable from
+Cargo's artifact report, and supervises that process with a 45-second watchdog.
+The `coexistence` mode is the non-executing dual-runtime check; `all` is a
+separately acknowledged simultaneous one-thread launch on both backends and is
+not a synonym for running the two single-backend tests.
+
 For the optional flat C ABI, build cargo-c with `--features flat-c-exports` and
 define `OCGPU_ENABLE_FLAT_C_EXPORTS` in the consumer before including
 `ocgpu/ocgpu.h`. Unified leaves take the backend as their first argument; raw
@@ -112,6 +120,14 @@ Versioned tables are append-only. Never reorder their prefix or existing
 function-pointer fields. Preserve deprecated and version-suffixed vendor names.
 Use integer typedefs and constants at the C boundary, not Rust enums. New
 nullable callbacks or table entries use `Option<unsafe extern "C" fn(...)>`.
+
+If a common operation must use an ABI-identical vendor symbol other than its
+stable raw-table field, retain both raw symbols and set the backend mapping's
+`dispatch_symbol`. Classify the mapping `covered_adapter`; generation rejects a
+missing, non-emitted, or ABI-incompatible dispatch target. Runtime profiles and
+common required-symbol diagnostics follow the dispatch target, while each raw
+field continues to resolve only its exact vendor spelling. Never repurpose an
+existing raw field or slot for the dispatch target.
 
 ## Updating Rust oracle candidates
 

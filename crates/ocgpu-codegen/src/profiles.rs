@@ -686,7 +686,7 @@ pub(super) fn validate_hip_runtime_profiles(
     let manifest_common = manifest
         .functions
         .iter()
-        .map(|function| function.hip.vendor_symbol.as_str())
+        .map(|function| function.hip.effective_dispatch_symbol())
         .collect::<BTreeSet<_>>();
     exact_names.insert(adapter.name.as_str());
     if exact_names != manifest_common || exact_names.len() != 26 {
@@ -802,7 +802,7 @@ pub(super) fn render_hip_runtime_profiles(
     let common = manifest
         .functions
         .iter()
-        .map(|function| function.hip.vendor_symbol.as_str())
+        .map(|function| function.hip.effective_dispatch_symbol())
         .collect::<Vec<_>>();
     let legacy_exact = common
         .iter()
@@ -902,5 +902,25 @@ mod tests {
         let (manifest, ledger, mut declarations) = inputs();
         declarations.snapshots[0].device_attributes[0].value += 1;
         assert!(validate_hip_runtime_profiles(&manifest, &ledger, &declarations).is_err());
+    }
+
+    #[test]
+    fn common_profile_uses_the_reviewed_dispatch_symbol() {
+        let (mut manifest, ledger, declarations) = inputs();
+        let function = manifest
+            .functions
+            .iter_mut()
+            .find(|function| function.id == "context.synchronize")
+            .expect("context synchronization operation exists");
+        function.hip.vendor_symbol = "hipCtxSynchronize".to_owned();
+        function.hip.raw_name = "ocgpuHipCtxSynchronize".to_owned();
+        function.hip.dispatch_symbol = Some("hipDeviceSynchronize".to_owned());
+        function.hip.classification = "covered_adapter".to_owned();
+
+        validate_hip_runtime_profiles(&manifest, &ledger, &declarations)
+            .expect("dispatch symbol agrees with the reviewed runtime profiles");
+        let source = render_hip_runtime_profiles(&manifest, &ledger);
+        assert!(source.contains("\"hipDeviceSynchronize\""));
+        assert!(!source.contains("\"hipCtxSynchronize\""));
     }
 }

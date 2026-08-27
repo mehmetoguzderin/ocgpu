@@ -222,6 +222,6 @@ $document = [ordered]@{
     snapshots = $snapshots
 }
 $destination = Resolve-Input $Output
-$json = $document | ConvertTo-Json -Depth 20
+$json = ($document | ConvertTo-Json -Depth 20) -replace "`r`n?", "`n"
 [IO.File]::WriteAllText($destination, "$json`n", [Text.UTF8Encoding]::new($false))
 Write-Host "Wrote $destination"

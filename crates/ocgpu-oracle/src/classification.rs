@@ -18,6 +18,7 @@ pub fn build_seed_catalog(inventories: &[Inventory], generated: &Value) -> Cover
     let raw = raw_records(generated);
     let raw_spellings = raw_spellings(generated);
     let common = common_classifications(generated);
+    let dispatch = dispatch_relations(generated);
     let declarations = generated_declarations(generated);
     let mut decisions = Vec::new();
     for inventory in inventories {
@@ -30,6 +31,7 @@ pub fn build_seed_catalog(inventories: &[Inventory], generated: &Value) -> Cover
                 &raw,
                 &raw_spellings,
                 &common,
+                &dispatch,
                 &declarations,
             ));
         }
@@ -56,6 +58,7 @@ fn classify_entry(
     raw: &BTreeMap<OracleKey, RawRecord>,
     raw_spellings: &BTreeSet<(String, ItemKind, String)>,
     common: &BTreeMap<String, Classification>,
+    dispatch: &DispatchRelations,
     declarations: &BTreeMap<OracleKey, GeneratedDeclaration>,
 ) -> CoverageDecision {
     let mut decision = empty_decision(inventory, entry);
@@ -137,22 +140,61 @@ fn classify_entry(
         if let Some(record) = raw.get(&key) {
             decision.manifest_ids.push(record.manifest_id());
             if record.emitted {
-                decision.classification = record
-                    .common_id
-                    .as_ref()
-                    .and_then(|id| common.get(id))
-                    .copied()
-                    .unwrap_or(record.classification);
+                let symbol_key = (record.backend.clone(), record.vendor_name.clone());
+                let dispatch_target = dispatch.targets.get(&symbol_key);
+                let dispatch_source = dispatch.sources.get(&symbol_key);
+                decision.classification = dispatch_target.map_or_else(
+                    || {
+                        if dispatch_source.is_some() {
+                            record.classification
+                        } else {
+                            record
+                                .common_id
+                                .as_ref()
+                                .and_then(|id| common.get(id))
+                                .copied()
+                                .unwrap_or(record.classification)
+                        }
+                    },
+                    |relation| relation.classification,
+                );
                 if decision.classification == Classification::DeprecatedCovered
                     && entry.deprecated.is_none()
                 {
                     decision.classification = Classification::CoveredRawOnly;
                 }
-                decision.reason = format!(
-                    "{} is emitted in the generated {backend} raw table as {} from the exact {} item-kind and normalized-signature hash; runtime loading resolves this callable slot.",
-                    entry.name, record.raw_name, inventory.inventory_id
-                );
-                if let Some(common_id) = &record.common_id {
+                decision.reason = if let Some(relation) = dispatch_target {
+                    format!(
+                        "{} is emitted in the generated {backend} raw table as {} from the exact {} item-kind and normalized-signature hash; it also supplies common operation {} through the reviewed dispatch override from {}.",
+                        entry.name,
+                        record.raw_name,
+                        inventory.inventory_id,
+                        relation.common_id,
+                        relation.source_symbol
+                    )
+                } else if let Some(relation) = dispatch_source {
+                    format!(
+                        "{} remains emitted in the generated {backend} raw table as {} from the exact {} item-kind and normalized-signature hash; common operation {} dispatches to {} instead, so this deprecated raw call is not invoked by the common path.",
+                        entry.name,
+                        record.raw_name,
+                        inventory.inventory_id,
+                        relation.common_id,
+                        relation.target_symbol
+                    )
+                } else {
+                    format!(
+                        "{} is emitted in the generated {backend} raw table as {} from the exact {} item-kind and normalized-signature hash; runtime loading resolves this callable slot.",
+                        entry.name, record.raw_name, inventory.inventory_id
+                    )
+                };
+                let effective_common_id = if let Some(relation) = dispatch_target {
+                    Some(&relation.common_id)
+                } else if dispatch_source.is_none() {
+                    record.common_id.as_ref()
+                } else {
+                    None
+                };
+                if let Some(common_id) = effective_common_id {
                     decision.manifest_ids.push(common_id.clone());
                 }
                 decision.manifest_ids.sort();
@@ -161,9 +203,8 @@ fn classify_entry(
                     .implementation_symbols
                     .push(record.raw_name.clone());
                 decision.runtime_resolvable = true;
-                decision.hardware_smoke = record
-                    .common_id
-                    .as_deref()
+                decision.hardware_smoke = effective_common_id
+                    .map(String::as_str)
                     .is_some_and(is_hardware_profile_common_id);
                 return decision;
             }
@@ -248,6 +289,7 @@ fn empty_decision(inventory: &Inventory, entry: &Entry) -> CoverageDecision {
 struct RawRecord {
     stable_id: u64,
     backend: String,
+    vendor_name: String,
     raw_name: String,
     classification: Classification,
     reason: String,
@@ -291,6 +333,7 @@ fn raw_record(value: &Value) -> Option<RawRecord> {
     Some(RawRecord {
         stable_id: value.get("stable_id")?.as_u64()?,
         backend,
+        vendor_name: value.get("vendor_name")?.as_str()?.to_owned(),
         raw_name: value
             .get("raw_name")
             .and_then(Value::as_str)
@@ -304,6 +347,64 @@ fn raw_record(value: &Value) -> Option<RawRecord> {
             .and_then(Value::as_str)
             .map(str::to_owned),
     })
+}
+
+#[derive(Clone, Debug)]
+struct DispatchRelation {
+    common_id: String,
+    classification: Classification,
+    source_symbol: String,
+    target_symbol: String,
+}
+
+#[derive(Default)]
+struct DispatchRelations {
+    sources: BTreeMap<(String, String), DispatchRelation>,
+    targets: BTreeMap<(String, String), DispatchRelation>,
+}
+
+fn dispatch_relations(generated: &Value) -> DispatchRelations {
+    let mut relations = DispatchRelations::default();
+    for function in generated
+        .get("function")
+        .and_then(Value::as_array)
+        .into_iter()
+        .flatten()
+    {
+        let Some(common_id) = function.get("id").and_then(Value::as_str) else {
+            continue;
+        };
+        let classification = match function.get("classification").and_then(Value::as_str) {
+            Some("exact") => Classification::CoveredExact,
+            Some("adapter") => Classification::CoveredAdapter,
+            _ => continue,
+        };
+        for backend in ["cuda", "hip"] {
+            let Some(mapping) = function.get(backend) else {
+                continue;
+            };
+            let Some(source_symbol) = mapping.get("vendor_symbol").and_then(Value::as_str) else {
+                continue;
+            };
+            let Some(target_symbol) = mapping.get("dispatch_symbol").and_then(Value::as_str) else {
+                continue;
+            };
+            let relation = DispatchRelation {
+                common_id: common_id.to_owned(),
+                classification,
+                source_symbol: source_symbol.to_owned(),
+                target_symbol: target_symbol.to_owned(),
+            };
+            relations.sources.insert(
+                (backend.to_owned(), source_symbol.to_owned()),
+                relation.clone(),
+            );
+            relations
+                .targets
+                .insert((backend.to_owned(), target_symbol.to_owned()), relation);
+        }
+    }
+    relations
 }
 
 fn raw_spellings(generated: &Value) -> BTreeSet<(String, ItemKind, String)> {
@@ -517,8 +618,9 @@ fn common_success_constant(backend: &str, source_name: &str) -> Option<&'static 
 
 #[cfg(test)]
 mod tests {
-    use super::{is_hardware_profile_common_id, parse_item_kind};
-    use crate::model::ItemKind;
+    use super::{dispatch_relations, is_hardware_profile_common_id, parse_item_kind};
+    use crate::model::{Classification, ItemKind};
+    use serde_json::json;
 
     #[test]
     fn generated_item_kinds_are_parsed_exactly() {
@@ -532,5 +634,41 @@ mod tests {
         assert!(is_hardware_profile_common_id("launch.kernel"));
         assert!(!is_hardware_profile_common_id("device.get_attribute"));
         assert!(!is_hardware_profile_common_id("context.get_current"));
+    }
+
+    #[test]
+    fn dispatch_override_distinguishes_raw_source_from_common_target() {
+        let generated = json!({
+            "function": [{
+                "id": "context.synchronize",
+                "classification": "adapter",
+                "cuda": {
+                    "vendor_symbol": "cuCtxSynchronize"
+                },
+                "hip": {
+                    "vendor_symbol": "hipCtxSynchronize",
+                    "dispatch_symbol": "hipDeviceSynchronize"
+                }
+            }]
+        });
+        let relations = dispatch_relations(&generated);
+        let source = relations
+            .sources
+            .get(&("hip".to_owned(), "hipCtxSynchronize".to_owned()))
+            .expect("raw context symbol is the preserved dispatch source");
+        let target = relations
+            .targets
+            .get(&("hip".to_owned(), "hipDeviceSynchronize".to_owned()))
+            .expect("device synchronization supplies common dispatch");
+        assert_eq!(source.common_id, "context.synchronize");
+        assert_eq!(source.target_symbol, "hipDeviceSynchronize");
+        assert_eq!(target.source_symbol, "hipCtxSynchronize");
+        assert_eq!(target.classification, Classification::CoveredAdapter);
+        assert!(
+            relations
+                .sources
+                .keys()
+                .all(|(backend, _)| backend != "cuda")
+        );
     }
 }

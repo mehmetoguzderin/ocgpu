@@ -445,6 +445,9 @@ pub struct BackendFunction {
     pub raw_name: String,
     /// Canonical vendor spelling, including suffixes.
     pub vendor_symbol: String,
+    /// ABI-compatible vendor symbol used for common dispatch instead of the raw-table symbol.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub dispatch_symbol: Option<String>,
     /// Documented aliases with ABI-identical signatures.
     pub aliases: Vec<String>,
     /// Other versioned symbols classified separately from direct aliases.
@@ -475,6 +478,14 @@ pub struct BackendFunction {
     pub linux: PlatformSpec,
     /// Windows baseline facts.
     pub windows: PlatformSpec,
+}
+
+impl BackendFunction {
+    fn effective_dispatch_symbol(&self) -> &str {
+        self.dispatch_symbol
+            .as_deref()
+            .unwrap_or(&self.vendor_symbol)
+    }
 }
 
 /// One unified operation and both raw mappings.
@@ -979,6 +990,8 @@ struct LoaderFunction<'a> {
     logical_id: &'a str,
     raw_name: &'a str,
     vendor_symbol: &'a str,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    dispatch_symbol: Option<&'a str>,
     aliases: &'a [String],
     versioned_alternatives: &'a [String],
     signature_hash: &'a str,
@@ -1790,6 +1803,7 @@ fn validate(manifest: &ApiManifest) -> Result<(), Error> {
             _ => {}
         }
     }
+    validate_dispatch_symbols(manifest)?;
 
     for table in &manifest.tables {
         let expected_name = match table.surface.as_str() {
@@ -1871,6 +1885,52 @@ fn raw_inventory_abi<'a>(
             &entry.abi_params,
         ))
     }
+}
+
+fn validate_dispatch_symbols(manifest: &ApiManifest) -> Result<(), Error> {
+    for function in &manifest.functions {
+        for (backend, raw) in [("cuda", &function.cuda), ("hip", &function.hip)] {
+            let Some(dispatch_symbol) = raw.dispatch_symbol.as_deref() else {
+                continue;
+            };
+            if dispatch_symbol.trim().is_empty() || dispatch_symbol == raw.vendor_symbol {
+                return Err(Error::Validation(format!(
+                    "{}.{} dispatch symbol must be nonempty and differ from its raw vendor symbol",
+                    function.id, backend
+                )));
+            }
+            if raw.classification != "covered_adapter" {
+                return Err(Error::Validation(format!(
+                    "{}.{} dispatch override requires covered_adapter classification",
+                    function.id, backend
+                )));
+            }
+            let target = manifest
+                .raw_inventory
+                .iter()
+                .find(|entry| {
+                    entry.backend == backend
+                        && entry.vendor_name == dispatch_symbol
+                        && entry.emitted
+                })
+                .ok_or_else(|| {
+                    Error::Validation(format!(
+                        "{}.{} dispatch target {dispatch_symbol} is not emitted in the raw inventory",
+                        function.id, backend
+                    ))
+                })?;
+            let (target_return, target_params) = raw_inventory_abi(manifest, target)?;
+            if normalized_signature(&raw.return_type, &raw.params)
+                != normalized_signature(target_return, target_params)
+            {
+                return Err(Error::Validation(format!(
+                    "{}.{} dispatch target {dispatch_symbol} is not ABI-compatible with {}",
+                    function.id, backend, raw.vendor_symbol
+                )));
+            }
+        }
+    }
+    Ok(())
 }
 
 // Keeping both Rust and official-vendor correlations in one validation pass
@@ -4214,6 +4274,7 @@ fn render_loader_inventory(manifest: &ApiManifest) -> Result<String, Error> {
             logical_id: &entry.id,
             raw_name: &entry.cuda.raw_name,
             vendor_symbol: &entry.cuda.vendor_symbol,
+            dispatch_symbol: entry.cuda.dispatch_symbol.as_deref(),
             aliases: &entry.cuda.aliases,
             versioned_alternatives: &entry.cuda.versioned_alternatives,
             signature_hash: &entry.cuda.signature_hash,
@@ -4233,6 +4294,7 @@ fn render_loader_inventory(manifest: &ApiManifest) -> Result<String, Error> {
             logical_id: &entry.id,
             raw_name: &entry.hip.raw_name,
             vendor_symbol: &entry.hip.vendor_symbol,
+            dispatch_symbol: entry.hip.dispatch_symbol.as_deref(),
             aliases: &entry.hip.aliases,
             versioned_alternatives: &entry.hip.versioned_alternatives,
             signature_hash: &entry.hip.signature_hash,
@@ -4580,5 +4642,71 @@ mod tests {
                 .expect("raw HIP memcpy declaration exists");
             assert_eq!(raw.params[index].type_name, "ocgpuHipDeviceptr_t");
         }
+    }
+
+    fn context_device_dispatch_manifest() -> ApiManifest {
+        let mut manifest = canonical_manifest();
+        let function = manifest
+            .functions
+            .iter_mut()
+            .find(|function| function.id == "context.synchronize")
+            .expect("context synchronization operation exists");
+        function.classification = "adapter".to_owned();
+        function.hip.raw_name = "ocgpuHipCtxSynchronize".to_owned();
+        function.hip.vendor_symbol = "hipCtxSynchronize".to_owned();
+        function.hip.dispatch_symbol = Some("hipDeviceSynchronize".to_owned());
+        function.hip.classification = "covered_adapter".to_owned();
+        function.hip.fallback_order = vec!["hipCtxSynchronize".to_owned()];
+        function.hip.linux.symbols = vec!["hipCtxSynchronize".to_owned()];
+        function.hip.windows.symbols = vec!["hipCtxSynchronize".to_owned()];
+        manifest
+    }
+
+    #[test]
+    fn dispatch_override_requires_an_emitted_abi_compatible_raw_target() {
+        let manifest = context_device_dispatch_manifest();
+        validate(&manifest).expect("reviewed dispatch override validates with the full manifest");
+        let loader_inventory =
+            render_loader_inventory(&manifest).expect("loader inventory renders");
+        assert!(loader_inventory.contains("\"vendor_symbol\": \"hipCtxSynchronize\""));
+        assert!(loader_inventory.contains("\"dispatch_symbol\": \"hipDeviceSynchronize\""));
+
+        let mut same = manifest.clone();
+        same.functions
+            .iter_mut()
+            .find(|function| function.id == "context.synchronize")
+            .expect("context synchronization operation exists")
+            .hip
+            .dispatch_symbol = Some("hipCtxSynchronize".to_owned());
+        assert!(validate_dispatch_symbols(&same).is_err());
+
+        let mut exact = manifest.clone();
+        exact
+            .functions
+            .iter_mut()
+            .find(|function| function.id == "context.synchronize")
+            .expect("context synchronization operation exists")
+            .hip
+            .classification = "covered_exact".to_owned();
+        assert!(validate_dispatch_symbols(&exact).is_err());
+
+        let mut missing = manifest.clone();
+        missing
+            .raw_inventory
+            .iter_mut()
+            .find(|entry| entry.backend == "hip" && entry.vendor_name == "hipDeviceSynchronize")
+            .expect("HIP device synchronization raw entry exists")
+            .emitted = false;
+        assert!(validate_dispatch_symbols(&missing).is_err());
+
+        let mut incompatible = manifest;
+        incompatible
+            .functions
+            .iter_mut()
+            .find(|function| function.id == "context.synchronize")
+            .expect("context synchronization operation exists")
+            .hip
+            .dispatch_symbol = Some("hipGetDeviceCount".to_owned());
+        assert!(validate_dispatch_symbols(&incompatible).is_err());
     }
 }
