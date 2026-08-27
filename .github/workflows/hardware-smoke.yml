@@ -78,7 +78,7 @@ jobs:
       OCGPU_RUN_HARDWARE_SMOKE: "1"
       OCGPU_SMOKE_BACKEND: cuda
     steps:
-      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       - run: cargo run -p xtask -- hardware-smoke
       - run: cargo run -p ocgpu-cli -- doctor --json
       - name: Validate CUDA symbol coverage and required core
@@ -96,7 +96,7 @@ jobs:
       OCGPU_RUN_HARDWARE_SMOKE: "1"
       OCGPU_SMOKE_BACKEND: cuda
     steps:
-      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       - run: cargo run -p xtask -- hardware-smoke
       - run: cargo run -p ocgpu-cli -- doctor --json
       - name: Validate CUDA symbol coverage and required core
@@ -117,7 +117,7 @@ jobs:
       OCGPU_HIP_SMOKE_ARCH: ${{ inputs.hip_linux_smoke_arch }}
       OCGPU_HIP_SMOKE_SHA256: ${{ inputs.hip_linux_smoke_sha256 }}
     steps:
-      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       - name: Preflight the runner-local Linux HIP fixture
         shell: pwsh
         run: |
@@ -157,7 +157,7 @@ jobs:
       OCGPU_HIP_SMOKE_ARCH: ${{ inputs.hip_windows_smoke_arch }}
       OCGPU_HIP_SMOKE_SHA256: ${{ inputs.hip_windows_smoke_sha256 }}
     steps:
-      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       - name: Preflight the runner-local Windows HIP fixture
         shell: pwsh
         run: |
@@ -198,7 +198,7 @@ jobs:
       OCGPU_HIP_SMOKE_ARCH: ${{ inputs.hip_linux_smoke_arch }}
       OCGPU_HIP_SMOKE_SHA256: ${{ inputs.hip_linux_smoke_sha256 }}
     steps:
-      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       - name: Preflight the runner-local Linux HIP fixture for dual execution
         if: inputs.backend == 'all'
         shell: pwsh
@@ -242,7 +242,7 @@ jobs:
       OCGPU_HIP_SMOKE_ARCH: ${{ inputs.hip_windows_smoke_arch }}
       OCGPU_HIP_SMOKE_SHA256: ${{ inputs.hip_windows_smoke_sha256 }}
     steps:
-      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       - name: Preflight the runner-local Windows HIP fixture for dual execution
         if: inputs.backend == 'all'
         shell: pwsh
