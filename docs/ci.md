@@ -46,14 +46,18 @@ compilation, x64 Linux/Windows package consumer and import/export audits, and
 the aarch64 header/export/dependency gate. Independent push/PR workflows
 provide earlier feedback but are not used as implicit release prerequisites.
 
-The four hardware jobs are manual and require the exact acknowledgement
-`RUN_BOUNDED_GPU_SMOKE`. Self-hosted labels distinguish NVIDIA/AMD and
-Linux/Windows. They are not eligible on hosted or interactive-display runners.
-Every job runs the bounded integration test, non-strict diagnostics for its one
-selected backend, and a machine assertion that every emitted manifest symbol
-applicable to the actual target triple resolves. The Windows AMD job therefore
-evaluates Windows HIP rows only. See `operations.md` for the bounded test and
-prohibited device-management actions.
+The six labelled hardware jobs plus their hosted authorization gate are manual.
+CUDA, HIP, and coexistence modes require the exact acknowledgement
+`RUN_BOUNDED_GPU_SMOKE`; simultaneous CUDA+HIP execution instead requires
+`RUN_BOUNDED_DUAL_GPU_SMOKE`. Self-hosted labels distinguish NVIDIA/AMD,
+dual-GPU, and Linux/Windows runners. They are not eligible on hosted or
+interactive-display runners. Every selected job runs the watchdog-backed
+bounded integration test. Single-backend jobs use non-strict diagnostics;
+dual-runtime jobs use strict diagnostics. Machine assertions require a row for
+every emitted target-applicable manifest symbol and successful resolution of
+the 26 effective common-core symbols, while optional raw symbols may remain
+unavailable. The Windows AMD job therefore evaluates Windows HIP rows only. See
+`operations.md` for the bounded test and prohibited device-management actions.
 
 The oracle-update workflow produces review artifacts only. It never commits,
 opens a pull request, or changes classifications automatically.

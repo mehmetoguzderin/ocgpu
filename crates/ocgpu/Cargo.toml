@@ -30,5 +30,8 @@ ocgpu-abi = { path = "../ocgpu-abi", version = "0.1.0" }
 ocgpu-cuda = { path = "../ocgpu-cuda", version = "0.1.0", optional = true }
 ocgpu-hip = { path = "../ocgpu-hip", version = "0.1.0", optional = true }
 
+[dev-dependencies]
+sha2 = "0.10.9"
+
 [lints]
 workspace = true

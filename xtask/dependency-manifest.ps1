@@ -10,6 +10,30 @@ $metadataText = cargo metadata --locked --format-version 1 --manifest-path "$roo
 if ($LASTEXITCODE -ne 0) { throw "cargo metadata failed with $LASTEXITCODE" }
 $metadata = $metadataText | ConvertFrom-Json
 
+# Sort-Object uses the current culture, whose punctuation collation differs
+# between Windows NLS and Linux ICU. These manifests are byte-for-byte checked.
+function Get-OrdinalSortedObjects([object[]]$Values, [scriptblock]$KeySelector) {
+    $objectsByKey = [Collections.Generic.SortedDictionary[string, object]]::new(
+        [StringComparer]::Ordinal
+    )
+    foreach ($value in $Values) {
+        $key = [string](& $KeySelector $value)
+        if ($objectsByKey.ContainsKey($key)) {
+            throw "ordinal sort key is duplicated: $key"
+        }
+        $objectsByKey.Add($key, $value)
+    }
+    foreach ($entry in $objectsByKey.GetEnumerator()) { $entry.Value }
+}
+
+function Get-OrdinalSortedUniqueStrings([object[]]$Values) {
+    $unique = [Collections.Generic.HashSet[string]]::new([StringComparer]::Ordinal)
+    foreach ($value in $Values) { [void]$unique.Add([string]$value) }
+    [string[]]$sorted = @($unique)
+    [Array]::Sort($sorted, [StringComparer]::Ordinal)
+    $sorted
+}
+
 $distributionRootNames = @(
     'ocgpu',
     'ocgpu-capi',
@@ -37,13 +61,16 @@ $lockText = Get-Content -Raw "$root/Cargo.lock"
 $checksums = @{}
 foreach ($match in [regex]::Matches($lockText, '(?ms)^\[\[package\]\]\r?\n(.*?)(?=^\[\[package\]\]|\z)')) {
     $body = $match.Groups[1].Value
-    $name = [regex]::Match($body, '(?m)^name = "([^"]+)"$').Groups[1].Value
-    $version = [regex]::Match($body, '(?m)^version = "([^"]+)"$').Groups[1].Value
-    $checksum = [regex]::Match($body, '(?m)^checksum = "([0-9a-f]{64})"$').Groups[1].Value
+    $name = [regex]::Match($body, '(?m)^name = "([^"]+)"\r?$').Groups[1].Value
+    $version = [regex]::Match($body, '(?m)^version = "([^"]+)"\r?$').Groups[1].Value
+    $checksum = [regex]::Match($body, '(?m)^checksum = "([0-9a-f]{64})"\r?$').Groups[1].Value
     if ($name -and $version -and $checksum) { $checksums["$name@$version"] = $checksum }
 }
 
-$packages = @($metadata.packages | Sort-Object name, version | ForEach-Object {
+$packages = @(Get-OrdinalSortedObjects @($metadata.packages) {
+    param($package)
+    "{0}`0{1}`0{2}" -f $package.name, $package.version, $package.id
+} | ForEach-Object {
     $key = "$($_.name)@$($_.version)"
     $checksum = $checksums[$key]
     $download = if ($_.source -like 'registry+*') {
@@ -78,9 +105,12 @@ $refs = @{}
 foreach ($package in $metadata.packages) {
     $refs[[string]$package.id] = "pkg:cargo/$($package.name)@$($package.version)"
 }
-$components = @($metadata.packages |
-    Where-Object { $shippingIds.Contains([string]$_.id) } |
-    Sort-Object name, version |
+$shippingPackages = @($metadata.packages |
+    Where-Object { $shippingIds.Contains([string]$_.id) })
+$components = @(Get-OrdinalSortedObjects $shippingPackages {
+    param($package)
+    "{0}`0{1}`0{2}" -f $package.name, $package.version, $package.id
+} |
     ForEach-Object {
         $licenseExpression = [string]$_.license
         if ([string]::IsNullOrWhiteSpace($licenseExpression)) {
@@ -103,19 +133,22 @@ $components = @($metadata.packages |
         }
         $component
     })
-$componentDependencies = @($metadata.resolve.nodes |
-    Where-Object { $shippingIds.Contains([string]$_.id) } |
-    Sort-Object id |
+$shippingNodes = @($metadata.resolve.nodes |
+    Where-Object { $shippingIds.Contains([string]$_.id) })
+$componentDependencies = @(Get-OrdinalSortedObjects $shippingNodes {
+    param($node)
+    [string]$node.id
+} |
     ForEach-Object {
         $node = $_
-        $dependsOn = @($node.deps |
+        $dependencyRefs = @($node.deps |
             Where-Object {
                 $_.pkg -and
                 $shippingIds.Contains([string]$_.pkg) -and
                 @($_.dep_kinds | Where-Object { $_.kind -ne 'dev' }).Count -gt 0
             } |
-            ForEach-Object { $refs[[string]$_.pkg] } |
-            Sort-Object -Unique)
+            ForEach-Object { $refs[[string]$_.pkg] })
+        $dependsOn = @(Get-OrdinalSortedUniqueStrings $dependencyRefs)
         [ordered]@{
             ref = $refs[[string]$node.id]
             dependsOn = $dependsOn
@@ -163,7 +196,8 @@ function Test-CycloneDxShape([object]$Bom, [string]$ExpectedAggregateRef, [strin
         throw 'CycloneDX identity fields are invalid'
     }
     $componentRefs = @($Bom.components | ForEach-Object { $_.'bom-ref' })
-    if ($componentRefs.Count -eq 0 -or @($componentRefs | Sort-Object -CaseSensitive -Unique).Count -ne $componentRefs.Count) {
+    if ($componentRefs.Count -eq 0 -or
+        @(Get-OrdinalSortedUniqueStrings $componentRefs).Count -ne $componentRefs.Count) {
         throw 'CycloneDX components must have unique non-empty references'
     }
     if ($Bom.metadata.component.'bom-ref' -cne $ExpectedAggregateRef) {
@@ -199,8 +233,8 @@ function Test-CycloneDxShape([object]$Bom, [string]$ExpectedAggregateRef, [strin
     }
     $aggregateEdges = @($Bom.dependencies | Where-Object { $_.ref -ceq $ExpectedAggregateRef })
     if ($aggregateEdges.Count -ne 1) { throw 'CycloneDX aggregate dependency node is missing or duplicated' }
-    $actualRootRefs = @($aggregateEdges[0].dependsOn | Sort-Object -CaseSensitive -Unique)
-    $expectedRootRefsSorted = @($ExpectedRootRefs | Sort-Object -CaseSensitive -Unique)
+    $actualRootRefs = @(Get-OrdinalSortedUniqueStrings @($aggregateEdges[0].dependsOn))
+    $expectedRootRefsSorted = @(Get-OrdinalSortedUniqueStrings $ExpectedRootRefs)
     if ($actualRootRefs.Count -ne $expectedRootRefsSorted.Count -or
         [string]::Join("`n", $actualRootRefs) -cne [string]::Join("`n", $expectedRootRefsSorted)) {
         throw 'CycloneDX aggregate dependency node does not point to the exact distribution roots'

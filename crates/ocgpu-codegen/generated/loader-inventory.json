@@ -1214,6 +1214,7 @@
       "logical_id": "context.synchronize",
       "raw_name": "ocgpuHipCtxSynchronize",
       "vendor_symbol": "hipCtxSynchronize",
+      "dispatch_symbol": "hipDeviceSynchronize",
       "aliases": [],
       "versioned_alternatives": [],
       "signature_hash": "fnv1a64:12a4c1296992e854",

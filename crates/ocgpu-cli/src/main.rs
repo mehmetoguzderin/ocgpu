@@ -504,10 +504,12 @@ impl RuntimeCoverageSymbol {
     }
 
     fn merge(&mut self, symbol: CoverageSymbol) -> Result<(), CliError> {
+        let merged_classification =
+            merge_runtime_classification(&self.classification, &symbol.classification);
         if self.name != symbol.name
             || self.backend != symbol.backend
             || self.kind != symbol.kind
-            || self.classification != symbol.classification
+            || merged_classification.is_none()
             || self.runtime_resolvable != symbol.runtime_resolvable
         {
             return Err(CliError(format!(
@@ -515,6 +517,8 @@ impl RuntimeCoverageSymbol {
                 self.name
             )));
         }
+        self.classification =
+            merged_classification.expect("classification compatibility was checked");
         self.inventory_ids.push(symbol.inventory_id);
         self.inventory_ids.sort();
         self.inventory_ids.dedup();
@@ -527,6 +531,17 @@ impl RuntimeCoverageSymbol {
         self.hardware_smoke |= symbol.hardware_smoke;
         Ok(())
     }
+}
+
+fn merge_runtime_classification(left: &str, right: &str) -> Option<String> {
+    if left == right {
+        return Some(left.to_owned());
+    }
+    matches!(
+        (left, right),
+        ("deprecated_covered", "covered_raw_only") | ("covered_raw_only", "deprecated_covered")
+    )
+    .then(|| "deprecated_covered".to_owned())
 }
 
 fn symbols(choice: BackendChoice, filter: SymbolFilter, json: bool) -> Result<ExitCode, CliError> {
@@ -740,6 +755,12 @@ fn module_inspect(path: &Path, json: bool) -> Result<ExitCode, CliError> {
         if let Some(target) = &info.ptx_target {
             println!("PTX target: {target}");
         }
+        for target in &info.amdgpu_target_ids {
+            println!("AMDGPU target ID: {target}");
+        }
+        for architecture in &info.amdgpu_architectures {
+            println!("AMDGPU architecture: {architecture}");
+        }
     }
     Ok(ExitCode::SUCCESS)
 }
@@ -886,6 +907,23 @@ mod tests {
         assert_eq!(hip.len(), 535);
         assert!(hip.windows(2).all(|pair| pair[0].name < pair[1].name));
         assert!(hip.iter().any(|symbol| symbol.kind == "alias"));
+    }
+
+    #[test]
+    fn runtime_merge_preserves_reviewed_vendor_deprecation() {
+        assert_eq!(
+            super::merge_runtime_classification("covered_raw_only", "deprecated_covered")
+                .as_deref(),
+            Some("deprecated_covered")
+        );
+        assert_eq!(
+            super::merge_runtime_classification("deprecated_covered", "covered_raw_only")
+                .as_deref(),
+            Some("deprecated_covered")
+        );
+        assert!(
+            super::merge_runtime_classification("covered_adapter", "covered_raw_only").is_none()
+        );
     }
 
     #[test]

@@ -38,13 +38,42 @@ $expected = @(
         ForEach-Object { $_.vendor_name } |
         Sort-Object -CaseSensitive -Unique
 )
-$applicable = @($result.symbols | Where-Object { $_.runtime_applicable -eq $true })
-$observed = @($applicable | ForEach-Object { $_.name } | Sort-Object -CaseSensitive -Unique)
+$platformName = if ($result.target -ceq 'x86_64-pc-windows-msvc') {
+    'windows'
+} elseif ($result.target -ceq 'x86_64-unknown-linux-gnu') {
+    'linux'
+} else {
+    throw "unsupported hardware-smoke target '$($result.target)'"
+}
+$expectedCore = @(
+    @($generated.function) |
+        ForEach-Object {
+            $mapping = $_.$Backend
+            if ($null -ne $mapping -and $mapping.$platformName.available -eq $true) {
+                if (-not [string]::IsNullOrWhiteSpace([string]$mapping.dispatch_symbol)) {
+                    [string]$mapping.dispatch_symbol
+                } else {
+                    [string]$mapping.vendor_symbol
+                }
+            }
+        } |
+        Sort-Object -CaseSensitive -Unique
+)
+$reported = @($result.symbols)
+$applicable = @($reported | Where-Object { $_.runtime_applicable -eq $true })
+$observed = @($reported | ForEach-Object { $_.name } | Sort-Object -CaseSensitive -Unique)
 $missingCoverage = @($expected | Where-Object { $_ -cnotin $observed })
-$missingRuntime = @(
-    foreach ($expectedName in $expected) {
+$missingCore = @(
+    foreach ($expectedName in $expectedCore) {
         $candidates = @($applicable | Where-Object { $_.name -ceq $expectedName })
-        if (-not ($candidates | Where-Object { $_.runtime_available -eq $true })) {
+        $supported = @(
+            $candidates |
+                Where-Object {
+                    $_.runtime_required -eq $true -and
+                    ($_.runtime_available -eq $true -or $_.runtime_resolution -ceq 'direct_adapter')
+                }
+        )
+        if ($supported.Count -eq 0) {
             [pscustomobject]@{
                 name = $expectedName
                 runtime_resolution = @(
@@ -60,12 +89,24 @@ $missingRuntime = @(
 if ($expected.Count -eq 0) {
     throw "generated inventory has no emitted $Backend symbols for target $($result.target)"
 }
-if ($missingCoverage.Count -ne 0) {
-    throw "coverage/runtime report omits $($missingCoverage.Count) emitted target-applicable symbols: $($missingCoverage -join ', ')"
+if ($expectedCore.Count -eq 0) {
+    throw "generated inventory has no required $Backend common-core symbols for target $($result.target)"
 }
-if ($missingRuntime.Count -ne 0) {
-    $details = $missingRuntime | ForEach-Object { "$($_.name) [$($_.runtime_resolution)]" }
-    throw "$($missingRuntime.Count) target-applicable $Backend symbols did not resolve: $($details -join ', ')"
+if ($missingCoverage.Count -ne 0) {
+    throw "coverage/runtime report omits $($missingCoverage.Count) emitted target symbols: $($missingCoverage -join ', ')"
+}
+if ($missingCore.Count -ne 0) {
+    $details = $missingCore | ForEach-Object { "$($_.name) [$($_.runtime_resolution)]" }
+    throw "$($missingCore.Count) required $Backend common-core symbols did not resolve through a direct, proc-address, or reviewed direct-adapter path: $($details -join ', ')"
 }
 
-Write-Host "Resolved all $($expected.Count) emitted $Backend symbols applicable to $($result.target)."
+$rawAvailable = @($applicable | Where-Object { $_.runtime_available -eq $true }).Count
+$directAdapters = @($applicable | Where-Object { $_.runtime_resolution -ceq 'direct_adapter' }).Count
+$profileOmissions = @($applicable | Where-Object { $_.runtime_resolution -ceq 'profile_unavailable' }).Count
+$optionalMissing = @(
+    $applicable |
+        Where-Object {
+            $_.runtime_required -ne $true -and $_.runtime_resolution -ceq 'missing'
+        }
+).Count
+Write-Host "Validated $($expectedCore.Count) required $Backend common-core symbols for $($result.target); raw callable=$rawAvailable, direct adapters=$directAdapters, supported profile omissions=$profileOmissions, optional missing=$optionalMissing."
