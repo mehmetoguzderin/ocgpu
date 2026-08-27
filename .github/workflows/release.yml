@@ -138,14 +138,21 @@ jobs:
           $ErrorActionPreference = "Stop"
           $vswhere = "${env:ProgramFiles(x86)}\Microsoft Visual Studio\Installer\vswhere.exe"
           if (-not (Test-Path -LiteralPath $vswhere)) { throw "vswhere.exe not found" }
-          $vsInstall = (& $vswhere -latest -products * -requires Microsoft.VisualStudio.Component.VC.Tools.x86.x64 -property installationPath | Select-Object -First 1)
-          if ($LASTEXITCODE -ne 0 -or -not $vsInstall) { throw "Visual Studio C++ tools not found" }
-          $vcvars64 = Join-Path $vsInstall "VC\Auxiliary\Build\vcvars64.bat"
-          $dumpbin = Get-ChildItem -Path (Join-Path $vsInstall "VC\Tools\MSVC\*\bin\Hostx64\x64\dumpbin.exe") -File | Sort-Object FullName | Select-Object -Last 1
-          if (-not (Test-Path -LiteralPath $vcvars64)) { throw "vcvars64.bat not found at $vcvars64" }
-          if (-not $dumpbin) { throw "dumpbin.exe not found under $vsInstall" }
-          "VCVARS64=$vcvars64" >> $env:GITHUB_ENV
-          "DUMPBIN=$($dumpbin.FullName)" >> $env:GITHUB_ENV
+          $vsInstallations = @(& $vswhere -all -products * -property installationPath)
+          if ($LASTEXITCODE -ne 0) { throw "vswhere failed with $LASTEXITCODE" }
+          $toolsets = @(
+            foreach ($vsInstall in $vsInstallations) {
+              $vcvars64 = Join-Path $vsInstall "VC\Auxiliary\Build\vcvars64.bat"
+              $dumpbin = Get-ChildItem -Path (Join-Path $vsInstall "VC\Tools\MSVC\*\bin\Hostx64\x64\dumpbin.exe") -File -ErrorAction SilentlyContinue | Sort-Object FullName | Select-Object -Last 1
+              if ((Test-Path -LiteralPath $vcvars64) -and $dumpbin) {
+                [pscustomobject]@{ InstallationPath = $vsInstall; Vcvars64 = $vcvars64; Dumpbin = $dumpbin.FullName }
+              }
+            }
+          )
+          $toolset = $toolsets | Sort-Object InstallationPath -Descending | Select-Object -First 1
+          if (-not $toolset) { throw "no Visual Studio installation contains both vcvars64.bat and x64 dumpbin.exe" }
+          "VCVARS64=$($toolset.Vcvars64)" >> $env:GITHUB_ENV
+          "DUMPBIN=$($toolset.Dumpbin)" >> $env:GITHUB_ENV
       - name: Install pinned toolchain
         shell: bash
         run: rustup toolchain install 1.97.1 --profile minimal --target ${{ matrix.target }}
