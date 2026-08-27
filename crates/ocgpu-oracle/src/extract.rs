@@ -434,7 +434,7 @@ impl Collector<'_> {
                 }
                 Item::Type(item) if is_public(&item.vis) => {
                     let kind = match item.ty.as_ref() {
-                        Type::BareFn(_) => ItemKind::Callback,
+                        Type::FnPtr(_) => ItemKind::Callback,
                         Type::Ptr(_) if looks_like_handle(&item.ident.to_string()) => {
                             ItemKind::OpaqueHandle
                         }
@@ -442,7 +442,7 @@ impl Collector<'_> {
                     };
                     let name = item.ident.to_string();
                     let abi = match item.ty.as_ref() {
-                        Type::BareFn(function) => Some(abi_from_bare_fn(function)),
+                        Type::FnPtr(function) => Some(abi_from_fn_ptr(function)),
                         _ => None,
                     };
                     let signature = if let Some(callable) = &abi {
@@ -572,7 +572,7 @@ fn abi_from_signature(signature: &syn::Signature) -> Abi {
     }
 }
 
-fn abi_from_bare_fn(function: &syn::TypeBareFn) -> Abi {
+fn abi_from_fn_ptr(function: &syn::TypeFnPtr) -> Abi {
     Abi {
         calling_convention: function
             .abi
@@ -600,7 +600,7 @@ fn abi_from_bare_fn(function: &syn::TypeBareFn) -> Abi {
 
 fn parameter(name: String, ty: &Type) -> Parameter {
     let (pointer, direction, nullable) = match ty {
-        Type::Ptr(pointer) if pointer.mutability.is_some() => {
+        Type::Ptr(pointer) if matches!(&pointer.mutability, syn::PointerMutability::Mut(_)) => {
             (PointerKind::Mut, Direction::Unknown, None)
         }
         Type::Ptr(_) => (PointerKind::Const, Direction::In, None),
@@ -608,8 +608,8 @@ fn parameter(name: String, ty: &Type) -> Parameter {
             (PointerKind::Mut, Direction::Unknown, Some(false))
         }
         Type::Reference(_) => (PointerKind::Const, Direction::In, Some(false)),
-        Type::BareFn(_) => (PointerKind::Callback, Direction::In, Some(false)),
-        Type::Path(path) if option_contains_bare_fn(path) => {
+        Type::FnPtr(_) => (PointerKind::Callback, Direction::In, Some(false)),
+        Type::Path(path) if option_contains_fn_ptr(path) => {
             (PointerKind::Callback, Direction::In, Some(true))
         }
         _ => (PointerKind::Value, Direction::In, Some(false)),
@@ -623,13 +623,13 @@ fn parameter(name: String, ty: &Type) -> Parameter {
     }
 }
 
-fn option_contains_bare_fn(path: &syn::TypePath) -> bool {
+fn option_contains_fn_ptr(path: &syn::TypePath) -> bool {
     path.path.segments.last().is_some_and(|segment| {
         segment.ident == "Option"
             && matches!(
                 &segment.arguments,
                 PathArguments::AngleBracketed(arguments)
-                    if arguments.args.iter().any(|argument| matches!(argument, GenericArgument::Type(Type::BareFn(_))))
+                    if arguments.args.iter().any(|argument| matches!(argument, GenericArgument::Type(Type::FnPtr(_))))
             )
     })
 }
