@@ -73,7 +73,7 @@ impl fmt::Display for Backend {
 /// One failed candidate from a backend-library search.
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub struct OpenFailure {
-    /// Candidate that was passed to the operating-system loader.
+    /// Logical or absolute candidate associated with this loader attempt.
     pub candidate: PathBuf,
     /// Operating-system error code, when one was supplied.
     pub os_code: Option<i32>,
@@ -377,6 +377,15 @@ fn slot(backend: Backend) -> &'static OnceLock<Result<Library, LoadError>> {
 }
 
 /// Loads a backend from its secure platform candidates, at most once.
+///
+/// On Linux, each fixed basename is resolved major-first through validated
+/// absolute `LD_LIBRARY_PATH` directories, a bounded `/etc/ld.so.cache`, and
+/// curated absolute `ROCm`, WSL, multiarch, and system directories. Only a
+/// canonical absolute regular-file path is passed to `dlopen`, so caller
+/// `DT_RPATH`/`DT_RUNPATH` and CWD do not select the top-level runtime.
+/// Dependencies remain subject to the loaded object's and ELF system loader's
+/// dependency-search policy. Installations outside these sources require the
+/// feature-gated, unsafe `load_from_absolute` override.
 pub fn load(backend: Backend) -> Result<&'static Library, LoadError> {
     result_ref(slot(backend).get_or_init(|| open_candidates(backend)))
 }
@@ -453,8 +462,9 @@ fn open_candidates(backend: Backend) -> Result<Library, LoadError> {
 #[cfg(feature = "explicit-library-path")]
 unsafe fn open_exact(backend: Backend, path: &Path) -> Result<Library, LoadError> {
     // SAFETY: `validate_explicit_path` produced a canonical regular-file path;
-    // platform loading applies flags that exclude the current working directory,
-    // and the caller guarantees that the native code is trusted and ABI-correct.
+    // platform loading excludes CWD for this top-level target, and the caller
+    // guarantees that the native code and dependency closure are trusted and
+    // ABI-correct.
     match unsafe { platform::open(path, true) } {
         Ok((handle, loaded_path)) => Ok(Library {
             handle,
@@ -614,30 +624,70 @@ mod platform {
 #[cfg(target_os = "linux")]
 mod platform {
     use super::OpenFailure;
-    use std::ffi::{CStr, CString, c_char, c_int, c_void};
+    use std::ffi::{CStr, CString, OsStr, c_char, c_int, c_void};
+    use std::fs;
     use std::os::unix::ffi::OsStrExt;
     use std::path::{Path, PathBuf};
     use std::ptr::NonNull;
+    use std::sync::OnceLock;
 
     const RTLD_LOCAL: c_int = 0;
     const RTLD_NOW: c_int = 2;
-    const RTLD_DI_LINKMAP: c_int = 2;
+    // Independently encoded layout facts from glibc's
+    // `sysdeps/generic/dl-cache.h`; every offset is bounds-checked below.
+    const NEW_CACHE_MAGIC: &[u8] = b"glibc-ld.so.cache1.1";
+    const OLD_CACHE_MAGIC: &[u8] = b"ld.so-1.7.0";
+    const NEW_CACHE_HEADER_SIZE: usize = 48;
+    const NEW_CACHE_ENTRY_SIZE: usize = 24;
+    const OLD_CACHE_HEADER_SIZE: usize = 16;
+    const OLD_CACHE_ENTRY_SIZE: usize = 12;
+    const MAX_LOADER_CACHE_BYTES: u64 = 64 * 1024 * 1024;
+    const MAX_LOADER_CACHE_ENTRIES: usize = 1_000_000;
+    const MAX_LOADER_CACHE_STRING_BYTES: usize = 4_096;
+    const MAX_MATCHING_CACHE_PATHS: usize = 64;
 
-    #[repr(C)]
-    struct LinkMap {
-        address: usize,
-        name: *mut c_char,
-        dynamic: *mut c_void,
-        next: *mut Self,
-        previous: *mut Self,
-    }
+    #[cfg(target_arch = "x86_64")]
+    const FIXED_LIBRARY_DIRECTORIES: &[&str] = &[
+        "/opt/rocm/lib",
+        "/opt/rocm/lib64",
+        "/usr/lib/wsl/lib",
+        "/lib/x86_64-linux-gnu",
+        "/usr/lib/x86_64-linux-gnu",
+        "/lib64",
+        "/usr/lib64",
+        "/lib",
+        "/usr/lib",
+    ];
+    #[cfg(target_arch = "aarch64")]
+    const FIXED_LIBRARY_DIRECTORIES: &[&str] = &[
+        "/opt/rocm/lib",
+        "/opt/rocm/lib64",
+        "/usr/lib/wsl/lib",
+        "/lib/aarch64-linux-gnu",
+        "/usr/lib/aarch64-linux-gnu",
+        "/lib64",
+        "/usr/lib64",
+        "/lib",
+        "/usr/lib",
+    ];
+    #[cfg(not(any(target_arch = "x86_64", target_arch = "aarch64")))]
+    const FIXED_LIBRARY_DIRECTORIES: &[&str] = &[
+        "/opt/rocm/lib",
+        "/opt/rocm/lib64",
+        "/usr/lib/wsl/lib",
+        "/lib64",
+        "/usr/lib64",
+        "/lib",
+        "/usr/lib",
+    ];
+
+    static LOADER_CACHE: OnceLock<Option<Vec<u8>>> = OnceLock::new();
 
     #[link(name = "dl")]
     unsafe extern "C" {
         fn dlopen(file_name: *const c_char, flags: c_int) -> *mut c_void;
         fn dlsym(handle: *mut c_void, symbol: *const c_char) -> *mut c_void;
         fn dlerror() -> *const c_char;
-        fn dlinfo(handle: *mut c_void, request: c_int, info: *mut c_void) -> c_int;
     }
 
     pub(super) unsafe fn open(
@@ -645,12 +695,76 @@ mod platform {
         explicit: bool,
     ) -> Result<(NonNull<c_void>, PathBuf), OpenFailure> {
         let candidate = path.to_path_buf();
-        if has_cwd_search_entry(explicit) {
+        let library_path = std::env::var_os("LD_LIBRARY_PATH");
+        let current = std::env::current_dir().ok();
+        if validated_library_path_entries(library_path.as_deref(), current.as_deref()).is_err() {
             return Err(OpenFailure {
                 candidate,
                 os_code: None,
-                message: "LD_LIBRARY_PATH contains a relative or current-directory entry"
-                    .to_owned(),
+                message:
+                    "LD_LIBRARY_PATH contains a relative, tokenized, or current-directory entry"
+                        .to_owned(),
+            });
+        }
+
+        if explicit {
+            // SAFETY: explicit paths were canonicalized and checked as regular
+            // files by the public validation layer.
+            return unsafe { open_absolute(path) };
+        }
+
+        let resolved = resolve_default_candidate_paths(
+            path,
+            library_path.as_deref(),
+            current.as_deref(),
+            loader_cache(),
+            FIXED_LIBRARY_DIRECTORIES,
+        )
+        .map_err(|message| OpenFailure {
+            candidate: candidate.clone(),
+            os_code: None,
+            message: message.to_owned(),
+        })?;
+        if resolved.is_empty() {
+            return Err(OpenFailure {
+                candidate,
+                os_code: None,
+                message:
+                    "no secure absolute candidate was found; caller RPATH/RUNPATH was not searched"
+                        .to_owned(),
+            });
+        }
+
+        let mut failures = Vec::new();
+        for absolute in resolved {
+            // SAFETY: the resolver returns only canonical absolute regular-file
+            // paths and `open_absolute` never searches a bare library name.
+            match unsafe { open_absolute(&absolute) } {
+                Ok(loaded) => return Ok(loaded),
+                Err(failure) => failures.push(format!(
+                    "{}: {}",
+                    failure.candidate.display(),
+                    failure.message
+                )),
+            }
+        }
+        Err(OpenFailure {
+            candidate,
+            os_code: None,
+            message: format!(
+                "secure absolute candidates failed to load: {}",
+                failures.join("; ")
+            ),
+        })
+    }
+
+    unsafe fn open_absolute(path: &Path) -> Result<(NonNull<c_void>, PathBuf), OpenFailure> {
+        let candidate = path.to_path_buf();
+        if !path.is_absolute() {
+            return Err(OpenFailure {
+                candidate,
+                os_code: None,
+                message: "Linux loader target is not absolute".to_owned(),
             });
         }
         let Ok(path_c) = CString::new(path.as_os_str().as_bytes()) else {
@@ -664,10 +778,7 @@ mod platform {
         // are passed exactly. No `dlclose` is ever performed.
         let raw = unsafe { dlopen(path_c.as_ptr(), RTLD_NOW | RTLD_LOCAL) };
         NonNull::new(raw)
-            .map(|handle| {
-                let loaded_path = module_path(handle).unwrap_or_else(|| path.to_path_buf());
-                (handle, loaded_path)
-            })
+            .map(|handle| (handle, path.to_path_buf()))
             .ok_or_else(|| OpenFailure {
                 candidate,
                 os_code: None,
@@ -705,53 +816,285 @@ mod platform {
         }
     }
 
-    fn module_path(handle: NonNull<c_void>) -> Option<PathBuf> {
-        let mut link_map: *mut LinkMap = std::ptr::null_mut();
-        // SAFETY: `link_map` is writable pointer storage, the handle is live, and
-        // `RTLD_DI_LINKMAP` requests a loader-owned `link_map` pointer.
-        let result =
-            unsafe { dlinfo(handle.as_ptr(), RTLD_DI_LINKMAP, (&raw mut link_map).cast()) };
-        if result != 0 || link_map.is_null() {
-            return None;
-        }
-        // SAFETY: successful `RTLD_DI_LINKMAP` returned a live loader-owned map.
-        let name = unsafe { (*link_map).name };
-        if name.is_null() {
-            return None;
-        }
-        // SAFETY: `l_name` is a NUL-terminated string owned by the loaded object.
-        let bytes = unsafe { CStr::from_ptr(name) }.to_bytes();
-        (!bytes.is_empty()).then(|| PathBuf::from(std::ffi::OsStr::from_bytes(bytes)))
+    fn loader_cache() -> Option<&'static [u8]> {
+        LOADER_CACHE.get_or_init(read_loader_cache).as_deref()
     }
 
-    fn has_cwd_search_entry(explicit: bool) -> bool {
-        let value = std::env::var_os("LD_LIBRARY_PATH");
-        let current = std::env::current_dir().ok();
-        has_cwd_search_entry_in(explicit, value.as_deref(), current.as_deref())
+    fn read_loader_cache() -> Option<Vec<u8>> {
+        let path = Path::new("/etc/ld.so.cache");
+        let metadata = fs::metadata(path).ok()?;
+        if !metadata.is_file() || metadata.len() > MAX_LOADER_CACHE_BYTES {
+            return None;
+        }
+        let bytes = fs::read(path).ok()?;
+        (u64::try_from(bytes.len()).ok()? <= MAX_LOADER_CACHE_BYTES).then_some(bytes)
     }
 
-    fn has_cwd_search_entry_in(
-        _explicit: bool,
-        value: Option<&std::ffi::OsStr>,
+    fn validated_library_path_entries(
+        value: Option<&OsStr>,
         current: Option<&Path>,
-    ) -> bool {
+    ) -> Result<Vec<PathBuf>, ()> {
         let Some(value) = value else {
+            return Ok(Vec::new());
+        };
+        let Some(current) = current else {
+            return Err(());
+        };
+        if value.as_bytes().contains(&b'$') {
+            return Err(());
+        }
+        let canonical_current = current.canonicalize().ok();
+        let mut entries = Vec::new();
+        // glibc passes `:;` to `fillin_rpath` for `LD_LIBRARY_PATH`; neither
+        // separator has an escaping mechanism in this environment variable.
+        for bytes in value
+            .as_bytes()
+            .split(|byte| *byte == b':' || *byte == b';')
+        {
+            let entry = PathBuf::from(OsStr::from_bytes(bytes));
+            if entry.as_os_str().is_empty() || !entry.is_absolute() {
+                return Err(());
+            }
+            if entry == current
+                || entry
+                    .canonicalize()
+                    .ok()
+                    .zip(canonical_current.as_ref())
+                    .is_some_and(|(entry, cwd)| &entry == cwd)
+            {
+                return Err(());
+            }
+            entries.push(entry);
+        }
+        Ok(entries)
+    }
+
+    fn resolve_default_candidate_paths(
+        candidate: &Path,
+        library_path: Option<&OsStr>,
+        current: Option<&Path>,
+        cache: Option<&[u8]>,
+        fixed_directories: &[&str],
+    ) -> Result<Vec<PathBuf>, &'static str> {
+        if candidate.file_name() != Some(candidate.as_os_str())
+            || candidate.as_os_str().as_bytes().contains(&0)
+        {
+            return Err("default library candidate is not a NUL-free basename");
+        }
+        let search_directories = validated_library_path_entries(library_path, current).map_err(
+            |()| "LD_LIBRARY_PATH contains a relative, tokenized, or current-directory entry",
+        )?;
+        let canonical_current = current.and_then(|path| path.canonicalize().ok());
+        let mut resolved = Vec::new();
+        for directory in search_directories {
+            push_canonical_candidate(
+                &mut resolved,
+                &directory.join(candidate),
+                candidate.as_os_str(),
+                canonical_current.as_deref(),
+            );
+        }
+        if let Some(cache) = cache {
+            for cached in parse_loader_cache(candidate.as_os_str(), cache) {
+                push_canonical_candidate(
+                    &mut resolved,
+                    &cached,
+                    candidate.as_os_str(),
+                    canonical_current.as_deref(),
+                );
+            }
+        }
+        for directory in fixed_directories {
+            push_canonical_candidate(
+                &mut resolved,
+                &Path::new(directory).join(candidate),
+                candidate.as_os_str(),
+                canonical_current.as_deref(),
+            );
+        }
+        Ok(resolved)
+    }
+
+    fn push_canonical_candidate(
+        resolved: &mut Vec<PathBuf>,
+        raw: &Path,
+        exact_basename: &OsStr,
+        canonical_current: Option<&Path>,
+    ) {
+        if raw.file_name() != Some(exact_basename) || !raw.is_absolute() {
+            return;
+        }
+        let Ok(canonical) = raw.canonicalize() else {
+            return;
+        };
+        if !canonical.is_absolute()
+            || !canonical
+                .metadata()
+                .is_ok_and(|metadata| metadata.is_file())
+            || !canonical_target_matches_candidate(exact_basename, &canonical)
+            || canonical_current.is_some_and(|cwd| canonical.parent() == Some(cwd))
+            || resolved.contains(&canonical)
+        {
+            return;
+        }
+        resolved.push(canonical);
+    }
+
+    fn canonical_target_matches_candidate(candidate: &OsStr, canonical: &Path) -> bool {
+        let candidate = candidate.as_bytes();
+        if !matches!(
+            candidate,
+            b"libamdhip64.so.5" | b"libamdhip64.so.6" | b"libamdhip64.so.7"
+        ) {
+            // CUDA's `libcuda.so.1` commonly resolves to a driver-versioned
+            // basename, and unversioned HIP is deliberately profile-neutral.
+            return true;
+        }
+        let Some(target) = canonical.file_name().map(OsStrExt::as_bytes) else {
             return false;
         };
-        std::env::split_paths(value).any(|entry| {
-            if entry.as_os_str().is_empty() || !entry.is_absolute() {
-                return true;
+        target == candidate
+            || target
+                .strip_prefix(candidate)
+                .is_some_and(|suffix| suffix.starts_with(b".") && suffix.len() > 1)
+    }
+
+    fn parse_loader_cache(candidate: &OsStr, bytes: &[u8]) -> Vec<PathBuf> {
+        parse_loader_cache_checked(candidate, bytes).unwrap_or_default()
+    }
+
+    fn parse_loader_cache_checked(candidate: &OsStr, bytes: &[u8]) -> Option<Vec<PathBuf>> {
+        if bytes.starts_with(NEW_CACHE_MAGIC) {
+            return parse_new_loader_cache(candidate, bytes);
+        }
+        if !bytes.starts_with(OLD_CACHE_MAGIC) || bytes.len() < OLD_CACHE_HEADER_SIZE {
+            return None;
+        }
+        let entries = usize::try_from(read_u32(bytes, 12)?).ok()?;
+        if entries > MAX_LOADER_CACHE_ENTRIES {
+            return None;
+        }
+        let entries_bytes = entries.checked_mul(OLD_CACHE_ENTRY_SIZE)?;
+        let strings_offset = OLD_CACHE_HEADER_SIZE.checked_add(entries_bytes)?;
+        if strings_offset > bytes.len() {
+            return None;
+        }
+        let new_offset = align_to_eight(strings_offset)?;
+        if bytes
+            .get(new_offset..)
+            .is_some_and(|tail| tail.starts_with(NEW_CACHE_MAGIC))
+        {
+            return parse_new_loader_cache(candidate, bytes.get(new_offset..)?);
+        }
+        parse_old_loader_cache(candidate, bytes, entries, strings_offset)
+    }
+
+    fn parse_new_loader_cache(candidate: &OsStr, bytes: &[u8]) -> Option<Vec<PathBuf>> {
+        if bytes.len() < NEW_CACHE_HEADER_SIZE || !bytes.starts_with(NEW_CACHE_MAGIC) {
+            return None;
+        }
+        let endian = bytes.get(28).copied()? & 3;
+        #[cfg(target_endian = "little")]
+        let expected_endian = 2;
+        #[cfg(target_endian = "big")]
+        let expected_endian = 3;
+        if endian != 0 && endian != expected_endian {
+            return None;
+        }
+        let entries = usize::try_from(read_u32(bytes, 20)?).ok()?;
+        if entries > MAX_LOADER_CACHE_ENTRIES {
+            return None;
+        }
+        let strings_length = usize::try_from(read_u32(bytes, 24)?).ok()?;
+        let entries_bytes = entries.checked_mul(NEW_CACHE_ENTRY_SIZE)?;
+        let strings_offset = NEW_CACHE_HEADER_SIZE.checked_add(entries_bytes)?;
+        let strings_end = strings_offset.checked_add(strings_length)?;
+        if strings_end > bytes.len() {
+            return None;
+        }
+
+        let mut paths = Vec::new();
+        for index in 0..entries {
+            let offset =
+                NEW_CACHE_HEADER_SIZE.checked_add(index.checked_mul(NEW_CACHE_ENTRY_SIZE)?)?;
+            let key = usize::try_from(read_u32(bytes, offset.checked_add(4)?)?).ok()?;
+            let hwcap = read_u64(bytes, offset.checked_add(16)?)?;
+            let key = bounded_cache_string(bytes, key, strings_offset, strings_end)?;
+            if hwcap == 0 && key == candidate.as_bytes() {
+                let value = usize::try_from(read_u32(bytes, offset.checked_add(8)?)?).ok()?;
+                let value = bounded_cache_string(bytes, value, strings_offset, strings_end)?;
+                push_cache_match(&mut paths, value)?;
             }
-            current.is_some_and(|cwd| {
-                if entry == cwd {
-                    return true;
-                }
-                match (entry.canonicalize(), cwd.canonicalize()) {
-                    (Ok(entry), Ok(cwd)) => entry == cwd,
-                    _ => false,
-                }
-            })
-        })
+        }
+        Some(paths)
+    }
+
+    fn parse_old_loader_cache(
+        candidate: &OsStr,
+        bytes: &[u8],
+        entries: usize,
+        strings_offset: usize,
+    ) -> Option<Vec<PathBuf>> {
+        let mut paths = Vec::new();
+        for index in 0..entries {
+            let offset =
+                OLD_CACHE_HEADER_SIZE.checked_add(index.checked_mul(OLD_CACHE_ENTRY_SIZE)?)?;
+            let key = usize::try_from(read_u32(bytes, offset.checked_add(4)?)?).ok()?;
+            let key = strings_offset.checked_add(key)?;
+            let key = bounded_cache_string(bytes, key, strings_offset, bytes.len())?;
+            if key == candidate.as_bytes() {
+                let value = usize::try_from(read_u32(bytes, offset.checked_add(8)?)?).ok()?;
+                let value = strings_offset.checked_add(value)?;
+                let value = bounded_cache_string(bytes, value, strings_offset, bytes.len())?;
+                push_cache_match(&mut paths, value)?;
+            }
+        }
+        Some(paths)
+    }
+
+    fn push_cache_match(paths: &mut Vec<PathBuf>, value: &[u8]) -> Option<()> {
+        let path = PathBuf::from(OsStr::from_bytes(value));
+        if paths.contains(&path) {
+            return Some(());
+        }
+        if paths.len() >= MAX_MATCHING_CACHE_PATHS {
+            return None;
+        }
+        paths.push(path);
+        Some(())
+    }
+
+    fn bounded_cache_string(
+        bytes: &[u8],
+        offset: usize,
+        strings_offset: usize,
+        strings_end: usize,
+    ) -> Option<&[u8]> {
+        if offset < strings_offset || offset >= strings_end || strings_end > bytes.len() {
+            return None;
+        }
+        let bounded_end = offset
+            .checked_add(MAX_LOADER_CACHE_STRING_BYTES)?
+            .min(strings_end);
+        let tail = bytes.get(offset..bounded_end)?;
+        let length = tail.iter().position(|byte| *byte == 0)?;
+        tail.get(..length)
+    }
+
+    fn read_u32(bytes: &[u8], offset: usize) -> Option<u32> {
+        Some(u32::from_ne_bytes(
+            bytes.get(offset..offset.checked_add(4)?)?.try_into().ok()?,
+        ))
+    }
+
+    fn read_u64(bytes: &[u8], offset: usize) -> Option<u64> {
+        Some(u64::from_ne_bytes(
+            bytes.get(offset..offset.checked_add(8)?)?.try_into().ok()?,
+        ))
+    }
+
+    fn align_to_eight(value: usize) -> Option<usize> {
+        value.checked_add(7).map(|value| value & !7)
     }
 
     #[cfg(feature = "explicit-library-path")]
@@ -761,38 +1104,82 @@ mod platform {
 
     #[cfg(test)]
     mod tests {
-        use super::has_cwd_search_entry_in;
+        use super::{
+            FIXED_LIBRARY_DIRECTORIES, NEW_CACHE_ENTRY_SIZE, NEW_CACHE_HEADER_SIZE,
+            NEW_CACHE_MAGIC, OLD_CACHE_ENTRY_SIZE, OLD_CACHE_HEADER_SIZE, OLD_CACHE_MAGIC,
+            parse_loader_cache, resolve_default_candidate_paths, validated_library_path_entries,
+        };
         use std::ffi::OsStr;
-        use std::path::Path;
+        use std::fs;
+        use std::os::unix::ffi::OsStrExt;
+        use std::path::{Path, PathBuf};
+        use std::sync::atomic::{AtomicUsize, Ordering};
+
+        static NEXT_TEST_DIRECTORY: AtomicUsize = AtomicUsize::new(0);
+
+        struct TestDirectory(PathBuf);
+
+        impl TestDirectory {
+            fn new() -> Self {
+                loop {
+                    let unique = NEXT_TEST_DIRECTORY.fetch_add(1, Ordering::Relaxed);
+                    let path = std::env::temp_dir()
+                        .join(format!("ocgpu-loader-{}-{unique}", std::process::id()));
+                    match fs::create_dir(&path) {
+                        Ok(()) => return Self(path),
+                        Err(error) if error.kind() == std::io::ErrorKind::AlreadyExists => {}
+                        Err(error) => panic!("create isolated loader test directory: {error}"),
+                    }
+                }
+            }
+        }
+
+        impl Drop for TestDirectory {
+            fn drop(&mut self) {
+                let _ = fs::remove_dir_all(&self.0);
+            }
+        }
 
         #[test]
         fn default_and_explicit_loads_reject_unsafe_dependency_search_entries() {
             let current = Path::new("/work/ocgpu");
-            assert!(has_cwd_search_entry_in(
-                true,
-                Some(OsStr::new("relative:/opt/vendor")),
-                Some(current),
-            ));
-            assert!(has_cwd_search_entry_in(
-                true,
-                Some(OsStr::new("/work/ocgpu:/opt/vendor")),
-                Some(current),
-            ));
-            assert!(!has_cwd_search_entry_in(
-                true,
-                Some(OsStr::new("/opt/vendor:/usr/lib")),
-                Some(current),
-            ));
-            assert!(has_cwd_search_entry_in(
-                true,
-                Some(OsStr::new("")),
-                Some(current),
-            ));
-            assert!(has_cwd_search_entry_in(
-                false,
-                Some(OsStr::new("relative:/opt/vendor")),
-                Some(current),
-            ));
+            assert!(
+                validated_library_path_entries(
+                    Some(OsStr::new("relative:/opt/vendor")),
+                    Some(current),
+                )
+                .is_err()
+            );
+            assert!(
+                validated_library_path_entries(
+                    Some(OsStr::new("/work/ocgpu:/opt/vendor")),
+                    Some(current),
+                )
+                .is_err()
+            );
+            assert!(
+                validated_library_path_entries(
+                    Some(OsStr::new("/opt/vendor:/usr/lib")),
+                    Some(current),
+                )
+                .is_ok()
+            );
+            assert!(validated_library_path_entries(Some(OsStr::new("")), Some(current),).is_err());
+            assert!(
+                validated_library_path_entries(
+                    Some(OsStr::new("/opt/vendor;;/usr/lib")),
+                    Some(current),
+                )
+                .is_err()
+            );
+            assert!(
+                validated_library_path_entries(
+                    Some(OsStr::new("/$ORIGIN/lib:/usr/lib")),
+                    Some(current),
+                )
+                .is_err()
+            );
+            assert!(validated_library_path_entries(Some(OsStr::new("/opt/vendor")), None).is_err());
         }
 
         #[test]
@@ -800,7 +1187,265 @@ mod platform {
             let current = std::env::current_dir().expect("test process has a current directory");
             let alias = current.join(".");
             let search = std::env::join_paths([alias]).expect("one absolute path is valid");
-            assert!(has_cwd_search_entry_in(true, Some(&search), Some(&current),));
+            assert!(validated_library_path_entries(Some(&search), Some(&current)).is_err());
+        }
+
+        #[test]
+        fn relative_or_empty_rpath_cannot_contribute_a_cwd_candidate() {
+            let root = TestDirectory::new();
+            let candidate = Path::new("libocgpu-rpath-probe.so.1");
+            let cwd_candidate = root.0.join(candidate);
+            fs::write(&cwd_candidate, b"not an ELF object").expect("write isolated probe file");
+
+            // RPATH/RUNPATH is intentionally not an input to the resolver. A
+            // matching file in CWD therefore cannot become a dlopen target.
+            let resolved =
+                resolve_default_candidate_paths(candidate, None, Some(&root.0), None, &[])
+                    .expect("fixed basename is valid");
+            assert!(resolved.is_empty());
+        }
+
+        #[test]
+        fn safe_absolute_library_path_is_canonicalized_but_cwd_is_not() {
+            let root = TestDirectory::new();
+            let current = root.0.join("current");
+            let safe = root.0.join("safe");
+            fs::create_dir(&current).expect("create isolated current directory");
+            fs::create_dir(&safe).expect("create isolated safe directory");
+            let candidate = Path::new("libocgpu-safe-probe.so.1");
+            fs::write(safe.join(candidate), b"probe").expect("write isolated safe probe");
+            fs::write(current.join(candidate), b"probe").expect("write isolated cwd probe");
+            let search = safe.as_os_str();
+
+            let resolved =
+                resolve_default_candidate_paths(candidate, Some(search), Some(&current), None, &[])
+                    .expect("absolute non-CWD search directory is accepted");
+            assert_eq!(
+                resolved,
+                [safe.join(candidate).canonicalize().expect("probe exists")]
+            );
+        }
+
+        #[test]
+        fn versioned_hip_candidate_preserves_major_across_symlinks() {
+            let root = TestDirectory::new();
+            let current = root.0.join("current");
+            let cross_major = root.0.join("cross-major");
+            let same_major = root.0.join("same-major");
+            fs::create_dir(&current).expect("create isolated current directory");
+            fs::create_dir(&cross_major).expect("create cross-major directory");
+            fs::create_dir(&same_major).expect("create same-major directory");
+
+            let cross_major_target = cross_major.join("libamdhip64.so.6.4.0");
+            let same_major_target = same_major.join("libamdhip64.so.7.2.0");
+            fs::write(&cross_major_target, b"probe").expect("write HIP 6 target");
+            fs::write(&same_major_target, b"probe").expect("write HIP 7 target");
+            std::os::unix::fs::symlink(
+                cross_major_target
+                    .file_name()
+                    .expect("HIP 6 target has a basename"),
+                cross_major.join("libamdhip64.so.7"),
+            )
+            .expect("create cross-major HIP symlink");
+            std::os::unix::fs::symlink(
+                same_major_target
+                    .file_name()
+                    .expect("HIP 7 target has a basename"),
+                same_major.join("libamdhip64.so.7"),
+            )
+            .expect("create same-major HIP symlink");
+
+            let rejected = resolve_default_candidate_paths(
+                Path::new("libamdhip64.so.7"),
+                Some(cross_major.as_os_str()),
+                Some(&current),
+                None,
+                &[],
+            )
+            .expect("versioned HIP candidate is valid");
+            assert!(rejected.is_empty());
+
+            let accepted = resolve_default_candidate_paths(
+                Path::new("libamdhip64.so.7"),
+                Some(same_major.as_os_str()),
+                Some(&current),
+                None,
+                &[],
+            )
+            .expect("versioned HIP candidate is valid");
+            assert_eq!(
+                accepted,
+                [same_major_target
+                    .canonicalize()
+                    .expect("same-major target exists")]
+            );
+        }
+
+        #[test]
+        fn hip_major_priority_precedes_every_absolute_search_source() {
+            let root = TestDirectory::new();
+            let current = root.0.join("current");
+            let early_directory = root.0.join("early");
+            let cached_directory = root.0.join("cached");
+            fs::create_dir(&current).expect("create isolated current directory");
+            fs::create_dir(&early_directory).expect("create early search directory");
+            fs::create_dir(&cached_directory).expect("create cache search directory");
+            let hip6 = early_directory.join("libamdhip64.so.6");
+            let hip7 = cached_directory.join("libamdhip64.so.7");
+            fs::write(&hip6, b"probe").expect("write HIP 6 probe");
+            fs::write(&hip7, b"probe").expect("write HIP 7 probe");
+            let cache = new_cache_bytes(&[(OsStr::new("libamdhip64.so.7"), &hip7)]);
+            let mut ordered = Vec::new();
+
+            for candidate in crate::Backend::Hip.candidates() {
+                let paths = resolve_default_candidate_paths(
+                    Path::new(candidate),
+                    Some(early_directory.as_os_str()),
+                    Some(&current),
+                    Some(&cache),
+                    &[],
+                )
+                .expect("generated HIP candidate is a fixed basename");
+                ordered.extend(paths);
+            }
+
+            assert_eq!(
+                ordered,
+                [
+                    hip7.canonicalize().expect("HIP 7 probe exists"),
+                    hip6.canonicalize().expect("HIP 6 probe exists"),
+                ]
+            );
+        }
+
+        #[test]
+        fn loader_cache_parser_is_bounded_and_requires_exact_basename() {
+            let root = TestDirectory::new();
+            let candidate = OsStr::new("libocgpu-cache-probe.so.1");
+            let exact = root.0.join(candidate);
+            let renamed = root.0.join("different-name.so");
+            fs::write(&exact, b"probe").expect("write exact cache probe");
+            fs::write(&renamed, b"probe").expect("write renamed cache probe");
+            let new_cache = new_cache_bytes(&[(candidate, &exact), (candidate, &renamed)]);
+            let old_cache = old_cache_bytes(&[(candidate, &exact)]);
+            assert_eq!(
+                parse_loader_cache(candidate, &new_cache),
+                [exact.clone(), renamed]
+            );
+            assert_eq!(
+                parse_loader_cache(candidate, &old_cache),
+                std::slice::from_ref(&exact)
+            );
+
+            for end in 0..new_cache.len() {
+                let _ = parse_loader_cache(candidate, &new_cache[..end]);
+            }
+            let resolved = resolve_default_candidate_paths(
+                Path::new(candidate),
+                None,
+                Some(&root.0.join("unrelated-current")),
+                Some(&new_cache),
+                &[],
+            )
+            .expect("cache probe basename is valid");
+            assert_eq!(
+                resolved,
+                [exact.canonicalize().expect("exact probe exists")]
+            );
+
+            let mut corrupt = new_cache;
+            corrupt[20..24].copy_from_slice(&u32::MAX.to_ne_bytes());
+            assert!(parse_loader_cache(candidate, &corrupt).is_empty());
+
+            let excessive_paths: Vec<_> = (0..=super::MAX_MATCHING_CACHE_PATHS)
+                .map(|index| PathBuf::from(format!("/cache/{index}/libocgpu-cache-probe.so.1")))
+                .collect();
+            let excessive_entries: Vec<_> = excessive_paths
+                .iter()
+                .map(|path| (candidate, path.as_path()))
+                .collect();
+            let excessive_cache = new_cache_bytes(&excessive_entries);
+            assert!(parse_loader_cache(candidate, &excessive_cache).is_empty());
+        }
+
+        #[test]
+        fn fixed_directories_include_supported_multiarch_locations() {
+            #[cfg(target_arch = "x86_64")]
+            assert!(FIXED_LIBRARY_DIRECTORIES.contains(&"/usr/lib/x86_64-linux-gnu"));
+            #[cfg(target_arch = "aarch64")]
+            assert!(FIXED_LIBRARY_DIRECTORIES.contains(&"/usr/lib/aarch64-linux-gnu"));
+            assert!(FIXED_LIBRARY_DIRECTORIES.contains(&"/opt/rocm/lib"));
+            assert!(FIXED_LIBRARY_DIRECTORIES.contains(&"/opt/rocm/lib64"));
+            assert!(FIXED_LIBRARY_DIRECTORIES.contains(&"/usr/lib/wsl/lib"));
+            assert!(FIXED_LIBRARY_DIRECTORIES.contains(&"/lib"));
+            assert!(FIXED_LIBRARY_DIRECTORIES.contains(&"/usr/lib"));
+        }
+
+        fn new_cache_bytes(entries: &[(&OsStr, &Path)]) -> Vec<u8> {
+            let mut strings = Vec::new();
+            let mut offsets = Vec::new();
+            let strings_offset = NEW_CACHE_HEADER_SIZE + entries.len() * NEW_CACHE_ENTRY_SIZE;
+            for &(name, path) in entries {
+                let key = strings_offset + strings.len();
+                strings.extend_from_slice(name.as_bytes());
+                strings.push(0);
+                let value = strings_offset + strings.len();
+                strings.extend_from_slice(path.as_os_str().as_bytes());
+                strings.push(0);
+                offsets.push((key, value));
+            }
+            let mut bytes = vec![0_u8; strings_offset];
+            bytes[..NEW_CACHE_MAGIC.len()].copy_from_slice(NEW_CACHE_MAGIC);
+            bytes[20..24].copy_from_slice(
+                &u32::try_from(entries.len())
+                    .expect("test entry count fits")
+                    .to_ne_bytes(),
+            );
+            bytes[24..28].copy_from_slice(
+                &u32::try_from(strings.len())
+                    .expect("test string table fits")
+                    .to_ne_bytes(),
+            );
+            for (index, (key, value)) in offsets.into_iter().enumerate() {
+                let offset = NEW_CACHE_HEADER_SIZE + index * NEW_CACHE_ENTRY_SIZE;
+                bytes[offset + 4..offset + 8]
+                    .copy_from_slice(&u32::try_from(key).expect("test key fits").to_ne_bytes());
+                bytes[offset + 8..offset + 12]
+                    .copy_from_slice(&u32::try_from(value).expect("test value fits").to_ne_bytes());
+            }
+            bytes.extend_from_slice(&strings);
+            bytes
+        }
+
+        fn old_cache_bytes(entries: &[(&OsStr, &Path)]) -> Vec<u8> {
+            let mut strings = Vec::new();
+            let mut offsets = Vec::new();
+            for &(name, path) in entries {
+                let key = strings.len();
+                strings.extend_from_slice(name.as_bytes());
+                strings.push(0);
+                let value = strings.len();
+                strings.extend_from_slice(path.as_os_str().as_bytes());
+                strings.push(0);
+                offsets.push((key, value));
+            }
+            let entries_end = OLD_CACHE_HEADER_SIZE + entries.len() * OLD_CACHE_ENTRY_SIZE;
+            let mut bytes = vec![0_u8; entries_end];
+            bytes[..OLD_CACHE_MAGIC.len()].copy_from_slice(OLD_CACHE_MAGIC);
+            bytes[12..16].copy_from_slice(
+                &u32::try_from(entries.len())
+                    .expect("test entry count fits")
+                    .to_ne_bytes(),
+            );
+            for (index, (key, value)) in offsets.into_iter().enumerate() {
+                let offset = OLD_CACHE_HEADER_SIZE + index * OLD_CACHE_ENTRY_SIZE;
+                bytes[offset + 4..offset + 8]
+                    .copy_from_slice(&u32::try_from(key).expect("test key fits").to_ne_bytes());
+                bytes[offset + 8..offset + 12]
+                    .copy_from_slice(&u32::try_from(value).expect("test value fits").to_ne_bytes());
+            }
+            bytes.extend_from_slice(&strings);
+            bytes
         }
     }
 }
