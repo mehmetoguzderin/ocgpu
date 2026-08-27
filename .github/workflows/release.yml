@@ -15,7 +15,7 @@ jobs:
     runs-on: ubuntu-24.04
     timeout-minutes: 60
     steps:
-      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       - name: Assert the verification runner has no vendor SDK
         shell: pwsh
         run: ./.github/scripts/assert-sdk-free.ps1
@@ -53,7 +53,7 @@ jobs:
       id-token: write
       attestations: write
     steps:
-      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       - name: Assert the package runner has no vendor SDK
         shell: pwsh
         run: ./.github/scripts/assert-sdk-free.ps1
@@ -127,10 +127,32 @@ jobs:
       id-token: write
       attestations: write
     steps:
-      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       - name: Assert the binary-package runner has no vendor SDK
         shell: pwsh
         run: ./.github/scripts/assert-sdk-free.ps1
+      - name: Locate Visual Studio C tools
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = "Stop"
+          $vswhere = "${env:ProgramFiles(x86)}\Microsoft Visual Studio\Installer\vswhere.exe"
+          if (-not (Test-Path -LiteralPath $vswhere)) { throw "vswhere.exe not found" }
+          $vsInstallations = @(& $vswhere -all -products * -property installationPath)
+          if ($LASTEXITCODE -ne 0) { throw "vswhere failed with $LASTEXITCODE" }
+          $toolsets = @(
+            foreach ($vsInstall in $vsInstallations) {
+              $vcvars64 = Join-Path $vsInstall "VC\Auxiliary\Build\vcvars64.bat"
+              $dumpbin = Get-ChildItem -Path (Join-Path $vsInstall "VC\Tools\MSVC\*\bin\Hostx64\x64\dumpbin.exe") -File -ErrorAction SilentlyContinue | Sort-Object FullName | Select-Object -Last 1
+              if ((Test-Path -LiteralPath $vcvars64) -and $dumpbin) {
+                [pscustomobject]@{ InstallationPath = $vsInstall; Vcvars64 = $vcvars64; Dumpbin = $dumpbin.FullName }
+              }
+            }
+          )
+          $toolset = $toolsets | Sort-Object InstallationPath -Descending | Select-Object -First 1
+          if (-not $toolset) { throw "no Visual Studio installation contains both vcvars64.bat and x64 dumpbin.exe" }
+          "VCVARS64=$($toolset.Vcvars64)" >> $env:GITHUB_ENV
+          "DUMPBIN=$($toolset.Dumpbin)" >> $env:GITHUB_ENV
       - name: Install pinned toolchain
         shell: bash
         run: rustup toolchain install 1.97.1 --profile minimal --target ${{ matrix.target }}
@@ -181,7 +203,7 @@ jobs:
             echo 'packaged library has an unexpected DT_NEEDED dependency' >&2
             exit 1
           fi
-          if grep -Ei 'cuda|amdhip|hiprtc|nvrtc' target/package-needed.txt; then
+          if grep -Ei 'cuda|amdhip|hiprtc|nvrtc|opencl' target/package-needed.txt; then
             echo 'vendor runtime appears in packaged DT_NEEDED entries' >&2
             exit 1
           fi
@@ -260,7 +282,8 @@ jobs:
         if: runner.os == 'Windows'
         shell: cmd
         run: |
-          call "%ProgramFiles%\Microsoft Visual Studio\2022\Enterprise\VC\Auxiliary\Build\vcvars64.bat"
+          call "%VCVARS64%"
+          if errorlevel 1 exit /b %errorlevel%
           cl /nologo /W4 /WX /wd4324 /wd4146 /wd4308 /Idist\stage\include /c tests\abi\generated_layout.c /Fotarget\release-generated-layout.obj
           if errorlevel 1 exit /b %errorlevel%
           cl /nologo /W4 /WX /permissive- /std:c++17 /TP /Idist\stage\include /c tests\c99\header_cpp_compile.cpp /Fotarget\release-header-cpp.obj
@@ -286,16 +309,14 @@ jobs:
         shell: pwsh
         run: |
           $ErrorActionPreference = "Stop"
-          $dumpbin = Get-ChildItem "$env:ProgramFiles\Microsoft Visual Studio\2022\Enterprise\VC\Tools\MSVC\*\bin\Hostx64\x64\dumpbin.exe" | Sort-Object FullName | Select-Object -Last 1
-          if (-not $dumpbin) { throw "dumpbin.exe not found" }
           $libraries = @(Get-ChildItem dist/stage -Recurse -File -Filter ocgpu.dll)
           if ($libraries.Count -ne 1) { throw "expected exactly one staged ocgpu.dll, found $($libraries.Count)" }
-          $imports = & $dumpbin.FullName /nologo /imports $libraries[0].FullName
+          $imports = & $env:DUMPBIN /nologo /imports $libraries[0].FullName
           if ($LASTEXITCODE -ne 0) { throw "dumpbin /imports failed with $LASTEXITCODE" }
-          if ($imports | Select-String -Pattern 'nvcuda\.dll|amdhip64(?:_[0-9]+)?\.dll|nvrtc(?:64_[0-9]+)?\.dll|hiprtc(?:64)?\.dll' -CaseSensitive:$false) {
+          if ($imports | Select-String -Pattern 'nvcuda\.dll|amdhip64[^\s]*\.dll|nvrtc[^\s]*\.dll|hiprtc[^\s]*\.dll|opencl[^\s]*\.dll' -CaseSensitive:$false) {
             throw "vendor runtime appears in the packaged PE import table"
           }
-          $lines = & $dumpbin.FullName /nologo /exports $libraries[0].FullName
+          $lines = & $env:DUMPBIN /nologo /exports $libraries[0].FullName
           if ($LASTEXITCODE -ne 0) { throw "dumpbin /exports failed with $LASTEXITCODE" }
           $actual = $lines | ForEach-Object {
             if ($_ -match '^\s+\d+\s+[0-9A-Fa-f]+\s+[0-9A-Fa-f]+\s+(ocgpu[A-Za-z0-9_]+)(?:\s|$)') { $Matches[1] }
@@ -334,12 +355,12 @@ jobs:
     runs-on: ubuntu-24.04
     timeout-minutes: 35
     steps:
-      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       - name: Assert the cross-build runner has no vendor SDK
         shell: pwsh
         run: ./.github/scripts/assert-sdk-free.ps1
       - name: Install cross C toolchain
-        run: sudo apt-get update && sudo apt-get install --yes --no-install-recommends gcc-aarch64-linux-gnu binutils-aarch64-linux-gnu
+        run: sudo apt-get update && sudo apt-get install --yes --no-install-recommends gcc-aarch64-linux-gnu binutils-aarch64-linux-gnu libc6-dev-arm64-cross
       - name: Install pinned Rust target
         run: rustup toolchain install 1.97.1 --profile minimal --target aarch64-unknown-linux-gnu
       - name: Install exact C packager
@@ -361,7 +382,7 @@ jobs:
             | awk '$1 ~ /^ocgpu[A-Za-z0-9_]+(@@OCGPU_1[.]0)?$/ { sub(/@@.*/, "", $1); print $1 }' \
             | LC_ALL=C sort -u > target/actual-aarch64-release-exports.txt
           diff -u target/expected-aarch64-release-exports.txt target/actual-aarch64-release-exports.txt
-          if aarch64-linux-gnu-readelf -d "$library" | grep -Ei 'cuda|amdhip|hiprtc|nvrtc'; then
+          if aarch64-linux-gnu-readelf -d "$library" | grep -Ei 'cuda|amdhip|hiprtc|nvrtc|opencl'; then
             echo "vendor runtime appears in aarch64 DT_NEEDED entries" >&2
             exit 1
           fi

@@ -28,7 +28,10 @@ provide all 26 common operations plus the single `hipRuntimeGetVersion`
 bootstrap, and the unified attribute adapter is checked against 32 stable HIP
 device-attribute values. The 26 operations comprise 25 declaration-compatible
 calls and the reviewed `hipMemcpyHtoD` const-qualification adapter where the
-legacy declaration differs.
+legacy declaration differs. Common context synchronization is one of those
+ABI-compatible calls but deliberately dispatches to `hipDeviceSynchronize`:
+the exhaustive raw table still preserves independent exact fields for both
+deprecated `hipCtxSynchronize` and `hipDeviceSynchronize`.
 
 This bounded metric comes from
 `oracle/vendor/hip/runtime-profiles.json`. It is independent of the exhaustive

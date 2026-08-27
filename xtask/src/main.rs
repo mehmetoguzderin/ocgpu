@@ -6,6 +6,11 @@ use std::env;
 use std::error::Error;
 use std::path::{Path, PathBuf};
 use std::process::{Command, ExitStatus, Stdio};
+use std::thread;
+use std::time::{Duration, Instant};
+
+const HARDWARE_SMOKE_PROCESS_TIMEOUT: Duration = Duration::from_secs(45);
+const HARDWARE_SMOKE_REAP_GRACE: Duration = Duration::from_secs(2);
 
 fn main() {
     if let Err(error) = run() {
@@ -302,6 +307,31 @@ fn hardware_smoke(root: &Path) -> Result<(), Box<dyn Error>> {
                 .into(),
         );
     }
+    let mode = env::var("OCGPU_SMOKE_BACKEND")
+        .map_err(|_| "hardware smoke requires an explicit OCGPU_SMOKE_BACKEND mode")?;
+    if !matches!(mode.as_str(), "cuda" | "hip" | "all" | "coexistence") {
+        return Err(format!("unsupported OCGPU_SMOKE_BACKEND mode {mode:?}").into());
+    }
+    if mode == "all" && env::var("OCGPU_ALLOW_DUAL_EXECUTION").as_deref() != Ok("1") {
+        return Err(
+            "all mode additionally requires OCGPU_ALLOW_DUAL_EXECUTION=1 on a reviewed dual-GPU runner"
+                .into(),
+        );
+    }
+    if matches!(mode.as_str(), "hip" | "all") {
+        let module = env::var_os("OCGPU_HIP_SMOKE_MODULE")
+            .map(PathBuf::from)
+            .ok_or("HIP execution requires OCGPU_HIP_SMOKE_MODULE")?;
+        if !module.is_absolute() {
+            return Err("OCGPU_HIP_SMOKE_MODULE must be an absolute path".into());
+        }
+        if !env::var("OCGPU_HIP_SMOKE_ARCH").is_ok_and(|value| !value.trim().is_empty()) {
+            return Err("HIP execution requires a nonempty OCGPU_HIP_SMOKE_ARCH".into());
+        }
+    }
+
+    // Compilation is deliberately outside the runtime watchdog: it performs
+    // no device operation and can legitimately take longer on a cold runner.
     cargo(
         root,
         &[
@@ -311,10 +341,152 @@ fn hardware_smoke(root: &Path) -> Result<(), Box<dyn Error>> {
             "--test",
             "hardware_smoke",
             "--all-features",
-            "--",
-            "--nocapture",
+            "--no-run",
         ],
-    )
+    )?;
+    let executable = hardware_smoke_executable(root)?;
+    run_hardware_smoke_child(root, &executable)
+}
+
+fn hardware_smoke_executable(root: &Path) -> Result<PathBuf, Box<dyn Error>> {
+    let output = Command::new("cargo")
+        .current_dir(root)
+        .args([
+            "test",
+            "-p",
+            "ocgpu",
+            "--test",
+            "hardware_smoke",
+            "--all-features",
+            "--no-run",
+            "--message-format=json",
+        ])
+        .stdin(Stdio::null())
+        .stderr(Stdio::inherit())
+        .output()?;
+    require_success("locate compiled hardware-smoke test", output.status)?;
+    let messages = String::from_utf8(output.stdout)?;
+    messages
+        .lines()
+        .filter(|line| {
+            line.contains("\"name\":\"hardware_smoke\"") && line.contains("\"kind\":[\"test\"]")
+        })
+        .filter_map(|line| json_string_field(line, "executable").transpose())
+        .next_back()
+        .transpose()?
+        .map(PathBuf::from)
+        .ok_or_else(|| "cargo did not report the compiled hardware-smoke executable".into())
+}
+
+fn json_string_field(line: &str, field: &str) -> Result<Option<String>, Box<dyn Error>> {
+    let needle = format!("\"{field}\":");
+    let Some(value) = line
+        .split_once(&needle)
+        .map(|(_, value)| value.trim_start())
+    else {
+        return Ok(None);
+    };
+    if value.starts_with("null") {
+        return Ok(None);
+    }
+    decode_json_string(value).map(Some).map_err(Into::into)
+}
+
+fn decode_json_string(value: &str) -> Result<String, &'static str> {
+    let bytes = value.as_bytes();
+    if bytes.first() != Some(&b'\"') {
+        return Err("cargo executable field is not a JSON string");
+    }
+    let mut decoded = Vec::new();
+    let mut index = 1;
+    while index < bytes.len() {
+        match bytes[index] {
+            b'\"' => return String::from_utf8(decoded).map_err(|_| "invalid UTF-8 in JSON string"),
+            b'\\' => {
+                index += 1;
+                let escaped = *bytes.get(index).ok_or("truncated JSON escape")?;
+                match escaped {
+                    b'\"' | b'\\' | b'/' => decoded.push(escaped),
+                    b'b' => decoded.push(8),
+                    b'f' => decoded.push(12),
+                    b'n' => decoded.push(b'\n'),
+                    b'r' => decoded.push(b'\r'),
+                    b't' => decoded.push(b'\t'),
+                    b'u' => {
+                        let end = index.checked_add(5).ok_or("JSON escape overflow")?;
+                        let digits = value
+                            .get(index + 1..end)
+                            .ok_or("truncated Unicode escape")?;
+                        let scalar = u32::from_str_radix(digits, 16)
+                            .map_err(|_| "invalid Unicode escape")?;
+                        let character =
+                            char::from_u32(scalar).ok_or("unsupported surrogate Unicode escape")?;
+                        let mut buffer = [0_u8; 4];
+                        decoded.extend_from_slice(character.encode_utf8(&mut buffer).as_bytes());
+                        index = end - 1;
+                    }
+                    _ => return Err("invalid JSON escape"),
+                }
+            }
+            byte if byte < 0x20 => return Err("unescaped JSON control character"),
+            byte => decoded.push(byte),
+        }
+        index += 1;
+    }
+    Err("unterminated JSON string")
+}
+
+fn run_hardware_smoke_child(root: &Path, executable: &Path) -> Result<(), Box<dyn Error>> {
+    let mut child = Command::new(executable)
+        .current_dir(root)
+        .args(["--nocapture", "--test-threads=1"])
+        .stdin(Stdio::null())
+        .spawn()?;
+    let deadline = Instant::now() + HARDWARE_SMOKE_PROCESS_TIMEOUT;
+    loop {
+        if let Some(status) = child.try_wait()? {
+            return require_success("bounded hardware-smoke child", status);
+        }
+        if Instant::now() >= deadline {
+            let process_id = child.id();
+            child.kill().map_err(|error| {
+                format!(
+                    "hardware-smoke child {process_id} exceeded {} seconds and could not be terminated: {error}",
+                    HARDWARE_SMOKE_PROCESS_TIMEOUT.as_secs()
+                )
+            })?;
+            let reap_deadline = Instant::now() + HARDWARE_SMOKE_REAP_GRACE;
+            loop {
+                match child.try_wait() {
+                    Ok(Some(_)) => break,
+                    Ok(None) if Instant::now() < reap_deadline => {
+                        thread::sleep(Duration::from_millis(25));
+                    }
+                    Ok(None) => {
+                        return Err(format!(
+                            "hardware-smoke child {process_id} exceeded the {}-second process watchdog; termination was requested but the child was not reaped within {} seconds",
+                            HARDWARE_SMOKE_PROCESS_TIMEOUT.as_secs(),
+                            HARDWARE_SMOKE_REAP_GRACE.as_secs()
+                        )
+                        .into());
+                    }
+                    Err(error) => {
+                        return Err(format!(
+                            "hardware-smoke child {process_id} exceeded the {}-second process watchdog and post-termination status failed: {error}",
+                            HARDWARE_SMOKE_PROCESS_TIMEOUT.as_secs()
+                        )
+                        .into());
+                    }
+                }
+            }
+            return Err(format!(
+                "hardware-smoke child {process_id} exceeded the {}-second process watchdog and was terminated",
+                HARDWARE_SMOKE_PROCESS_TIMEOUT.as_secs()
+            )
+            .into());
+        }
+        thread::sleep(Duration::from_millis(100));
+    }
 }
 
 fn dependency_manifest(root: &Path, check: bool) -> Result<(), Box<dyn Error>> {
@@ -369,4 +541,30 @@ fn workspace_root() -> Result<PathBuf, Box<dyn Error>> {
 
 fn usage() -> &'static str {
     "usage: cargo run -p xtask -- <generate|check|test|ci|c99|licenses|hardware-smoke>"
+}
+
+#[cfg(test)]
+mod tests {
+    use super::{decode_json_string, json_string_field};
+
+    #[test]
+    fn cargo_json_path_decoder_handles_windows_escaping() {
+        assert_eq!(
+            decode_json_string(r#""C:\\work\\hardware_smoke.exe","#).expect("JSON path"),
+            r"C:\work\hardware_smoke.exe"
+        );
+    }
+
+    #[test]
+    fn cargo_json_executable_field_handles_null_and_unicode() {
+        assert_eq!(
+            json_string_field(r#"{"executable":"C:\\work\\\u0073moke.exe"}"#, "executable",)
+                .expect("field"),
+            Some(r"C:\work\smoke.exe".to_owned())
+        );
+        assert_eq!(
+            json_string_field(r#"{"executable":null}"#, "executable").expect("null field"),
+            None
+        );
+    }
 }

@@ -17,10 +17,11 @@ compatible display/compute driver that supplies one of these libraries:
 | HIP 5 | `libamdhip64.so.5` | `amdhip64.dll` |
 
 Linux also tries unversioned `libamdhip64.so` after the versioned candidates.
-Whichever library is found must report the same HIP major as the candidate
-profile. A filename/runtime mismatch or an unsupported future major is an ABI
-mismatch, not backend absence; a runtime older than the supported HIP 5 range
-is reported as too old.
+A versioned library must report the same HIP major as its candidate profile;
+the unversioned fallback is classified solely by its supported
+runtime-reported version. A filename/runtime mismatch or an unsupported future
+major is an ABI mismatch, not backend absence; a runtime older than the
+supported HIP 5 range is reported as too old.
 
 Common-profile support starts at the exact runtime-reported floors below. Later
 minor and patch releases within the same major are accepted; earlier builds and
@@ -37,7 +38,7 @@ The exhaustive raw-inventory floors are separate: general/Linux requires
 runtimes below those raw floors expose the reviewed common/profile subset and
 leave the other current-layout slots null.
 
-Default lookup never searches the current working directory. The Rust-only
+Default top-level runtime lookup never searches CWD. The Rust-only
 `explicit-library-path` feature provides unsafe
 `Driver::<B>::load_from_absolute` for an absolute path. Its caller must trust
 the library and dependency closure, constructors, exact vendor ABI, and file
@@ -51,6 +52,22 @@ issued function and GPU handles cannot outlive their code.
 Applications must ship suitable precompiled device code: PTX, cubin, or fatbin
 for CUDA and an appropriate HSACO/code object or HIP fat binary for HIP. NVRTC
 and HIPRTC are outside the core deployment contract.
+
+Inspect a candidate without loading a GPU runtime or executing device code:
+
+```sh
+ocgpu module inspect path/to/module.hsaco --json
+```
+
+For AMDGPU ELF code objects, inspection reports processor architectures from
+the bounded ELF header and target IDs from an in-prefix `amdhsa.target`
+MessagePack value. For binary Clang offload bundles, it validates the complete
+little-endian descriptor table before reporting AMDGPU target IDs from bundle
+entry IDs. Descriptor counts, entry-ID lengths, integer arithmetic, payload
+ranges, and overlap are checked; malformed or truncated recognized bundles
+fail inspection. Inspection reads at most the first 64 KiB and does not parse
+or execute bundled payload bytes, so a bundle whose descriptor table exceeds
+that limit is rejected rather than partially trusted.
 
 On Windows, link `ocgpu.dll.lib` when deploying `ocgpu.dll`. Link `ocgpu.lib`
 for a static `ocgpu` consumer and include the Rust/OS support libraries
@@ -105,6 +122,13 @@ nullable raw entry must branch on its presence. Selecting a profile/version
 below that raw baseline does not promise exhaustive coverage of the current HIP 7 platform-union layout
 (general/Linux 7.14.60850 plus Windows 7.2.0, with target masks).
 
+On HIP, common context synchronization first selects the context's device and
+then calls `hipDeviceSynchronize`. This may wait for streams submitted by other
+host threads to that same device. The deprecated `hipCtxSynchronize` export is
+never tried as a fallback; it remains an independent optional raw-table entry,
+so `hipErrorNotSupported` from that compatibility API cannot break the validated
+common core.
+
 ## Safe incident procedure
 
 1. Capture `ocgpu doctor --json`, `ocgpu abi --json`, and the relevant `ocgpu
@@ -137,26 +161,65 @@ secrets in routine logs.
 
 Hardware tests are discovered and run by ordinary test commands, but explicitly
 record a capability skip before any device operation unless
-`OCGPU_RUN_HARDWARE_SMOKE=1`. Only the manually dispatched workflow on labelled,
-dedicated self-hosted runners sets that value. Each job is single-run, bounded to
-15 minutes, and selects one backend explicitly. CUDA uses the tiny committed PTX
-fixture. AMD Linux and Windows dispatch inputs separately name absolute,
-runner-local `OCGPU_HIP_SMOKE_MODULE` paths so an OS-specific path can never be
-reused accidentally on the other platform. Each must be a reviewed,
-architecture-matched code object; no generic committed HIP binary is claimed.
-An enabled test allocates only the fixture's
-minimal buffer, verifies one host/device round trip and one no-op launch,
-synchronizes, and releases resources.
+`OCGPU_RUN_HARDWARE_SMOKE=1`. An enabled invocation must also set exactly one
+explicit `OCGPU_SMOKE_BACKEND` mode; there is no execution-capable default:
+
+- `cuda` and `hip` run only that backend's single execution test.
+- `coexistence` starts CUDA and HIP workers together and limits both to runtime
+  load/initialization, enumeration, stable attribute queries, and device names.
+  It creates no context and performs no allocation, copy, module load, or launch.
+- `all` runs only the intentional simultaneous CUDA+HIP execution test; it does
+  not also enable either single-backend test. It additionally requires
+  `OCGPU_ALLOW_DUAL_EXECUTION=1` and the workflow's distinct
+  `RUN_BOUNDED_DUAL_GPU_SMOKE` acknowledgement.
+
+Dual workers own their backend resources on their respective threads. Timed
+ready/start channels replace an unbounded barrier, worker completion has a
+30-second deadline, and `xtask hardware-smoke` runs the compiled test executable
+as a direct child under a 45-second process watchdog. After requesting
+termination, the supervisor polls for at most two more seconds instead of using
+an unbounded wait. The workflow retains an independent 15-minute job timeout.
+Use the xtask entry point on hardware rather than invoking the integration-test
+binary through Cargo directly.
+
+CUDA uses the tiny committed PTX fixture. AMD Linux and Windows dispatch inputs
+separately name an absolute runner-local `OCGPU_HIP_SMOKE_MODULE`, its expected
+AMDGPU target, and the SHA-256 of the exact reviewed file, so an OS-specific path
+or unreviewed replacement cannot be reused accidentally. Workflow and test
+preflights require a canonical regular file no larger than 8 MiB and recognize
+only 64-bit little-endian AMDGPU ELF with a concrete ISA or a structured Clang
+offload bundle containing such an image. The workflow additionally requires the
+declared target in the parsed device-code targets, while the test hashes the
+exact in-memory bytes immediately before passing them to HIP. Container and
+symbol-name checks do not prove kernel behavior: the pinned file must be
+separately reviewed to establish the zero-argument `ocgpu_noop` ABI and bounded
+behavior. No generic committed HIP binary is claimed.
+
+The reviewed smoke entry point must not read or write device memory. This is
+especially important on Windows HIP 5 integrated devices where memory-accessing
+kernel paths may have driver-specific faults even though bounded HtoD/DtoH and a
+true no-op launch are supported. Use `coexistence` when a trusted, hash-pinned,
+architecture-matched no-op fixture is unavailable. Unsupported HIP runtime
+profiles still fail closed before context creation with their loader diagnostic.
+
+An execution test allocates exactly 64 bytes per selected backend, verifies one
+host/device round trip, and enqueues one one-block/one-thread entry-point launch.
+A start event is recorded before the launch and a completion event after it; the
+completion event, stream, and owned context are synchronized before resources are
+released.
 
 The smoke test does not install or update drivers, reset devices or contexts it
 did not create, alter display state, change persistence/power/clock settings,
 loop a workload, or request a reboot. A runner serving an interactive display
 must not carry an `ocgpu` hardware label.
 
-The workflow runs `doctor --json` without `--strict` because each dedicated
-runner intentionally selects one backend and strict doctor requires every
-compiled backend. The selected backend is enforced by the bounded test and by
-an exact target-applicable symbol-resolution assertion.
+Single-backend workflow jobs run `doctor --json` without `--strict`, because
+strict doctor requires every compiled backend. Dual-runner jobs use strict
+doctor. Symbol assertions require complete report coverage and every common-core
+operation to resolve directly, through proc-address, or through a reviewed
+direct adapter. Optional missing raw symbols and deliberate
+`profile_unavailable` entries remain supported capability results rather than
+false hardware failures.
 
 ## Rollback
 

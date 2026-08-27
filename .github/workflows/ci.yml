@@ -4,6 +4,7 @@ name: SDK-free CI
 
 on:
   push:
+    branches: [main]
   pull_request:
 
 permissions:
@@ -19,7 +20,7 @@ jobs:
     runs-on: ubuntu-24.04
     timeout-minutes: 30
     steps:
-      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       - name: Install documented shipping MSRV
         run: rustup toolchain install 1.85.0 --profile minimal
       - name: Check the complete workspace feature surface at MSRV
@@ -32,7 +33,7 @@ jobs:
     runs-on: ubuntu-24.04
     timeout-minutes: 45
     steps:
-      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       - name: Install pinned Rust toolchain
         run: rustup toolchain install 1.97.1 --profile minimal --component rustfmt,clippy
       - name: Run repository quality gate
@@ -51,7 +52,7 @@ jobs:
     runs-on: ${{ matrix.os }}
     timeout-minutes: 35
     steps:
-      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       - name: Assert the runner has no vendor SDK
         shell: pwsh
         run: ./.github/scripts/assert-sdk-free.ps1
@@ -80,12 +81,12 @@ jobs:
     runs-on: ubuntu-24.04
     timeout-minutes: 35
     steps:
-      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       - name: Assert the runner has no vendor SDK
         shell: pwsh
         run: ./.github/scripts/assert-sdk-free.ps1
       - name: Install cross linker
-        run: sudo apt-get update && sudo apt-get install --yes --no-install-recommends gcc-aarch64-linux-gnu binutils-aarch64-linux-gnu
+        run: sudo apt-get update && sudo apt-get install --yes --no-install-recommends gcc-aarch64-linux-gnu binutils-aarch64-linux-gnu libc6-dev-arm64-cross
       - name: Install pinned Rust target
         run: rustup toolchain install 1.97.1 --profile minimal --target aarch64-unknown-linux-gnu
       - name: Install exact C packager
@@ -102,7 +103,7 @@ jobs:
           archive=target/aarch64-unknown-linux-gnu/release/libocgpu.a
           test -f "$library"
           test -f "$archive"
-          if aarch64-linux-gnu-readelf -d "$library" | grep -Ei 'libcuda|libamdhip|nvcuda|amdhip64'; then
+          if aarch64-linux-gnu-readelf -d "$library" | grep -Ei 'libcuda|libamdhip|libnvrtc|libhiprtc|nvcuda|amdhip64|nvrtc|hiprtc|opencl'; then
             echo "C library has a forbidden vendor link dependency" >&2
             exit 1
           fi
