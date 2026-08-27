@@ -5,20 +5,24 @@
 Oxidized Compute-oriented GPU is an SDK-free, runtime-loaded CUDA Driver and
 HIP driver-shaped compatibility API for Rust and ISO C99. It provides
 backend-bound immutable function tables, typed Rust drivers, generated raw
-CUDA/HIP tables, an optional flat C ABI, and an offline diagnostics CLI.
+CUDA/HIP tables, backend-specific NVRTC/HIPRTC tables, a required-field common
+runtime-compilation surface, an optional flat C ABI, and an offline diagnostics
+CLI.
 
 ## Build and install
 
 Rust consumers can build the workspace without a CUDA Toolkit, ROCm/HIP SDK,
-vendor headers, import libraries, `nvcc`, `hipcc`, bindgen, or libclang:
+vendor headers, NVRTC/HIPRTC headers or import/static libraries, `nvcc`,
+`hipcc`, bindgen, or libclang:
 
 ```sh
 cargo build --release -p ocgpu -p ocgpu-cli
 ```
 
 Tagged releases attach attested Cargo source archives for `ocgpu-abi`,
-`ocgpu-loader`, `ocgpu-cuda`, `ocgpu-hip`, and `ocgpu`. Creating those archives
-does not claim that the same version has been published to a registry.
+`ocgpu-loader`, `ocgpu-cuda`, `ocgpu-hip`, `ocgpu-rtc`, and `ocgpu`. Creating
+those archives does not claim that the same version has been published to a
+registry.
 
 To stage the C package for local development, install the exact maintenance
 tool and use the committed generated header:
@@ -144,16 +148,52 @@ CUDA table flags remain zero. Bits outside
 `OCGPU_API_FLAG_HIP_RUNTIME_PROFILE_MASK` are reserved for independent table
 capabilities and must be preserved when interpreting the profile.
 
-Host-side SDK freedom does not compile device code. Applications provide
-precompiled PTX/cubin/fatbin for CUDA or an architecture-compatible HIP/AMDGPU
-code object. Runtime compilation, 32-bit targets, vendor-static linking, and
-automatic driver installation are outside ABI v1.
+Precompiled PTX/cubin/fatbin and architecture-compatible HIP/AMDGPU code objects
+remain supported. Runtime compilation is a separate deployment capability,
+not a build dependency: the core CUDA/HIP driver API remains usable when its
+compiler library is absent, while a successfully loaded common RTC table has
+no nullable "maybe common" operations. The compiler-only `rtc` feature exposes
+both common compiler markers; `nvrtc` bundles `rtc` with the CUDA execution
+path, and `hiprtc` bundles `rtc` with the HIP execution path. All three compile
+from repository-owned declarations and dynamically resolve a separately
+deployed runtime compiler.
 
-The Rust-only `explicit-library-path` feature exposes unsafe
-`Driver::<B>::load_from_absolute`: callers must trust the selected library and
-its dependency closure, constructors, exact vendor ABI, and file identity
-between validation and load. The C ABI v1 intentionally has no explicit-path
-getter and always uses secure default discovery.
+Nine common RTC entries are declaration-identical across NVRTC 12.4 and HIPRTC
+5.7.1 and therefore retain direct vendor pointers. HIPRTC declares the outer
+`CreateProgram` and `CompileProgram` string arrays mutable while documenting
+them as input-only; those two HIP common entries use allocation-free,
+const-qualification adapters that call the exact raw HIPRTC declarations. The
+vendor-specific raw tables remain declaration-exact.
+
+NVRTC is not part of `nvcuda.dll`/`libcuda.so.1`; a Windows deployment normally
+needs the matching `nvrtc64_*_0.dll` and `nvrtc-builtins64_*.dll` pair. Windows
+HIPRTC is likewise not supplied by `amdhip64.dll` and needs a compatible
+HIPRTC shared library and its runtime dependency closure. Windows discovery
+uses the reviewed names `hiprtc0702.dll`, `hiprtc0604.dll`, `hiprtc0602.dll`,
+`hiprtc0601.dll`, then the HIP 5.7 `hiprtc.dll` fallback; it never wildcards a
+vendor directory. These files can be deployed application-locally under their
+vendor terms; no SDK headers, import
+libraries, or compiler executables are used by `ocgpu`. The loader does not
+download or install them and does not silently search an SDK or the current
+working directory.
+
+On the audited development laptop, the CUDA 12.4 Toolkit directory supplies an
+NVRTC DLL pair, but the driver directories do not. No HIPRTC DLL is installed;
+`amdhip64.dll` supplies HIP execution but not the HIPRTC API. Consequently,
+CUDA RTC can be exercised there only by explicitly selecting the trusted pair,
+and HIPRTC availability must not be claimed until a compatible runtime-only
+component is supplied. This does not affect the already independent HIP driver
+execution path.
+
+32-bit targets, vendor-static linking, and automatic driver or runtime-compiler
+installation remain outside ABI v1.
+
+The Rust-only `explicit-library-path` feature exposes unsafe absolute-path
+loading for `Driver<B>`, `Compiler<Nvrtc>`, and `Compiler<Hiprtc>`: callers must
+trust the selected library and its dependency closure, constructors, exact
+vendor ABI, and file identity between validation and load. The C ABI v1
+intentionally has no explicit-path getter and always uses secure default
+discovery.
 
 Developer commands, coverage maintenance, deployment constraints, and evidence
 are documented in `docs/developer-guide.md`, `docs/coverage.md`,

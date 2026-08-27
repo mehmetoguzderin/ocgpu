@@ -19,15 +19,19 @@ name = "ocgpu_capi"
 crate-type = ["cdylib", "staticlib", "rlib"]
 
 [features]
-default = ["capi", "cuda", "hip"]
+default = ["capi", "cuda", "hip", "nvrtc", "hiprtc"]
 capi = []
 cuda = ["ocgpu-core/raw-cuda"]
 hip = ["ocgpu-core/raw-hip"]
+rtc = ["dep:ocgpu-rtc", "ocgpu-core/rtc"]
+nvrtc = ["rtc", "cuda", "ocgpu-core/nvrtc"]
+hiprtc = ["rtc", "hip", "ocgpu-core/hiprtc"]
 flat-c-exports = []
 
 [dependencies]
 ocgpu-core = { package = "ocgpu", path = "../ocgpu", version = "0.1.0", default-features = false }
 ocgpu-abi.workspace = true
+ocgpu-rtc = { workspace = true, optional = true }
 
 [package.metadata.capi]
 min_version = "0.10.24"

@@ -30,6 +30,7 @@ fn run() -> Result<(), Box<dyn Error>> {
         [command] if command == "c99" => c99(&root),
         [command] if command == "licenses" => dependency_manifest(&root, false),
         [command] if command == "hardware-smoke" => hardware_smoke(&root),
+        [command] if command == "rtc-hardware-smoke" => rtc_hardware_smoke(&root),
         _ => Err(usage().into()),
     }
 }
@@ -132,6 +133,14 @@ fn feature_matrix(root: &Path) -> Result<(), Box<dyn Error>> {
         "hip",
         "raw-hip",
         "hip,explicit-library-path",
+        "rtc",
+        "rtc,explicit-library-path",
+        "nvrtc",
+        "nvrtc,explicit-library-path",
+        "hiprtc",
+        "hiprtc,explicit-library-path",
+        "nvrtc,hiprtc",
+        "nvrtc,hiprtc,explicit-library-path",
         "explicit-library-path",
     ] {
         cargo(
@@ -150,6 +159,10 @@ fn feature_matrix(root: &Path) -> Result<(), Box<dyn Error>> {
         "flat-c-exports",
         "cuda,flat-c-exports",
         "hip,flat-c-exports",
+        "rtc,flat-c-exports",
+        "nvrtc,flat-c-exports",
+        "hiprtc,flat-c-exports",
+        "nvrtc,hiprtc,flat-c-exports",
     ] {
         cargo(
             root,
@@ -345,10 +358,97 @@ fn hardware_smoke(root: &Path) -> Result<(), Box<dyn Error>> {
         ],
     )?;
     let executable = hardware_smoke_executable(root)?;
-    run_hardware_smoke_child(root, &executable)
+    run_bounded_hardware_child(root, &executable, "hardware-smoke")
+}
+
+fn rtc_hardware_smoke(root: &Path) -> Result<(), Box<dyn Error>> {
+    if env::var("OCGPU_RUN_RTC_HARDWARE_SMOKE").as_deref() != Ok("1") {
+        return Err(
+            "RTC hardware smoke is opt-in; set OCGPU_RUN_RTC_HARDWARE_SMOKE=1 on a labelled GPU runner"
+                .into(),
+        );
+    }
+    let mode = env::var("OCGPU_RTC_SMOKE_BACKEND")
+        .map_err(|_| "RTC hardware smoke requires explicit OCGPU_RTC_SMOKE_BACKEND")?;
+    if !matches!(mode.as_str(), "cuda" | "hip" | "both") {
+        return Err(format!("unsupported OCGPU_RTC_SMOKE_BACKEND mode {mode:?}").into());
+    }
+    if env::var_os("OCGPU_RTC_COMPILE_ONLY").is_some()
+        && env::var("OCGPU_RTC_COMPILE_ONLY").as_deref() != Ok("1")
+    {
+        return Err("OCGPU_RTC_COMPILE_ONLY, when set, must equal 1".into());
+    }
+    if matches!(mode.as_str(), "cuda" | "both") {
+        validate_rtc_architecture("OCGPU_NVRTC_ARCH", "compute_", 2, 4)?;
+        validate_optional_absolute_file("OCGPU_NVRTC_LIBRARY")?;
+    }
+    if matches!(mode.as_str(), "hip" | "both") {
+        validate_rtc_architecture("OCGPU_HIPRTC_ARCH", "gfx", 3, 12)?;
+        validate_optional_absolute_file("OCGPU_HIPRTC_LIBRARY")?;
+    }
+
+    // Cargo compilation stays outside the process watchdog. Runtime source
+    // compilation and every driver/GPU operation occur only in the child.
+    cargo(
+        root,
+        &[
+            "test",
+            "-p",
+            "ocgpu",
+            "--test",
+            "rtc_hardware_smoke",
+            "--all-features",
+            "--no-run",
+        ],
+    )?;
+    let executable = integration_test_executable(root, "rtc_hardware_smoke")?;
+    run_bounded_hardware_child(root, &executable, "rtc-hardware-smoke")
+}
+
+fn validate_rtc_architecture(
+    variable: &str,
+    prefix: &str,
+    minimum_suffix_bytes: usize,
+    maximum_suffix_bytes: usize,
+) -> Result<(), Box<dyn Error>> {
+    let architecture = env::var(variable)
+        .map_err(|_| format!("RTC hardware smoke requires explicit {variable}"))?;
+    let suffix = architecture
+        .strip_prefix(prefix)
+        .ok_or_else(|| format!("{variable} must begin with {prefix:?}"))?;
+    if suffix.len() < minimum_suffix_bytes
+        || suffix.len() > maximum_suffix_bytes
+        || !suffix.bytes().all(|byte| byte.is_ascii_alphanumeric())
+    {
+        return Err(format!("{variable} is not a bounded architecture identifier").into());
+    }
+    Ok(())
+}
+
+fn validate_optional_absolute_file(variable: &str) -> Result<(), Box<dyn Error>> {
+    let Some(path) = env::var_os(variable).map(PathBuf::from) else {
+        return Ok(());
+    };
+    if !path.is_absolute() {
+        return Err(format!("{variable} must be an absolute path when supplied").into());
+    }
+    let canonical = path
+        .canonicalize()
+        .map_err(|error| format!("{variable} does not resolve to a local file: {error}"))?;
+    let metadata = canonical
+        .metadata()
+        .map_err(|error| format!("could not inspect {variable}: {error}"))?;
+    if !metadata.is_file() || metadata.len() == 0 {
+        return Err(format!("{variable} must resolve to a nonempty regular file").into());
+    }
+    Ok(())
 }
 
 fn hardware_smoke_executable(root: &Path) -> Result<PathBuf, Box<dyn Error>> {
+    integration_test_executable(root, "hardware_smoke")
+}
+
+fn integration_test_executable(root: &Path, test: &str) -> Result<PathBuf, Box<dyn Error>> {
     let output = Command::new("cargo")
         .current_dir(root)
         .args([
@@ -356,7 +456,7 @@ fn hardware_smoke_executable(root: &Path) -> Result<PathBuf, Box<dyn Error>> {
             "-p",
             "ocgpu",
             "--test",
-            "hardware_smoke",
+            test,
             "--all-features",
             "--no-run",
             "--message-format=json",
@@ -369,13 +469,13 @@ fn hardware_smoke_executable(root: &Path) -> Result<PathBuf, Box<dyn Error>> {
     messages
         .lines()
         .filter(|line| {
-            line.contains("\"name\":\"hardware_smoke\"") && line.contains("\"kind\":[\"test\"]")
+            line.contains(&format!("\"name\":\"{test}\"")) && line.contains("\"kind\":[\"test\"]")
         })
         .filter_map(|line| json_string_field(line, "executable").transpose())
         .next_back()
         .transpose()?
         .map(PathBuf::from)
-        .ok_or_else(|| "cargo did not report the compiled hardware-smoke executable".into())
+        .ok_or_else(|| format!("cargo did not report the compiled {test} executable").into())
 }
 
 fn json_string_field(line: &str, field: &str) -> Result<Option<String>, Box<dyn Error>> {
@@ -436,7 +536,11 @@ fn decode_json_string(value: &str) -> Result<String, &'static str> {
     Err("unterminated JSON string")
 }
 
-fn run_hardware_smoke_child(root: &Path, executable: &Path) -> Result<(), Box<dyn Error>> {
+fn run_bounded_hardware_child(
+    root: &Path,
+    executable: &Path,
+    description: &str,
+) -> Result<(), Box<dyn Error>> {
     let mut child = Command::new(executable)
         .current_dir(root)
         .args(["--nocapture", "--test-threads=1"])
@@ -445,13 +549,13 @@ fn run_hardware_smoke_child(root: &Path, executable: &Path) -> Result<(), Box<dy
     let deadline = Instant::now() + HARDWARE_SMOKE_PROCESS_TIMEOUT;
     loop {
         if let Some(status) = child.try_wait()? {
-            return require_success("bounded hardware-smoke child", status);
+            return require_success(&format!("bounded {description} child"), status);
         }
         if Instant::now() >= deadline {
             let process_id = child.id();
             child.kill().map_err(|error| {
                 format!(
-                    "hardware-smoke child {process_id} exceeded {} seconds and could not be terminated: {error}",
+                    "{description} child {process_id} exceeded {} seconds and could not be terminated: {error}",
                     HARDWARE_SMOKE_PROCESS_TIMEOUT.as_secs()
                 )
             })?;
@@ -464,7 +568,7 @@ fn run_hardware_smoke_child(root: &Path, executable: &Path) -> Result<(), Box<dy
                     }
                     Ok(None) => {
                         return Err(format!(
-                            "hardware-smoke child {process_id} exceeded the {}-second process watchdog; termination was requested but the child was not reaped within {} seconds",
+                            "{description} child {process_id} exceeded the {}-second process watchdog; termination was requested but the child was not reaped within {} seconds",
                             HARDWARE_SMOKE_PROCESS_TIMEOUT.as_secs(),
                             HARDWARE_SMOKE_REAP_GRACE.as_secs()
                         )
@@ -472,7 +576,7 @@ fn run_hardware_smoke_child(root: &Path, executable: &Path) -> Result<(), Box<dy
                     }
                     Err(error) => {
                         return Err(format!(
-                            "hardware-smoke child {process_id} exceeded the {}-second process watchdog and post-termination status failed: {error}",
+                            "{description} child {process_id} exceeded the {}-second process watchdog and post-termination status failed: {error}",
                             HARDWARE_SMOKE_PROCESS_TIMEOUT.as_secs()
                         )
                         .into());
@@ -480,7 +584,7 @@ fn run_hardware_smoke_child(root: &Path, executable: &Path) -> Result<(), Box<dy
                 }
             }
             return Err(format!(
-                "hardware-smoke child {process_id} exceeded the {}-second process watchdog and was terminated",
+                "{description} child {process_id} exceeded the {}-second process watchdog and was terminated",
                 HARDWARE_SMOKE_PROCESS_TIMEOUT.as_secs()
             )
             .into());
@@ -540,7 +644,7 @@ fn workspace_root() -> Result<PathBuf, Box<dyn Error>> {
 }
 
 fn usage() -> &'static str {
-    "usage: cargo run -p xtask -- <generate|check|test|ci|c99|licenses|hardware-smoke>"
+    "usage: cargo run -p xtask -- <generate|check|test|ci|c99|licenses|hardware-smoke|rtc-hardware-smoke>"
 }
 
 #[cfg(test)]

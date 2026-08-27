@@ -30,9 +30,9 @@ jobs:
           version="$(cargo +1.97.1 metadata --no-deps --format-version 1 | jq -r '.packages[] | select(.name == "ocgpu") | .version')"
           test "${GITHUB_REF_NAME}" = "v${version}" || { echo "tag ${GITHUB_REF_NAME} does not match workspace v${version}" >&2; exit 1; }
       - name: Check every public shipping feature at MSRV
-        run: cargo +1.85.0 check --locked --all-features -p ocgpu-abi -p ocgpu-loader -p ocgpu-cuda -p ocgpu-hip -p ocgpu -p ocgpu-capi -p ocgpu-cli
+        run: cargo +1.85.0 check --locked --all-features -p ocgpu-abi -p ocgpu-loader -p ocgpu-cuda -p ocgpu-hip -p ocgpu-rtc -p ocgpu -p ocgpu-capi -p ocgpu-cli
       - name: Check minimal shipping graph at MSRV
-        run: cargo +1.85.0 check --locked --no-default-features -p ocgpu-abi -p ocgpu-loader -p ocgpu-cuda -p ocgpu-hip -p ocgpu -p ocgpu-capi
+        run: cargo +1.85.0 check --locked --no-default-features -p ocgpu-abi -p ocgpu-loader -p ocgpu-cuda -p ocgpu-hip -p ocgpu-rtc -p ocgpu -p ocgpu-capi
       - run: cargo +1.97.1 run -p xtask -- ci
       - name: Compile strict C99, flat declarations/layouts, and C++ header mode
         run: |
@@ -67,8 +67,8 @@ jobs:
           install -d dist/rust-source target/package-lists
           cargo +1.97.1 fetch --locked
           cargo +1.97.1 package --locked --no-verify \
-            -p ocgpu-abi -p ocgpu-loader -p ocgpu-cuda -p ocgpu-hip -p ocgpu
-          for crate in ocgpu-abi ocgpu-loader ocgpu-cuda ocgpu-hip ocgpu; do
+            -p ocgpu-abi -p ocgpu-loader -p ocgpu-cuda -p ocgpu-hip -p ocgpu-rtc -p ocgpu
+          for crate in ocgpu-abi ocgpu-loader ocgpu-cuda ocgpu-hip ocgpu-rtc ocgpu; do
             artifact="target/package/${crate}-${version}.crate"
             listing="target/package-lists/${crate}.txt"
             test -f "$artifact"

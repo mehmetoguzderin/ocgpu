@@ -20,11 +20,12 @@ those roots without reusing a Cargo package reference, and
 `LICENSES/THIRD_PARTY_NOTICES.md` explains the boundary.
 
 Tagged releases also attach checksummed, provenance-attested Cargo source
-archives for the five publishable Rust crates. The workflow does not publish
+archives for the six publishable Rust crates. The workflow does not publish
 them to a registry or treat an archive attachment as registry evidence.
 
 The project is implemented independently. It does not copy or redistribute
-NVIDIA or AMD SDK headers, import/static/shared libraries, vendor documentation
+NVIDIA or AMD SDK headers, import/static/shared libraries (including
+NVRTC/HIPRTC binaries), vendor documentation
 prose, `cudarc` or `rocmrc` implementation source, or generated vendor binding
 source. Oracle snapshots contain only normalized interoperability facts: public
 names, normalized ABI type graphs, numeric values, aliases, version/platform
@@ -36,8 +37,10 @@ oracles. Always-false target dependencies make Cargo resolve their exact
 registry sources without compiling them; a maintainer workflow parses the
 declarations from those verified sources. They are not linked into any
 workspace artifact or embedded in coverage output. Vendor libraries remain
-separately installed runtime components and are never described as part of
-`ocgpu`.
+separately deployed runtime components and are never described as part of
+`ocgpu`. Runtime loading support is not permission to redistribute a vendor
+compiler; application packagers must obtain compatible NVRTC/HIPRTC components
+under the applicable vendor terms.
 
 NVIDIA and CUDA are trademarks of NVIDIA Corporation. AMD, ROCm, and HIP are
 trademarks of Advanced Micro Devices, Inc. Use of those names identifies
