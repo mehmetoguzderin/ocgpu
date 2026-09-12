@@ -481,6 +481,44 @@ impl UnvalidatedApi {
             ocgpuModuleUnload: self.module_unload,
             ocgpuModuleGetFunction: self.module_get_function,
             ocgpuLaunchKernel: self.launch_kernel,
+            ocgpuMemGetInfo: self.raw_table.ocgpuCuMemGetInfo_v2,
+            ocgpuMemcpyDtoD: self.raw_table.ocgpuCuMemcpyDtoD_v2,
+            ocgpuStreamQuery: self.raw_table.ocgpuCuStreamQuery.map(|target| {
+                // SAFETY: the reviewed signature differs only in opaque handle tags.
+                unsafe {
+                    std::mem::transmute::<
+                        ocgpu_abi::ocgpuCuStreamQueryFn,
+                        ocgpu_abi::ocgpuStreamQueryFn,
+                    >(target)
+                }
+            }),
+            ocgpuStreamWaitEvent: self.raw_table.ocgpuCuStreamWaitEvent.map(|target| {
+                // SAFETY: the reviewed signature differs only in opaque handle tags.
+                unsafe {
+                    std::mem::transmute::<
+                        ocgpu_abi::ocgpuCuStreamWaitEventFn,
+                        ocgpu_abi::ocgpuStreamWaitEventFn,
+                    >(target)
+                }
+            }),
+            ocgpuEventQuery: self.raw_table.ocgpuCuEventQuery.map(|target| {
+                // SAFETY: the reviewed signature differs only in opaque handle tags.
+                unsafe {
+                    std::mem::transmute::<
+                        ocgpu_abi::ocgpuCuEventQueryFn,
+                        ocgpu_abi::ocgpuEventQueryFn,
+                    >(target)
+                }
+            }),
+            ocgpuEventElapsedTime: self.raw_table.ocgpuCuEventElapsedTime.map(|target| {
+                // SAFETY: the reviewed signature differs only in opaque handle tags.
+                unsafe {
+                    std::mem::transmute::<
+                        ocgpu_abi::ocgpuCuEventElapsedTimeFn,
+                        ocgpu_abi::ocgpuEventElapsedTimeFn,
+                    >(target)
+                }
+            }),
         }
     }
 }
@@ -1628,6 +1666,36 @@ mod tests {
         // field, whose one-pointer representation is asserted by the ABI crate.
         let entry = unsafe { base.add(offset).cast::<Option<ErasedFunction>>().read() };
         entry.map(|function| function as usize)
+    }
+
+    #[test]
+    fn each_optional_extension_can_be_missing_without_invalidating_core() {
+        macro_rules! check_missing {
+            ($symbol:literal, $field:ident) => {{
+                let source = MockLibrary {
+                    proc_supported: false,
+                    missing: BTreeSet::from([$symbol]),
+                };
+                let raw = Box::leak(Box::new(
+                    build_from_source(&source, "optional-cuda".into()).expect("optional lookup"),
+                ));
+                let api =
+                    validate(raw).expect("optional symbols cannot invalidate the required core");
+                assert!(api.common_table().$field.is_none());
+                let report = api
+                    .diagnostics()
+                    .symbol($symbol)
+                    .expect("optional diagnostic");
+                assert!(!report.required);
+                assert!(!report.available);
+            }};
+        }
+        check_missing!("cuMemGetInfo_v2", ocgpuMemGetInfo);
+        check_missing!("cuMemcpyDtoD_v2", ocgpuMemcpyDtoD);
+        check_missing!("cuStreamQuery", ocgpuStreamQuery);
+        check_missing!("cuStreamWaitEvent", ocgpuStreamWaitEvent);
+        check_missing!("cuEventQuery", ocgpuEventQuery);
+        check_missing!("cuEventElapsedTime", ocgpuEventElapsedTime);
     }
 
     #[test]

@@ -3577,7 +3577,7 @@ fn refresh_table_layouts(manifest: &mut ApiManifest) {
             .count();
         let count = manifest.functions.len()
             + if table.surface == "common" {
-                0
+                manifest.common_extensions.len()
             } else {
                 raw_count
             };

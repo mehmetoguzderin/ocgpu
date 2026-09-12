@@ -23,6 +23,10 @@ pub enum Command {
     Backends {
         json: bool,
     },
+    Compilers {
+        backend: BackendChoice,
+        json: bool,
+    },
     Devices {
         backend: BackendChoice,
         json: bool,
@@ -86,7 +90,10 @@ where
 
     match command.as_str() {
         "backends" => parse_backends(&rest),
-        "devices" => parse_devices(&rest),
+        "compilers" => parse_backend_options("compilers", &rest)
+            .map(|(backend, json)| Command::Compilers { backend, json }),
+        "devices" => parse_backend_options("devices", &rest)
+            .map(|(backend, json)| Command::Devices { backend, json }),
         "doctor" => parse_doctor(&rest),
         "symbols" => parse_symbols(&rest),
         "abi" => parse_json_only("abi", &rest).map(|json| Command::Abi { json }),
@@ -104,13 +111,16 @@ fn parse_backends(arguments: &[OsString]) -> Result<Command, ParseError> {
     parse_json_only("backends", arguments).map(|json| Command::Backends { json })
 }
 
-fn parse_devices(arguments: &[OsString]) -> Result<Command, ParseError> {
+fn parse_backend_options(
+    command: &str,
+    arguments: &[OsString],
+) -> Result<(BackendChoice, bool), ParseError> {
     let mut json = false;
     let mut backend = BackendChoice::All;
     let mut backend_seen = false;
     let mut index = 0;
     while index < arguments.len() {
-        let argument = unicode(&arguments[index], "devices option")?;
+        let argument = unicode(&arguments[index], "backend selection option")?;
         match argument {
             "--json" => set_once(&mut json, "--json")?,
             "--backend" => {
@@ -124,11 +134,11 @@ fn parse_devices(arguments: &[OsString]) -> Result<Command, ParseError> {
                 backend = parse_backend(unicode(value, "backend")?, true)?;
                 backend_seen = true;
             }
-            unknown => return Err(unexpected("devices", unknown)),
+            unknown => return Err(unexpected(command, unknown)),
         }
         index += 1;
     }
-    Ok(Command::Devices { backend, json })
+    Ok((backend, json))
 }
 
 fn parse_doctor(arguments: &[OsString]) -> Result<Command, ParseError> {
@@ -366,6 +376,47 @@ mod tests {
                 backend: BackendChoice::All,
                 json: false,
             }
+        );
+    }
+
+    #[test]
+    fn compilers_selects_each_backend_independently() {
+        for (name, backend) in [
+            ("cuda", BackendChoice::Cuda),
+            ("hip", BackendChoice::Hip),
+            ("all", BackendChoice::All),
+        ] {
+            assert_eq!(
+                parse(args(&["compilers", "--backend", name, "--json"])).expect("valid"),
+                Command::Compilers {
+                    backend,
+                    json: true
+                }
+            );
+        }
+        assert_eq!(
+            parse(args(&["compilers"])).expect("valid"),
+            Command::Compilers {
+                backend: BackendChoice::All,
+                json: false
+            }
+        );
+        assert!(
+            parse(args(&[
+                "compilers",
+                "--backend",
+                "hip",
+                "--backend",
+                "cuda"
+            ]))
+            .is_err()
+        );
+        assert!(parse(args(&["compilers", "--backend", "unknown"])).is_err());
+        assert!(
+            parse(args(&["compilers", "--strict"]))
+                .unwrap_err()
+                .to_string()
+                .contains("compilers")
         );
     }
 

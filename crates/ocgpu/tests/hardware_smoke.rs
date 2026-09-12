@@ -3,14 +3,14 @@
 //! Opt-in, deliberately bounded hardware validation.
 //!
 //! No test resets a device, changes power/display state, installs a driver, or
-//! loops a workload. Execution tests allocate 64 bytes on each selected device
+//! loops a workload. Execution tests allocate at most 128 bytes on each selected device
 //! and launch exactly one thread once. Dedicated runners must select exactly
 //! one mode with `OCGPU_SMOKE_BACKEND`: `cuda`, `hip`, `all` (simultaneous
 //! execution), or `coexistence` (simultaneous discovery without GPU work).
 
 #![cfg(any(feature = "cuda", feature = "hip"))]
 
-use ocgpu::{Backend, Driver, LaunchConfig};
+use ocgpu::{Backend, Context, Driver, LaunchConfig};
 #[cfg(feature = "hip")]
 use sha2::{Digest, Sha256};
 #[cfg(all(feature = "cuda", feature = "hip"))]
@@ -149,6 +149,29 @@ fn inspect_devices<B: Backend>(driver: &Driver<B>, backend: &str) {
     }
 }
 
+fn bounded_transfers<B: Backend>(context: &Context<'_, B>) {
+    let (free, total) = context.memory_info().expect("ocgpuMemGetInfo");
+    assert!(total > 0 && free <= total, "inconsistent free/total memory");
+    let memory = context.allocate(BYTES).expect("64-byte allocation");
+    let source: Vec<u8> = (0_u8..u8::try_from(BYTES).expect("fixture size fits u8")).collect();
+    let mut destination = vec![0_u8; BYTES];
+    memory.copy_from(&source).expect("host-to-device copy");
+    memory
+        .copy_to(&mut destination)
+        .expect("device-to-host copy");
+    assert_eq!(source, destination);
+    let copied = context.allocate(BYTES).expect("second 64-byte allocation");
+    copied.copy_from_device(&memory).expect("ocgpuMemcpyDtoD");
+    destination.fill(0);
+    copied
+        .copy_to(&mut destination)
+        .expect("device-to-device result readback");
+    assert_eq!(
+        source, destination,
+        "device-to-device transfer changed data"
+    );
+}
+
 fn bounded_smoke<B: Backend>(backend: &str, driver: &Driver<B>, fixture: ModuleFixture) {
     inspect_devices(driver, backend);
     let device = driver.device(0).expect("first device");
@@ -159,17 +182,12 @@ fn bounded_smoke<B: Backend>(backend: &str, driver: &Driver<B>, fixture: ModuleF
         .expect("current-context query")
         .expect("new context must be current on its creating thread");
     assert_eq!(current.raw(), context.raw());
-
-    let memory = context.allocate(BYTES).expect("64-byte allocation");
-    let source: Vec<u8> = (0_u8..u8::try_from(BYTES).expect("fixture size fits u8")).collect();
-    let mut destination = vec![0_u8; BYTES];
-    memory.copy_from(&source).expect("host-to-device copy");
-    memory
-        .copy_to(&mut destination)
-        .expect("device-to-host copy");
-    assert_eq!(source, destination);
-
+    // Both 64-byte allocations are released before the unchanged no-op launch.
+    bounded_transfers(&context);
     let stream = context.create_stream(0).expect("stream creation");
+    let dependent_stream = context
+        .create_stream(1)
+        .expect("nonblocking dependent stream creation");
     let launch_start = context.create_event(0).expect("start-event creation");
     let launch_complete = context.create_event(0).expect("completion-event creation");
 
@@ -220,11 +238,39 @@ fn bounded_smoke<B: Backend>(backend: &str, driver: &Driver<B>, fixture: ModuleF
     launch_complete
         .record(&stream)
         .expect("post-launch event recording");
+    // Enqueue the cross-stream dependency before any host synchronization.
+    dependent_stream
+        .wait_event(&launch_complete)
+        .expect("ocgpuStreamWaitEvent");
+    dependent_stream
+        .synchronize()
+        .expect("dependent stream synchronization");
+    assert!(
+        launch_complete
+            .query()
+            .expect("dependent stream waited for completion event")
+    );
+    assert!(dependent_stream.query().expect("dependent stream query"));
     launch_complete
         .synchronize()
         .expect("post-launch event synchronization");
     stream.synchronize().expect("stream synchronization");
     context.synchronize().expect("context synchronization");
+    assert!(
+        stream.query().expect("ocgpuStreamQuery"),
+        "synchronized stream must report completion"
+    );
+    assert!(
+        launch_complete.query().expect("ocgpuEventQuery"),
+        "synchronized event must report completion"
+    );
+    let milliseconds = launch_start
+        .elapsed_time(&launch_complete)
+        .expect("ocgpuEventElapsedTime");
+    assert!(milliseconds.is_finite() && milliseconds >= 0.0);
+    eprintln!(
+        "{backend}: all six common extensions validated: ocgpuMemGetInfo, ocgpuMemcpyDtoD, ocgpuStreamQuery, ocgpuStreamWaitEvent, ocgpuEventQuery, ocgpuEventElapsedTime; one no-op launch completed"
+    );
 }
 
 #[cfg(feature = "hip")]

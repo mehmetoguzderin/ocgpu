@@ -79,8 +79,21 @@ cargo run -p xtask -- rtc-hardware-smoke
 
 The watchdog-backed command first runs with
 `OCGPU_RTC_COMPILE_ONLY=1`, preserving the same backend, compiler-library path,
-and architecture inputs; only after that context-free compiler stage passes
-does it run the same command once with compile-only absent for device execution.
+architecture, and HIP code-object version inputs; only after that context-free
+compiler stage passes does it run the same command once with compile-only absent
+for device execution.
+
+Configure the optional repository variables
+`OCGPU_HIPRTC_CODE_OBJECT_VERSION_LINUX` and
+`OCGPU_HIPRTC_CODE_OBJECT_VERSION_WINDOWS` to `4`, `5`, or `6` when the runner's
+HIP runtime needs a specific code-object format. Both HIP-only and dual RTC
+steps forward the selected operating system's value as
+`OCGPU_HIPRTC_CODE_OBJECT_VERSION`; an unset repository variable leaves the
+compiler default in effect. For example, the locally validated ROCm 10 HIPRTC
+with the installed HIP 5 runtime uses `4` (see
+[runtime-validation.md](runtime-validation.md)). The xtask command rejects
+invalid nonempty values before building the RTC smoke target.
+
 The target must never run for an untrusted pull request, on a hosted runner, or
 on an interactive-display Actions runner. A successful CUDA compiler run is not
 HIPRTC evidence, and successful HIP driver execution is not HIPRTC evidence;

@@ -428,6 +428,55 @@
       "signature_hash": "sha256:2620228d1163126deda5646ef7ddfc58fb169657415056f9cc00de689fa1689b"
     }
   ],
+  "optional_functions": [
+    {
+      "name": "hipMemGetInfo",
+      "release_set": "all_reviewed",
+      "signature_hash": "sha256:e79b50a81795ceed010362fd86e7627ef448800febfc3c3f918c2232d2aadf56"
+    },
+    {
+      "name": "hipMemcpyDtoD",
+      "release_set": "all_reviewed",
+      "signature_hash": "sha256:bf2a6736c0e388b5cf8411700ff5f72a871c8e7007adf82bf9b3d447f6f77926"
+    },
+    {
+      "name": "hipStreamQuery",
+      "release_set": "all_reviewed",
+      "signature_hash": "sha256:30604da79100f267f7fddff930a6f89e86c05712a2d66448f8b0a4e1fcb8d919"
+    },
+    {
+      "name": "hipStreamWaitEvent",
+      "release_set": "all_reviewed",
+      "signature_hash": "sha256:4d71c9fc8c4044fe370aa6a66b73929fe98430341938af5ccd071ad2facfbef3"
+    },
+    {
+      "name": "hipEventQuery",
+      "release_set": "all_reviewed",
+      "signature_hash": "sha256:26c8dd67ae9d461611e19177345922a4a4a668bd332f23c3811e7b73c0487e2b"
+    },
+    {
+      "name": "hipEventElapsedTime",
+      "release_set": "all_reviewed",
+      "signature_hash": "sha256:a64dfb3bbb84c2e8083ea73e4979659d04b4219e375f5f4850a2102436765b2c"
+    }
+  ],
+  "optional_semantic_reviews": [
+    {
+      "operations": ["hipMemGetInfo", "hipMemcpyDtoD"],
+      "finding": "The optional common mappings preserve free/total memory sizes in bytes and synchronous device-to-device source/destination and byte-count semantics. Size queries do not allocate memory.",
+      "proof": "The memory-management declarations and documentation in each pinned hip_runtime_api.h artifact; identical independently extracted signatures across all seven reviewed releases."
+    },
+    {
+      "operations": ["hipStreamQuery", "hipEventQuery", "hipStreamWaitEvent"],
+      "finding": "Query operations retain success/not-ready/error results without waiting. StreamWaitEvent enqueues a dependency on the specified event and forwards flags; the typed common wrapper uses zero flags and requires resources from the same owned context.",
+      "proof": "The stream/event declarations and documentation in each pinned hip_runtime_api.h artifact. Later headers add a C++ default argument for StreamWaitEvent flags without changing its C ABI."
+    },
+    {
+      "operations": ["hipEventElapsedTime"],
+      "finding": "The common mapping returns elapsed milliseconds through the float output and preserves start/stop event order, native readiness errors, and timing-disabled event errors.",
+      "proof": "The hipEventElapsedTime declaration and event-timing documentation in each pinned hip_runtime_api.h artifact; identical independently extracted signatures across all seven reviewed releases."
+    }
+  ],
   "common_adapters": [
     {
       "name": "hipMemcpyHtoD",

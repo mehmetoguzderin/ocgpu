@@ -499,7 +499,7 @@ pub(super) fn validate_hip_runtime_profiles(
             || snapshot.target_abi.enum_width_bits != 32
             || snapshot.target_abi.success_value != 0
             || snapshot.target_abi.null_pointer_sentinel != "all-bits-zero"
-            || snapshot.functions.len() != 27
+            || snapshot.functions.len() != 27 + ledger.optional_functions.len()
             || snapshot.transitive_types.len() != expected_type_facts.len()
             || snapshot.device_attributes.len() != 32
         {
@@ -512,7 +512,7 @@ pub(super) fn validate_hip_runtime_profiles(
             .iter()
             .map(|entry| (entry.name.as_str(), entry))
             .collect::<BTreeMap<_, _>>();
-        if function_map.len() != 27
+        if function_map.len() != 27 + ledger.optional_functions.len()
             || function_map.values().any(|entry| {
                 entry.normalized_signature.trim().is_empty()
                     || entry
@@ -582,7 +582,11 @@ pub(super) fn validate_hip_runtime_profiles(
     }
     let all_release_ids = releases.into_iter().collect::<BTreeSet<_>>();
     let mut exact_names = BTreeSet::new();
-    for function in &ledger.common_functions {
+    for function in ledger
+        .common_functions
+        .iter()
+        .chain(&ledger.optional_functions)
+    {
         if !exact_names.insert(function.name.as_str()) {
             return Err(invalid(format!("duplicate function {}", function.name)));
         }
@@ -684,14 +688,34 @@ pub(super) fn validate_hip_runtime_profiles(
     }
 
     let manifest_common = manifest
-        .functions
-        .iter()
+        .common_functions()
         .map(|function| function.hip.effective_dispatch_symbol())
         .collect::<BTreeSet<_>>();
     exact_names.insert(adapter.name.as_str());
-    if exact_names != manifest_common || exact_names.len() != 26 {
+    if exact_names != manifest_common || exact_names.len() != 26 + manifest.common_extensions.len()
+    {
         return Err(invalid(
             "exact+adapter allowlist disagrees with the common ABI",
+        ));
+    }
+    let optional_names = ledger
+        .optional_functions
+        .iter()
+        .map(|entry| entry.name.as_str())
+        .collect::<BTreeSet<_>>();
+    let extension_names = manifest
+        .common_extensions
+        .iter()
+        .map(|entry| entry.hip.vendor_symbol.as_str())
+        .collect::<BTreeSet<_>>();
+    if optional_names != extension_names
+        || ledger
+            .optional_functions
+            .iter()
+            .any(|entry| !entry.additional_signatures.is_empty())
+    {
+        return Err(invalid(
+            "optional extensions require an exact declaration shared by every reviewed release",
         ));
     }
     let mut attributes = BTreeSet::new();
@@ -714,7 +738,11 @@ pub(super) fn validate_hip_runtime_profiles(
         return Err(invalid("expected seven complete semantic review groups"));
     }
     let mut semantic_operations = BTreeSet::new();
-    for review in &ledger.semantic_reviews {
+    for review in ledger
+        .semantic_reviews
+        .iter()
+        .chain(&ledger.optional_semantic_reviews)
+    {
         if review.operations.is_empty()
             || review.finding.trim().is_empty()
             || review.proof.trim().is_empty()
@@ -854,6 +882,12 @@ pub(super) fn render_hip_runtime_profiles(
         .expect("String write");
     }
     output.push_str("];\n");
+    let optional = ledger
+        .optional_functions
+        .iter()
+        .map(|entry| entry.name.as_str())
+        .collect::<Vec<_>>();
+    writeln!(output, "\n/// Optional declarations reviewed across every supported runtime profile.\npub(crate) const HIP_OPTIONAL_PROFILE_SYMBOLS: &[&str] = {};", rust_slice(&optional)).expect("String write");
     output
 }
 
@@ -902,6 +936,39 @@ mod tests {
         let (manifest, ledger, mut declarations) = inputs();
         declarations.snapshots[0].device_attributes[0].value += 1;
         assert!(validate_hip_runtime_profiles(&manifest, &ledger, &declarations).is_err());
+    }
+
+    #[test]
+    fn optional_profile_functions_require_matching_evidence_for_every_release() {
+        let (manifest, mut ledger, declarations) = inputs();
+        let optional = ledger
+            .optional_functions
+            .iter_mut()
+            .find(|function| function.name == "hipMemcpyDtoD")
+            .expect("device copy is an optional common operation");
+        optional.signature_hash = format!("sha256:{}", "0".repeat(64));
+        let error = validate_hip_runtime_profiles(&manifest, &ledger, &declarations)
+            .expect_err("a stale optional signature must not enable legacy dispatch");
+        assert!(
+            error
+                .to_string()
+                .contains("hipMemcpyDtoD signature is stale")
+        );
+
+        let (manifest, mut ledger, declarations) = inputs();
+        let optional = ledger
+            .optional_functions
+            .iter_mut()
+            .find(|function| function.name == "hipMemcpyDtoD")
+            .expect("device copy is an optional common operation");
+        optional.release_set = "hip_7".to_owned();
+        let error = validate_hip_runtime_profiles(&manifest, &ledger, &declarations)
+            .expect_err("HIP 7-only evidence must not enable HIP 5/6 dispatch");
+        assert!(
+            error
+                .to_string()
+                .contains("hipMemcpyDtoD does not cover all reviewed releases")
+        );
     }
 
     #[test]

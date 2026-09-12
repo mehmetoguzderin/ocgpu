@@ -178,3 +178,13 @@ pub(crate) const HIP_RUNTIME_PROFILES: &[HipRuntimeProfileDescriptor] = &[
         },
     },
 ];
+
+/// Optional declarations reviewed across every supported runtime profile.
+pub(crate) const HIP_OPTIONAL_PROFILE_SYMBOLS: &[&str] = &[
+    "hipMemGetInfo",
+    "hipMemcpyDtoD",
+    "hipStreamQuery",
+    "hipStreamWaitEvent",
+    "hipEventQuery",
+    "hipEventElapsedTime",
+];

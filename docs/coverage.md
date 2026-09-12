@@ -22,6 +22,15 @@ baselines.
 
 ## HIP multi-major common compatibility
 
+Six optional common driver operations extend the required core:
+`ocgpuMemGetInfo`, `ocgpuMemcpyDtoD`, `ocgpuStreamQuery`,
+`ocgpuStreamWaitEvent`, `ocgpuEventQuery`, and `ocgpuEventElapsedTime`.
+Their exact HIP signatures and semantics are reviewed for all seven pinned
+releases in the profile ledger, so HIP 5/6 and earlier supported HIP 7 releases
+can expose these operations when their exports are present. The extensions
+append to the common table and project existing raw fields without moving
+any CUDA/HIP raw slot. Missing optional exports do not invalidate the core.
+
 The generated HIP runtime-profile ledger reports a separate common-compatibility
 metric of **3/3 reviewed profiles**: HIP 5, HIP 6, and HIP 7. Each profile must
 provide all 26 common operations plus the single `hipRuntimeGetVersion`

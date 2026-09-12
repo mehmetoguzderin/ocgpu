@@ -9261,7 +9261,7 @@ OCGPU_STATIC_ASSERT(ocgpu_hip_hipuserobjectnodestructorsync_400002ff_value_0, OC
 #endif
 
 struct ocgpu_align_probe_ocgpu_api_v1 { char byte; ocgpuApi_v1 value; };
-OCGPU_STATIC_ASSERT(ocgpu_api_v1_size, sizeof(ocgpuApi_v1) == 232u);
+OCGPU_STATIC_ASSERT(ocgpu_api_v1_size, sizeof(ocgpuApi_v1) == 280u);
 OCGPU_STATIC_ASSERT(ocgpu_api_v1_align, offsetof(struct ocgpu_align_probe_ocgpu_api_v1, value) == 8u);
 OCGPU_STATIC_ASSERT(ocgpu_api_v1_struct_size_offset, offsetof(ocgpuApi_v1, struct_size) == 0u);
 OCGPU_STATIC_ASSERT(ocgpu_api_v1_abi_version_offset, offsetof(ocgpuApi_v1, abi_version) == 4u);
@@ -9295,6 +9295,12 @@ OCGPU_STATIC_ASSERT(ocgpu_api_v1_ocgpu_module_load_data_offset, offsetof(ocgpuAp
 OCGPU_STATIC_ASSERT(ocgpu_api_v1_ocgpu_module_unload_offset, offsetof(ocgpuApi_v1, ocgpuModuleUnload) == 208u);
 OCGPU_STATIC_ASSERT(ocgpu_api_v1_ocgpu_module_get_function_offset, offsetof(ocgpuApi_v1, ocgpuModuleGetFunction) == 216u);
 OCGPU_STATIC_ASSERT(ocgpu_api_v1_ocgpu_launch_kernel_offset, offsetof(ocgpuApi_v1, ocgpuLaunchKernel) == 224u);
+OCGPU_STATIC_ASSERT(ocgpu_api_v1_ocgpu_mem_get_info_offset, offsetof(ocgpuApi_v1, ocgpuMemGetInfo) == 232u);
+OCGPU_STATIC_ASSERT(ocgpu_api_v1_ocgpu_memcpy_dto_d_offset, offsetof(ocgpuApi_v1, ocgpuMemcpyDtoD) == 240u);
+OCGPU_STATIC_ASSERT(ocgpu_api_v1_ocgpu_stream_query_offset, offsetof(ocgpuApi_v1, ocgpuStreamQuery) == 248u);
+OCGPU_STATIC_ASSERT(ocgpu_api_v1_ocgpu_stream_wait_event_offset, offsetof(ocgpuApi_v1, ocgpuStreamWaitEvent) == 256u);
+OCGPU_STATIC_ASSERT(ocgpu_api_v1_ocgpu_event_query_offset, offsetof(ocgpuApi_v1, ocgpuEventQuery) == 264u);
+OCGPU_STATIC_ASSERT(ocgpu_api_v1_ocgpu_event_elapsed_time_offset, offsetof(ocgpuApi_v1, ocgpuEventElapsedTime) == 272u);
 struct ocgpu_align_probe_ocgpu_cu_api_v1 { char byte; ocgpuCuApi_v1 value; };
 OCGPU_STATIC_ASSERT(ocgpu_cu_api_v1_size, sizeof(ocgpuCuApi_v1) == 4608u);
 OCGPU_STATIC_ASSERT(ocgpu_cu_api_v1_align, offsetof(struct ocgpu_align_probe_ocgpu_cu_api_v1, value) == 8u);
@@ -10498,6 +10504,12 @@ OCGPU_STATIC_ASSERT(ocgpu_api_v1_ocgpu_module_load_data_pointer_width, sizeof(((
 OCGPU_STATIC_ASSERT(ocgpu_api_v1_ocgpu_module_unload_pointer_width, sizeof(((ocgpuApi_v1 *)0)->ocgpuModuleUnload) == sizeof(void (OCGPU_CALL *)(void)));
 OCGPU_STATIC_ASSERT(ocgpu_api_v1_ocgpu_module_get_function_pointer_width, sizeof(((ocgpuApi_v1 *)0)->ocgpuModuleGetFunction) == sizeof(void (OCGPU_CALL *)(void)));
 OCGPU_STATIC_ASSERT(ocgpu_api_v1_ocgpu_launch_kernel_pointer_width, sizeof(((ocgpuApi_v1 *)0)->ocgpuLaunchKernel) == sizeof(void (OCGPU_CALL *)(void)));
+OCGPU_STATIC_ASSERT(ocgpu_api_v1_ocgpu_mem_get_info_pointer_width, sizeof(((ocgpuApi_v1 *)0)->ocgpuMemGetInfo) == sizeof(void (OCGPU_CALL *)(void)));
+OCGPU_STATIC_ASSERT(ocgpu_api_v1_ocgpu_memcpy_dto_d_pointer_width, sizeof(((ocgpuApi_v1 *)0)->ocgpuMemcpyDtoD) == sizeof(void (OCGPU_CALL *)(void)));
+OCGPU_STATIC_ASSERT(ocgpu_api_v1_ocgpu_stream_query_pointer_width, sizeof(((ocgpuApi_v1 *)0)->ocgpuStreamQuery) == sizeof(void (OCGPU_CALL *)(void)));
+OCGPU_STATIC_ASSERT(ocgpu_api_v1_ocgpu_stream_wait_event_pointer_width, sizeof(((ocgpuApi_v1 *)0)->ocgpuStreamWaitEvent) == sizeof(void (OCGPU_CALL *)(void)));
+OCGPU_STATIC_ASSERT(ocgpu_api_v1_ocgpu_event_query_pointer_width, sizeof(((ocgpuApi_v1 *)0)->ocgpuEventQuery) == sizeof(void (OCGPU_CALL *)(void)));
+OCGPU_STATIC_ASSERT(ocgpu_api_v1_ocgpu_event_elapsed_time_pointer_width, sizeof(((ocgpuApi_v1 *)0)->ocgpuEventElapsedTime) == sizeof(void (OCGPU_CALL *)(void)));
 OCGPU_STATIC_ASSERT(ocgpu_cu_api_v1_ocgpu_cu_init_pointer_width, sizeof(((ocgpuCuApi_v1 *)0)->ocgpuCuInit) == sizeof(void (OCGPU_CALL *)(void)));
 OCGPU_STATIC_ASSERT(ocgpu_cu_api_v1_ocgpu_cu_driver_get_version_pointer_width, sizeof(((ocgpuCuApi_v1 *)0)->ocgpuCuDriverGetVersion) == sizeof(void (OCGPU_CALL *)(void)));
 OCGPU_STATIC_ASSERT(ocgpu_cu_api_v1_ocgpu_cu_device_get_count_pointer_width, sizeof(((ocgpuCuApi_v1 *)0)->ocgpuCuDeviceGetCount) == sizeof(void (OCGPU_CALL *)(void)));

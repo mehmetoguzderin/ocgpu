@@ -1427,16 +1427,17 @@
       "inventory_id": "cuda-vendor-13.3-13030",
       "item_kind": "function",
       "item_name": "cuEventQuery",
-      "classification": "covered_raw_only",
+      "classification": "covered_exact",
       "reason": "cuEventQuery is emitted in the generated cuda raw table as ocgpuCuEventQuery from the exact cuda-vendor-13.3-13030 item-kind and normalized-signature hash; runtime loading resolves this callable slot.",
       "manifest_ids": [
+        "event.query",
         "raw.cuda.c0f2a6fc"
       ],
       "implementation_symbols": [
         "ocgpuCuEventQuery"
       ],
       "runtime_resolvable": true,
-      "hardware_smoke": false
+      "hardware_smoke": true
     },
     {
       "inventory_id": "cuda-vendor-13.3-13030",
@@ -4418,16 +4419,17 @@
       "inventory_id": "cuda-vendor-13.3-13030",
       "item_kind": "function",
       "item_name": "cuMemGetInfo_v2",
-      "classification": "covered_raw_only",
+      "classification": "covered_exact",
       "reason": "cuMemGetInfo_v2 is emitted in the generated cuda raw table as ocgpuCuMemGetInfo_v2 from the exact cuda-vendor-13.3-13030 item-kind and normalized-signature hash; runtime loading resolves this callable slot.",
       "manifest_ids": [
+        "memory.get_info",
         "raw.cuda.c2165b88"
       ],
       "implementation_symbols": [
         "ocgpuCuMemGetInfo_v2"
       ],
       "runtime_resolvable": true,
-      "hardware_smoke": false
+      "hardware_smoke": true
     },
     {
       "inventory_id": "cuda-vendor-13.3-13030",
@@ -5138,16 +5140,17 @@
       "inventory_id": "cuda-vendor-13.3-13030",
       "item_kind": "function",
       "item_name": "cuMemcpyDtoD_v2",
-      "classification": "covered_raw_only",
+      "classification": "covered_adapter",
       "reason": "cuMemcpyDtoD_v2 is emitted in the generated cuda raw table as ocgpuCuMemcpyDtoD_v2 from the exact cuda-vendor-13.3-13030 item-kind and normalized-signature hash; runtime loading resolves this callable slot.",
       "manifest_ids": [
+        "memory.copy_dtod",
         "raw.cuda.c998652b"
       ],
       "implementation_symbols": [
         "ocgpuCuMemcpyDtoD_v2"
       ],
       "runtime_resolvable": true,
-      "hardware_smoke": false
+      "hardware_smoke": true
     },
     {
       "inventory_id": "cuda-vendor-13.3-13030",
@@ -6450,16 +6453,17 @@
       "inventory_id": "cuda-vendor-13.3-13030",
       "item_kind": "function",
       "item_name": "cuStreamQuery",
-      "classification": "covered_raw_only",
+      "classification": "covered_exact",
       "reason": "cuStreamQuery is emitted in the generated cuda raw table as ocgpuCuStreamQuery from the exact cuda-vendor-13.3-13030 item-kind and normalized-signature hash; runtime loading resolves this callable slot.",
       "manifest_ids": [
-        "raw.cuda.ce3d3234"
+        "raw.cuda.ce3d3234",
+        "stream.query"
       ],
       "implementation_symbols": [
         "ocgpuCuStreamQuery"
       ],
       "runtime_resolvable": true,
-      "hardware_smoke": false
+      "hardware_smoke": true
     },
     {
       "inventory_id": "cuda-vendor-13.3-13030",
@@ -6511,16 +6515,17 @@
       "inventory_id": "cuda-vendor-13.3-13030",
       "item_kind": "function",
       "item_name": "cuStreamWaitEvent",
-      "classification": "covered_raw_only",
+      "classification": "covered_exact",
       "reason": "cuStreamWaitEvent is emitted in the generated cuda raw table as ocgpuCuStreamWaitEvent from the exact cuda-vendor-13.3-13030 item-kind and normalized-signature hash; runtime loading resolves this callable slot.",
       "manifest_ids": [
-        "raw.cuda.c095a2ab"
+        "raw.cuda.c095a2ab",
+        "stream.wait_event"
       ],
       "implementation_symbols": [
         "ocgpuCuStreamWaitEvent"
       ],
       "runtime_resolvable": true,
-      "hardware_smoke": false
+      "hardware_smoke": true
     },
     {
       "inventory_id": "cuda-vendor-13.3-13030",
@@ -32475,16 +32480,17 @@
       "inventory_id": "cudarc-0.19.9",
       "item_kind": "function",
       "item_name": "cuEventElapsedTime",
-      "classification": "covered_raw_only",
+      "classification": "covered_exact",
       "reason": "cuEventElapsedTime is emitted in the generated cuda raw table as ocgpuCuEventElapsedTime from the exact cudarc-0.19.9 item-kind and normalized-signature hash; runtime loading resolves this callable slot.",
       "manifest_ids": [
+        "event.elapsed_time",
         "raw.cuda.c3f4fa19"
       ],
       "implementation_symbols": [
         "ocgpuCuEventElapsedTime"
       ],
       "runtime_resolvable": true,
-      "hardware_smoke": false
+      "hardware_smoke": true
     },
     {
       "inventory_id": "cudarc-0.19.9",
@@ -32505,16 +32511,17 @@
       "inventory_id": "cudarc-0.19.9",
       "item_kind": "function",
       "item_name": "cuEventQuery",
-      "classification": "covered_raw_only",
+      "classification": "covered_exact",
       "reason": "cuEventQuery is emitted in the generated cuda raw table as ocgpuCuEventQuery from the exact cudarc-0.19.9 item-kind and normalized-signature hash; runtime loading resolves this callable slot.",
       "manifest_ids": [
+        "event.query",
         "raw.cuda.c0f2a6fc"
       ],
       "implementation_symbols": [
         "ocgpuCuEventQuery"
       ],
       "runtime_resolvable": true,
-      "hardware_smoke": false
+      "hardware_smoke": true
     },
     {
       "inventory_id": "cudarc-0.19.9",
@@ -35706,16 +35713,17 @@
       "inventory_id": "cudarc-0.19.9",
       "item_kind": "function",
       "item_name": "cuMemGetInfo_v2",
-      "classification": "covered_raw_only",
+      "classification": "covered_exact",
       "reason": "cuMemGetInfo_v2 is emitted in the generated cuda raw table as ocgpuCuMemGetInfo_v2 from the exact cudarc-0.19.9 item-kind and normalized-signature hash; runtime loading resolves this callable slot.",
       "manifest_ids": [
+        "memory.get_info",
         "raw.cuda.c2165b88"
       ],
       "implementation_symbols": [
         "ocgpuCuMemGetInfo_v2"
       ],
       "runtime_resolvable": true,
-      "hardware_smoke": false
+      "hardware_smoke": true
     },
     {
       "inventory_id": "cudarc-0.19.9",
@@ -36471,16 +36479,17 @@
       "inventory_id": "cudarc-0.19.9",
       "item_kind": "function",
       "item_name": "cuMemcpyDtoD_v2",
-      "classification": "covered_raw_only",
+      "classification": "covered_adapter",
       "reason": "cuMemcpyDtoD_v2 is emitted in the generated cuda raw table as ocgpuCuMemcpyDtoD_v2 from the exact cudarc-0.19.9 item-kind and normalized-signature hash; runtime loading resolves this callable slot.",
       "manifest_ids": [
+        "memory.copy_dtod",
         "raw.cuda.c998652b"
       ],
       "implementation_symbols": [
         "ocgpuCuMemcpyDtoD_v2"
       ],
       "runtime_resolvable": true,
-      "hardware_smoke": false
+      "hardware_smoke": true
     },
     {
       "inventory_id": "cudarc-0.19.9",
@@ -37873,16 +37882,17 @@
       "inventory_id": "cudarc-0.19.9",
       "item_kind": "function",
       "item_name": "cuStreamQuery",
-      "classification": "covered_raw_only",
+      "classification": "covered_exact",
       "reason": "cuStreamQuery is emitted in the generated cuda raw table as ocgpuCuStreamQuery from the exact cudarc-0.19.9 item-kind and normalized-signature hash; runtime loading resolves this callable slot.",
       "manifest_ids": [
-        "raw.cuda.ce3d3234"
+        "raw.cuda.ce3d3234",
+        "stream.query"
       ],
       "implementation_symbols": [
         "ocgpuCuStreamQuery"
       ],
       "runtime_resolvable": true,
-      "hardware_smoke": false
+      "hardware_smoke": true
     },
     {
       "inventory_id": "cudarc-0.19.9",
@@ -37949,16 +37959,17 @@
       "inventory_id": "cudarc-0.19.9",
       "item_kind": "function",
       "item_name": "cuStreamWaitEvent",
-      "classification": "covered_raw_only",
+      "classification": "covered_exact",
       "reason": "cuStreamWaitEvent is emitted in the generated cuda raw table as ocgpuCuStreamWaitEvent from the exact cudarc-0.19.9 item-kind and normalized-signature hash; runtime loading resolves this callable slot.",
       "manifest_ids": [
-        "raw.cuda.c095a2ab"
+        "raw.cuda.c095a2ab",
+        "stream.wait_event"
       ],
       "implementation_symbols": [
         "ocgpuCuStreamWaitEvent"
       ],
       "runtime_resolvable": true,
-      "hardware_smoke": false
+      "hardware_smoke": true
     },
     {
       "inventory_id": "cudarc-0.19.9",
@@ -63906,31 +63917,33 @@
       "inventory_id": "hip-general-7.14.60850",
       "item_kind": "function",
       "item_name": "hipEventElapsedTime",
-      "classification": "covered_raw_only",
+      "classification": "covered_exact",
       "reason": "hipEventElapsedTime is emitted in the generated hip raw table as ocgpuHipEventElapsedTime from the exact hip-general-7.14.60850 item-kind and normalized-signature hash; runtime loading resolves this callable slot.",
       "manifest_ids": [
+        "event.elapsed_time",
         "raw.hip.d27b48dc"
       ],
       "implementation_symbols": [
         "ocgpuHipEventElapsedTime"
       ],
       "runtime_resolvable": true,
-      "hardware_smoke": false
+      "hardware_smoke": true
     },
     {
       "inventory_id": "hip-general-7.14.60850",
       "item_kind": "function",
       "item_name": "hipEventQuery",
-      "classification": "covered_raw_only",
+      "classification": "covered_exact",
       "reason": "hipEventQuery is emitted in the generated hip raw table as ocgpuHipEventQuery from the exact hip-general-7.14.60850 item-kind and normalized-signature hash; runtime loading resolves this callable slot.",
       "manifest_ids": [
+        "event.query",
         "raw.hip.db3f4fdd"
       ],
       "implementation_symbols": [
         "ocgpuHipEventQuery"
       ],
       "runtime_resolvable": true,
-      "hardware_smoke": false
+      "hardware_smoke": true
     },
     {
       "inventory_id": "hip-general-7.14.60850",
@@ -67212,16 +67225,17 @@
       "inventory_id": "hip-general-7.14.60850",
       "item_kind": "function",
       "item_name": "hipMemGetInfo",
-      "classification": "covered_raw_only",
+      "classification": "covered_exact",
       "reason": "hipMemGetInfo is emitted in the generated hip raw table as ocgpuHipMemGetInfo from the exact hip-general-7.14.60850 item-kind and normalized-signature hash; runtime loading resolves this callable slot.",
       "manifest_ids": [
+        "memory.get_info",
         "raw.hip.d128e2da"
       ],
       "implementation_symbols": [
         "ocgpuHipMemGetInfo"
       ],
       "runtime_resolvable": true,
-      "hardware_smoke": false
+      "hardware_smoke": true
     },
     {
       "inventory_id": "hip-general-7.14.60850",
@@ -68052,16 +68066,17 @@
       "inventory_id": "hip-general-7.14.60850",
       "item_kind": "function",
       "item_name": "hipMemcpyDtoD",
-      "classification": "covered_raw_only",
+      "classification": "covered_adapter",
       "reason": "hipMemcpyDtoD is emitted in the generated hip raw table as ocgpuHipMemcpyDtoD from the exact hip-general-7.14.60850 item-kind and normalized-signature hash; runtime loading resolves this callable slot.",
       "manifest_ids": [
+        "memory.copy_dtod",
         "raw.hip.de60c60f"
       ],
       "implementation_symbols": [
         "ocgpuHipMemcpyDtoD"
       ],
       "runtime_resolvable": true,
-      "hardware_smoke": false
+      "hardware_smoke": true
     },
     {
       "inventory_id": "hip-general-7.14.60850",
@@ -69785,16 +69800,17 @@
       "inventory_id": "hip-general-7.14.60850",
       "item_kind": "function",
       "item_name": "hipStreamQuery",
-      "classification": "covered_raw_only",
+      "classification": "covered_exact",
       "reason": "hipStreamQuery is emitted in the generated hip raw table as ocgpuHipStreamQuery from the exact hip-general-7.14.60850 item-kind and normalized-signature hash; runtime loading resolves this callable slot.",
       "manifest_ids": [
-        "raw.hip.d7f610ab"
+        "raw.hip.d7f610ab",
+        "stream.query"
       ],
       "implementation_symbols": [
         "ocgpuHipStreamQuery"
       ],
       "runtime_resolvable": true,
-      "hardware_smoke": false
+      "hardware_smoke": true
     },
     {
       "inventory_id": "hip-general-7.14.60850",
@@ -69876,16 +69892,17 @@
       "inventory_id": "hip-general-7.14.60850",
       "item_kind": "function",
       "item_name": "hipStreamWaitEvent",
-      "classification": "covered_raw_only",
+      "classification": "covered_exact",
       "reason": "hipStreamWaitEvent is emitted in the generated hip raw table as ocgpuHipStreamWaitEvent from the exact hip-general-7.14.60850 item-kind and normalized-signature hash; runtime loading resolves this callable slot.",
       "manifest_ids": [
-        "raw.hip.d11383a0"
+        "raw.hip.d11383a0",
+        "stream.wait_event"
       ],
       "implementation_symbols": [
         "ocgpuHipStreamWaitEvent"
       ],
       "runtime_resolvable": true,
-      "hardware_smoke": false
+      "hardware_smoke": true
     },
     {
       "inventory_id": "hip-general-7.14.60850",
@@ -86862,31 +86879,33 @@
       "inventory_id": "hip-windows-7.2.0",
       "item_kind": "function",
       "item_name": "hipEventElapsedTime",
-      "classification": "covered_raw_only",
+      "classification": "covered_exact",
       "reason": "hipEventElapsedTime is emitted in the generated hip raw table as ocgpuHipEventElapsedTime from the exact hip-windows-7.2.0 item-kind and normalized-signature hash; runtime loading resolves this callable slot.",
       "manifest_ids": [
+        "event.elapsed_time",
         "raw.hip.d27b48dc"
       ],
       "implementation_symbols": [
         "ocgpuHipEventElapsedTime"
       ],
       "runtime_resolvable": true,
-      "hardware_smoke": false
+      "hardware_smoke": true
     },
     {
       "inventory_id": "hip-windows-7.2.0",
       "item_kind": "function",
       "item_name": "hipEventQuery",
-      "classification": "covered_raw_only",
+      "classification": "covered_exact",
       "reason": "hipEventQuery is emitted in the generated hip raw table as ocgpuHipEventQuery from the exact hip-windows-7.2.0 item-kind and normalized-signature hash; runtime loading resolves this callable slot.",
       "manifest_ids": [
+        "event.query",
         "raw.hip.db3f4fdd"
       ],
       "implementation_symbols": [
         "ocgpuHipEventQuery"
       ],
       "runtime_resolvable": true,
-      "hardware_smoke": false
+      "hardware_smoke": true
     },
     {
       "inventory_id": "hip-windows-7.2.0",
@@ -89853,16 +89872,17 @@
       "inventory_id": "hip-windows-7.2.0",
       "item_kind": "function",
       "item_name": "hipMemGetInfo",
-      "classification": "covered_raw_only",
+      "classification": "covered_exact",
       "reason": "hipMemGetInfo is emitted in the generated hip raw table as ocgpuHipMemGetInfo from the exact hip-windows-7.2.0 item-kind and normalized-signature hash; runtime loading resolves this callable slot.",
       "manifest_ids": [
+        "memory.get_info",
         "raw.hip.d128e2da"
       ],
       "implementation_symbols": [
         "ocgpuHipMemGetInfo"
       ],
       "runtime_resolvable": true,
-      "hardware_smoke": false
+      "hardware_smoke": true
     },
     {
       "inventory_id": "hip-windows-7.2.0",
@@ -90648,16 +90668,17 @@
       "inventory_id": "hip-windows-7.2.0",
       "item_kind": "function",
       "item_name": "hipMemcpyDtoD",
-      "classification": "covered_raw_only",
+      "classification": "covered_adapter",
       "reason": "hipMemcpyDtoD is emitted in the generated hip raw table as ocgpuHipMemcpyDtoD from the exact hip-windows-7.2.0 item-kind and normalized-signature hash; runtime loading resolves this callable slot.",
       "manifest_ids": [
+        "memory.copy_dtod",
         "raw.hip.de60c60f"
       ],
       "implementation_symbols": [
         "ocgpuHipMemcpyDtoD"
       ],
       "runtime_resolvable": true,
-      "hardware_smoke": false
+      "hardware_smoke": true
     },
     {
       "inventory_id": "hip-windows-7.2.0",
@@ -92321,16 +92342,17 @@
       "inventory_id": "hip-windows-7.2.0",
       "item_kind": "function",
       "item_name": "hipStreamQuery",
-      "classification": "covered_raw_only",
+      "classification": "covered_exact",
       "reason": "hipStreamQuery is emitted in the generated hip raw table as ocgpuHipStreamQuery from the exact hip-windows-7.2.0 item-kind and normalized-signature hash; runtime loading resolves this callable slot.",
       "manifest_ids": [
-        "raw.hip.d7f610ab"
+        "raw.hip.d7f610ab",
+        "stream.query"
       ],
       "implementation_symbols": [
         "ocgpuHipStreamQuery"
       ],
       "runtime_resolvable": true,
-      "hardware_smoke": false
+      "hardware_smoke": true
     },
     {
       "inventory_id": "hip-windows-7.2.0",
@@ -92412,16 +92434,17 @@
       "inventory_id": "hip-windows-7.2.0",
       "item_kind": "function",
       "item_name": "hipStreamWaitEvent",
-      "classification": "covered_raw_only",
+      "classification": "covered_exact",
       "reason": "hipStreamWaitEvent is emitted in the generated hip raw table as ocgpuHipStreamWaitEvent from the exact hip-windows-7.2.0 item-kind and normalized-signature hash; runtime loading resolves this callable slot.",
       "manifest_ids": [
-        "raw.hip.d11383a0"
+        "raw.hip.d11383a0",
+        "stream.wait_event"
       ],
       "implementation_symbols": [
         "ocgpuHipStreamWaitEvent"
       ],
       "runtime_resolvable": true,
-      "hardware_smoke": false
+      "hardware_smoke": true
     },
     {
       "inventory_id": "hip-windows-7.2.0",
@@ -108318,31 +108341,33 @@
       "inventory_id": "rocmrc-0.5.0",
       "item_kind": "function",
       "item_name": "hipEventElapsedTime",
-      "classification": "covered_raw_only",
+      "classification": "covered_exact",
       "reason": "hipEventElapsedTime is emitted in the generated hip raw table as ocgpuHipEventElapsedTime from the exact rocmrc-0.5.0 item-kind and normalized-signature hash; runtime loading resolves this callable slot.",
       "manifest_ids": [
+        "event.elapsed_time",
         "raw.hip.d27b48dc"
       ],
       "implementation_symbols": [
         "ocgpuHipEventElapsedTime"
       ],
       "runtime_resolvable": true,
-      "hardware_smoke": false
+      "hardware_smoke": true
     },
     {
       "inventory_id": "rocmrc-0.5.0",
       "item_kind": "function",
       "item_name": "hipEventQuery",
-      "classification": "covered_raw_only",
+      "classification": "covered_exact",
       "reason": "hipEventQuery is emitted in the generated hip raw table as ocgpuHipEventQuery from the exact rocmrc-0.5.0 item-kind and normalized-signature hash; runtime loading resolves this callable slot.",
       "manifest_ids": [
+        "event.query",
         "raw.hip.db3f4fdd"
       ],
       "implementation_symbols": [
         "ocgpuHipEventQuery"
       ],
       "runtime_resolvable": true,
-      "hardware_smoke": false
+      "hardware_smoke": true
     },
     {
       "inventory_id": "rocmrc-0.5.0",
@@ -111309,16 +111334,17 @@
       "inventory_id": "rocmrc-0.5.0",
       "item_kind": "function",
       "item_name": "hipMemGetInfo",
-      "classification": "covered_raw_only",
+      "classification": "covered_exact",
       "reason": "hipMemGetInfo is emitted in the generated hip raw table as ocgpuHipMemGetInfo from the exact rocmrc-0.5.0 item-kind and normalized-signature hash; runtime loading resolves this callable slot.",
       "manifest_ids": [
+        "memory.get_info",
         "raw.hip.d128e2da"
       ],
       "implementation_symbols": [
         "ocgpuHipMemGetInfo"
       ],
       "runtime_resolvable": true,
-      "hardware_smoke": false
+      "hardware_smoke": true
     },
     {
       "inventory_id": "rocmrc-0.5.0",
@@ -112104,16 +112130,17 @@
       "inventory_id": "rocmrc-0.5.0",
       "item_kind": "function",
       "item_name": "hipMemcpyDtoD",
-      "classification": "covered_raw_only",
+      "classification": "covered_adapter",
       "reason": "hipMemcpyDtoD is emitted in the generated hip raw table as ocgpuHipMemcpyDtoD from the exact rocmrc-0.5.0 item-kind and normalized-signature hash; runtime loading resolves this callable slot.",
       "manifest_ids": [
+        "memory.copy_dtod",
         "raw.hip.de60c60f"
       ],
       "implementation_symbols": [
         "ocgpuHipMemcpyDtoD"
       ],
       "runtime_resolvable": true,
-      "hardware_smoke": false
+      "hardware_smoke": true
     },
     {
       "inventory_id": "rocmrc-0.5.0",
@@ -113777,16 +113804,17 @@
       "inventory_id": "rocmrc-0.5.0",
       "item_kind": "function",
       "item_name": "hipStreamQuery",
-      "classification": "covered_raw_only",
+      "classification": "covered_exact",
       "reason": "hipStreamQuery is emitted in the generated hip raw table as ocgpuHipStreamQuery from the exact rocmrc-0.5.0 item-kind and normalized-signature hash; runtime loading resolves this callable slot.",
       "manifest_ids": [
-        "raw.hip.d7f610ab"
+        "raw.hip.d7f610ab",
+        "stream.query"
       ],
       "implementation_symbols": [
         "ocgpuHipStreamQuery"
       ],
       "runtime_resolvable": true,
-      "hardware_smoke": false
+      "hardware_smoke": true
     },
     {
       "inventory_id": "rocmrc-0.5.0",
@@ -113868,16 +113896,17 @@
       "inventory_id": "rocmrc-0.5.0",
       "item_kind": "function",
       "item_name": "hipStreamWaitEvent",
-      "classification": "covered_raw_only",
+      "classification": "covered_exact",
       "reason": "hipStreamWaitEvent is emitted in the generated hip raw table as ocgpuHipStreamWaitEvent from the exact rocmrc-0.5.0 item-kind and normalized-signature hash; runtime loading resolves this callable slot.",
       "manifest_ids": [
-        "raw.hip.d11383a0"
+        "raw.hip.d11383a0",
+        "stream.wait_event"
       ],
       "implementation_symbols": [
         "ocgpuHipStreamWaitEvent"
       ],
       "runtime_resolvable": true,
-      "hardware_smoke": false
+      "hardware_smoke": true
     },
     {
       "inventory_id": "rocmrc-0.5.0",

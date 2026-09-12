@@ -303,6 +303,66 @@
                                                                   "x86_64-pc-windows-msvc",
                                                                   "x86_64-unknown-linux-gnu"
                                                               ]
+                                            },
+                                            {
+                                                "name":  "hipMemGetInfo",
+                                                "normalized_signature":  "fn hipMemGetInfo[abi=C](free:size_t*:mut:out:nullable=unknown,total:size_t*:mut:out:nullable=unknown)-\u003ehipError_t",
+                                                "signature_hash":  "sha256:e79b50a81795ceed010362fd86e7627ef448800febfc3c3f918c2232d2aadf56",
+                                                "platforms":  [
+                                                                  "aarch64-unknown-linux-gnu",
+                                                                  "x86_64-pc-windows-msvc",
+                                                                  "x86_64-unknown-linux-gnu"
+                                                              ]
+                                            },
+                                            {
+                                                "name":  "hipMemcpyDtoD",
+                                                "normalized_signature":  "fn hipMemcpyDtoD[abi=C](dst:hipdeviceptr_t:mut:in:nullable=unknown,src:hipdeviceptr_t:mut:in:nullable=unknown,sizebytes:size_t:value:in:nullable=false)-\u003ehipError_t",
+                                                "signature_hash":  "sha256:bf2a6736c0e388b5cf8411700ff5f72a871c8e7007adf82bf9b3d447f6f77926",
+                                                "platforms":  [
+                                                                  "aarch64-unknown-linux-gnu",
+                                                                  "x86_64-pc-windows-msvc",
+                                                                  "x86_64-unknown-linux-gnu"
+                                                              ]
+                                            },
+                                            {
+                                                "name":  "hipStreamQuery",
+                                                "normalized_signature":  "fn hipStreamQuery[abi=C](stream:hipstream_t:mut:in:nullable=unknown)-\u003ehipError_t",
+                                                "signature_hash":  "sha256:30604da79100f267f7fddff930a6f89e86c05712a2d66448f8b0a4e1fcb8d919",
+                                                "platforms":  [
+                                                                  "aarch64-unknown-linux-gnu",
+                                                                  "x86_64-pc-windows-msvc",
+                                                                  "x86_64-unknown-linux-gnu"
+                                                              ]
+                                            },
+                                            {
+                                                "name":  "hipStreamWaitEvent",
+                                                "normalized_signature":  "fn hipStreamWaitEvent[abi=C](stream:hipstream_t:mut:in:nullable=unknown,event:hipevent_t:mut:in:nullable=unknown,flags:unsigned int:value:in:nullable=false)-\u003ehipError_t",
+                                                "signature_hash":  "sha256:4d71c9fc8c4044fe370aa6a66b73929fe98430341938af5ccd071ad2facfbef3",
+                                                "platforms":  [
+                                                                  "aarch64-unknown-linux-gnu",
+                                                                  "x86_64-pc-windows-msvc",
+                                                                  "x86_64-unknown-linux-gnu"
+                                                              ]
+                                            },
+                                            {
+                                                "name":  "hipEventQuery",
+                                                "normalized_signature":  "fn hipEventQuery[abi=C](event:hipevent_t:mut:in:nullable=unknown)-\u003ehipError_t",
+                                                "signature_hash":  "sha256:26c8dd67ae9d461611e19177345922a4a4a668bd332f23c3811e7b73c0487e2b",
+                                                "platforms":  [
+                                                                  "aarch64-unknown-linux-gnu",
+                                                                  "x86_64-pc-windows-msvc",
+                                                                  "x86_64-unknown-linux-gnu"
+                                                              ]
+                                            },
+                                            {
+                                                "name":  "hipEventElapsedTime",
+                                                "normalized_signature":  "fn hipEventElapsedTime[abi=C](ms:float*:mut:out:nullable=unknown,start:hipevent_t:mut:in:nullable=unknown,stop:hipevent_t:mut:in:nullable=unknown)-\u003ehipError_t",
+                                                "signature_hash":  "sha256:a64dfb3bbb84c2e8083ea73e4979659d04b4219e375f5f4850a2102436765b2c",
+                                                "platforms":  [
+                                                                  "aarch64-unknown-linux-gnu",
+                                                                  "x86_64-pc-windows-msvc",
+                                                                  "x86_64-unknown-linux-gnu"
+                                                              ]
                                             }
                                         ],
                           "transitive_types":  [
@@ -1055,6 +1115,66 @@
                                                 "name":  "hipMemcpyHtoD",
                                                 "normalized_signature":  "fn hipMemcpyHtoD[abi=C](dst:hipdeviceptr_t:mut:in:nullable=unknown,src:void*:mut:in:nullable=unknown,sizebytes:size_t:value:in:nullable=false)-\u003ehipError_t",
                                                 "signature_hash":  "sha256:c8c4b30955f248b45d00bc89899e7d853525cb902c70b3e79859f2696268cfb9",
+                                                "platforms":  [
+                                                                  "aarch64-unknown-linux-gnu",
+                                                                  "x86_64-pc-windows-msvc",
+                                                                  "x86_64-unknown-linux-gnu"
+                                                              ]
+                                            },
+                                            {
+                                                "name":  "hipMemGetInfo",
+                                                "normalized_signature":  "fn hipMemGetInfo[abi=C](free:size_t*:mut:out:nullable=unknown,total:size_t*:mut:out:nullable=unknown)-\u003ehipError_t",
+                                                "signature_hash":  "sha256:e79b50a81795ceed010362fd86e7627ef448800febfc3c3f918c2232d2aadf56",
+                                                "platforms":  [
+                                                                  "aarch64-unknown-linux-gnu",
+                                                                  "x86_64-pc-windows-msvc",
+                                                                  "x86_64-unknown-linux-gnu"
+                                                              ]
+                                            },
+                                            {
+                                                "name":  "hipMemcpyDtoD",
+                                                "normalized_signature":  "fn hipMemcpyDtoD[abi=C](dst:hipdeviceptr_t:mut:in:nullable=unknown,src:hipdeviceptr_t:mut:in:nullable=unknown,sizebytes:size_t:value:in:nullable=false)-\u003ehipError_t",
+                                                "signature_hash":  "sha256:bf2a6736c0e388b5cf8411700ff5f72a871c8e7007adf82bf9b3d447f6f77926",
+                                                "platforms":  [
+                                                                  "aarch64-unknown-linux-gnu",
+                                                                  "x86_64-pc-windows-msvc",
+                                                                  "x86_64-unknown-linux-gnu"
+                                                              ]
+                                            },
+                                            {
+                                                "name":  "hipStreamQuery",
+                                                "normalized_signature":  "fn hipStreamQuery[abi=C](stream:hipstream_t:mut:in:nullable=unknown)-\u003ehipError_t",
+                                                "signature_hash":  "sha256:30604da79100f267f7fddff930a6f89e86c05712a2d66448f8b0a4e1fcb8d919",
+                                                "platforms":  [
+                                                                  "aarch64-unknown-linux-gnu",
+                                                                  "x86_64-pc-windows-msvc",
+                                                                  "x86_64-unknown-linux-gnu"
+                                                              ]
+                                            },
+                                            {
+                                                "name":  "hipStreamWaitEvent",
+                                                "normalized_signature":  "fn hipStreamWaitEvent[abi=C](stream:hipstream_t:mut:in:nullable=unknown,event:hipevent_t:mut:in:nullable=unknown,flags:unsigned int:value:in:nullable=false)-\u003ehipError_t",
+                                                "signature_hash":  "sha256:4d71c9fc8c4044fe370aa6a66b73929fe98430341938af5ccd071ad2facfbef3",
+                                                "platforms":  [
+                                                                  "aarch64-unknown-linux-gnu",
+                                                                  "x86_64-pc-windows-msvc",
+                                                                  "x86_64-unknown-linux-gnu"
+                                                              ]
+                                            },
+                                            {
+                                                "name":  "hipEventQuery",
+                                                "normalized_signature":  "fn hipEventQuery[abi=C](event:hipevent_t:mut:in:nullable=unknown)-\u003ehipError_t",
+                                                "signature_hash":  "sha256:26c8dd67ae9d461611e19177345922a4a4a668bd332f23c3811e7b73c0487e2b",
+                                                "platforms":  [
+                                                                  "aarch64-unknown-linux-gnu",
+                                                                  "x86_64-pc-windows-msvc",
+                                                                  "x86_64-unknown-linux-gnu"
+                                                              ]
+                                            },
+                                            {
+                                                "name":  "hipEventElapsedTime",
+                                                "normalized_signature":  "fn hipEventElapsedTime[abi=C](ms:float*:mut:out:nullable=unknown,start:hipevent_t:mut:in:nullable=unknown,stop:hipevent_t:mut:in:nullable=unknown)-\u003ehipError_t",
+                                                "signature_hash":  "sha256:a64dfb3bbb84c2e8083ea73e4979659d04b4219e375f5f4850a2102436765b2c",
                                                 "platforms":  [
                                                                   "aarch64-unknown-linux-gnu",
                                                                   "x86_64-pc-windows-msvc",
@@ -1817,6 +1937,66 @@
                                                                   "x86_64-pc-windows-msvc",
                                                                   "x86_64-unknown-linux-gnu"
                                                               ]
+                                            },
+                                            {
+                                                "name":  "hipMemGetInfo",
+                                                "normalized_signature":  "fn hipMemGetInfo[abi=C](free:size_t*:mut:out:nullable=unknown,total:size_t*:mut:out:nullable=unknown)-\u003ehipError_t",
+                                                "signature_hash":  "sha256:e79b50a81795ceed010362fd86e7627ef448800febfc3c3f918c2232d2aadf56",
+                                                "platforms":  [
+                                                                  "aarch64-unknown-linux-gnu",
+                                                                  "x86_64-pc-windows-msvc",
+                                                                  "x86_64-unknown-linux-gnu"
+                                                              ]
+                                            },
+                                            {
+                                                "name":  "hipMemcpyDtoD",
+                                                "normalized_signature":  "fn hipMemcpyDtoD[abi=C](dst:hipdeviceptr_t:mut:in:nullable=unknown,src:hipdeviceptr_t:mut:in:nullable=unknown,sizebytes:size_t:value:in:nullable=false)-\u003ehipError_t",
+                                                "signature_hash":  "sha256:bf2a6736c0e388b5cf8411700ff5f72a871c8e7007adf82bf9b3d447f6f77926",
+                                                "platforms":  [
+                                                                  "aarch64-unknown-linux-gnu",
+                                                                  "x86_64-pc-windows-msvc",
+                                                                  "x86_64-unknown-linux-gnu"
+                                                              ]
+                                            },
+                                            {
+                                                "name":  "hipStreamQuery",
+                                                "normalized_signature":  "fn hipStreamQuery[abi=C](stream:hipstream_t:mut:in:nullable=unknown)-\u003ehipError_t",
+                                                "signature_hash":  "sha256:30604da79100f267f7fddff930a6f89e86c05712a2d66448f8b0a4e1fcb8d919",
+                                                "platforms":  [
+                                                                  "aarch64-unknown-linux-gnu",
+                                                                  "x86_64-pc-windows-msvc",
+                                                                  "x86_64-unknown-linux-gnu"
+                                                              ]
+                                            },
+                                            {
+                                                "name":  "hipStreamWaitEvent",
+                                                "normalized_signature":  "fn hipStreamWaitEvent[abi=C](stream:hipstream_t:mut:in:nullable=unknown,event:hipevent_t:mut:in:nullable=unknown,flags:unsigned int:value:in:nullable=false)-\u003ehipError_t",
+                                                "signature_hash":  "sha256:4d71c9fc8c4044fe370aa6a66b73929fe98430341938af5ccd071ad2facfbef3",
+                                                "platforms":  [
+                                                                  "aarch64-unknown-linux-gnu",
+                                                                  "x86_64-pc-windows-msvc",
+                                                                  "x86_64-unknown-linux-gnu"
+                                                              ]
+                                            },
+                                            {
+                                                "name":  "hipEventQuery",
+                                                "normalized_signature":  "fn hipEventQuery[abi=C](event:hipevent_t:mut:in:nullable=unknown)-\u003ehipError_t",
+                                                "signature_hash":  "sha256:26c8dd67ae9d461611e19177345922a4a4a668bd332f23c3811e7b73c0487e2b",
+                                                "platforms":  [
+                                                                  "aarch64-unknown-linux-gnu",
+                                                                  "x86_64-pc-windows-msvc",
+                                                                  "x86_64-unknown-linux-gnu"
+                                                              ]
+                                            },
+                                            {
+                                                "name":  "hipEventElapsedTime",
+                                                "normalized_signature":  "fn hipEventElapsedTime[abi=C](ms:float*:mut:out:nullable=unknown,start:hipevent_t:mut:in:nullable=unknown,stop:hipevent_t:mut:in:nullable=unknown)-\u003ehipError_t",
+                                                "signature_hash":  "sha256:a64dfb3bbb84c2e8083ea73e4979659d04b4219e375f5f4850a2102436765b2c",
+                                                "platforms":  [
+                                                                  "aarch64-unknown-linux-gnu",
+                                                                  "x86_64-pc-windows-msvc",
+                                                                  "x86_64-unknown-linux-gnu"
+                                                              ]
                                             }
                                         ],
                           "transitive_types":  [
@@ -2569,6 +2749,66 @@
                                                 "name":  "hipMemcpyHtoD",
                                                 "normalized_signature":  "fn hipMemcpyHtoD[abi=C](dst:hipdeviceptr_t:mut:in:nullable=unknown,src:void*:mut:in:nullable=unknown,sizebytes:size_t:value:in:nullable=false)-\u003ehipError_t",
                                                 "signature_hash":  "sha256:c8c4b30955f248b45d00bc89899e7d853525cb902c70b3e79859f2696268cfb9",
+                                                "platforms":  [
+                                                                  "aarch64-unknown-linux-gnu",
+                                                                  "x86_64-pc-windows-msvc",
+                                                                  "x86_64-unknown-linux-gnu"
+                                                              ]
+                                            },
+                                            {
+                                                "name":  "hipMemGetInfo",
+                                                "normalized_signature":  "fn hipMemGetInfo[abi=C](free:size_t*:mut:out:nullable=unknown,total:size_t*:mut:out:nullable=unknown)-\u003ehipError_t",
+                                                "signature_hash":  "sha256:e79b50a81795ceed010362fd86e7627ef448800febfc3c3f918c2232d2aadf56",
+                                                "platforms":  [
+                                                                  "aarch64-unknown-linux-gnu",
+                                                                  "x86_64-pc-windows-msvc",
+                                                                  "x86_64-unknown-linux-gnu"
+                                                              ]
+                                            },
+                                            {
+                                                "name":  "hipMemcpyDtoD",
+                                                "normalized_signature":  "fn hipMemcpyDtoD[abi=C](dst:hipdeviceptr_t:mut:in:nullable=unknown,src:hipdeviceptr_t:mut:in:nullable=unknown,sizebytes:size_t:value:in:nullable=false)-\u003ehipError_t",
+                                                "signature_hash":  "sha256:bf2a6736c0e388b5cf8411700ff5f72a871c8e7007adf82bf9b3d447f6f77926",
+                                                "platforms":  [
+                                                                  "aarch64-unknown-linux-gnu",
+                                                                  "x86_64-pc-windows-msvc",
+                                                                  "x86_64-unknown-linux-gnu"
+                                                              ]
+                                            },
+                                            {
+                                                "name":  "hipStreamQuery",
+                                                "normalized_signature":  "fn hipStreamQuery[abi=C](stream:hipstream_t:mut:in:nullable=unknown)-\u003ehipError_t",
+                                                "signature_hash":  "sha256:30604da79100f267f7fddff930a6f89e86c05712a2d66448f8b0a4e1fcb8d919",
+                                                "platforms":  [
+                                                                  "aarch64-unknown-linux-gnu",
+                                                                  "x86_64-pc-windows-msvc",
+                                                                  "x86_64-unknown-linux-gnu"
+                                                              ]
+                                            },
+                                            {
+                                                "name":  "hipStreamWaitEvent",
+                                                "normalized_signature":  "fn hipStreamWaitEvent[abi=C](stream:hipstream_t:mut:in:nullable=unknown,event:hipevent_t:mut:in:nullable=unknown,flags:unsigned int:value:in:nullable=false)-\u003ehipError_t",
+                                                "signature_hash":  "sha256:4d71c9fc8c4044fe370aa6a66b73929fe98430341938af5ccd071ad2facfbef3",
+                                                "platforms":  [
+                                                                  "aarch64-unknown-linux-gnu",
+                                                                  "x86_64-pc-windows-msvc",
+                                                                  "x86_64-unknown-linux-gnu"
+                                                              ]
+                                            },
+                                            {
+                                                "name":  "hipEventQuery",
+                                                "normalized_signature":  "fn hipEventQuery[abi=C](event:hipevent_t:mut:in:nullable=unknown)-\u003ehipError_t",
+                                                "signature_hash":  "sha256:26c8dd67ae9d461611e19177345922a4a4a668bd332f23c3811e7b73c0487e2b",
+                                                "platforms":  [
+                                                                  "aarch64-unknown-linux-gnu",
+                                                                  "x86_64-pc-windows-msvc",
+                                                                  "x86_64-unknown-linux-gnu"
+                                                              ]
+                                            },
+                                            {
+                                                "name":  "hipEventElapsedTime",
+                                                "normalized_signature":  "fn hipEventElapsedTime[abi=C](ms:float*:mut:out:nullable=unknown,start:hipevent_t:mut:in:nullable=unknown,stop:hipevent_t:mut:in:nullable=unknown)-\u003ehipError_t",
+                                                "signature_hash":  "sha256:a64dfb3bbb84c2e8083ea73e4979659d04b4219e375f5f4850a2102436765b2c",
                                                 "platforms":  [
                                                                   "aarch64-unknown-linux-gnu",
                                                                   "x86_64-pc-windows-msvc",
@@ -3331,6 +3571,66 @@
                                                                   "x86_64-pc-windows-msvc",
                                                                   "x86_64-unknown-linux-gnu"
                                                               ]
+                                            },
+                                            {
+                                                "name":  "hipMemGetInfo",
+                                                "normalized_signature":  "fn hipMemGetInfo[abi=C](free:size_t*:mut:out:nullable=unknown,total:size_t*:mut:out:nullable=unknown)-\u003ehipError_t",
+                                                "signature_hash":  "sha256:e79b50a81795ceed010362fd86e7627ef448800febfc3c3f918c2232d2aadf56",
+                                                "platforms":  [
+                                                                  "aarch64-unknown-linux-gnu",
+                                                                  "x86_64-pc-windows-msvc",
+                                                                  "x86_64-unknown-linux-gnu"
+                                                              ]
+                                            },
+                                            {
+                                                "name":  "hipMemcpyDtoD",
+                                                "normalized_signature":  "fn hipMemcpyDtoD[abi=C](dst:hipdeviceptr_t:mut:in:nullable=unknown,src:hipdeviceptr_t:mut:in:nullable=unknown,sizebytes:size_t:value:in:nullable=false)-\u003ehipError_t",
+                                                "signature_hash":  "sha256:bf2a6736c0e388b5cf8411700ff5f72a871c8e7007adf82bf9b3d447f6f77926",
+                                                "platforms":  [
+                                                                  "aarch64-unknown-linux-gnu",
+                                                                  "x86_64-pc-windows-msvc",
+                                                                  "x86_64-unknown-linux-gnu"
+                                                              ]
+                                            },
+                                            {
+                                                "name":  "hipStreamQuery",
+                                                "normalized_signature":  "fn hipStreamQuery[abi=C](stream:hipstream_t:mut:in:nullable=unknown)-\u003ehipError_t",
+                                                "signature_hash":  "sha256:30604da79100f267f7fddff930a6f89e86c05712a2d66448f8b0a4e1fcb8d919",
+                                                "platforms":  [
+                                                                  "aarch64-unknown-linux-gnu",
+                                                                  "x86_64-pc-windows-msvc",
+                                                                  "x86_64-unknown-linux-gnu"
+                                                              ]
+                                            },
+                                            {
+                                                "name":  "hipStreamWaitEvent",
+                                                "normalized_signature":  "fn hipStreamWaitEvent[abi=C](stream:hipstream_t:mut:in:nullable=unknown,event:hipevent_t:mut:in:nullable=unknown,flags:unsigned int:value:in:nullable=false)-\u003ehipError_t",
+                                                "signature_hash":  "sha256:4d71c9fc8c4044fe370aa6a66b73929fe98430341938af5ccd071ad2facfbef3",
+                                                "platforms":  [
+                                                                  "aarch64-unknown-linux-gnu",
+                                                                  "x86_64-pc-windows-msvc",
+                                                                  "x86_64-unknown-linux-gnu"
+                                                              ]
+                                            },
+                                            {
+                                                "name":  "hipEventQuery",
+                                                "normalized_signature":  "fn hipEventQuery[abi=C](event:hipevent_t:mut:in:nullable=unknown)-\u003ehipError_t",
+                                                "signature_hash":  "sha256:26c8dd67ae9d461611e19177345922a4a4a668bd332f23c3811e7b73c0487e2b",
+                                                "platforms":  [
+                                                                  "aarch64-unknown-linux-gnu",
+                                                                  "x86_64-pc-windows-msvc",
+                                                                  "x86_64-unknown-linux-gnu"
+                                                              ]
+                                            },
+                                            {
+                                                "name":  "hipEventElapsedTime",
+                                                "normalized_signature":  "fn hipEventElapsedTime[abi=C](ms:float*:mut:out:nullable=unknown,start:hipevent_t:mut:in:nullable=unknown,stop:hipevent_t:mut:in:nullable=unknown)-\u003ehipError_t",
+                                                "signature_hash":  "sha256:a64dfb3bbb84c2e8083ea73e4979659d04b4219e375f5f4850a2102436765b2c",
+                                                "platforms":  [
+                                                                  "aarch64-unknown-linux-gnu",
+                                                                  "x86_64-pc-windows-msvc",
+                                                                  "x86_64-unknown-linux-gnu"
+                                                              ]
                                             }
                                         ],
                           "transitive_types":  [
@@ -4088,6 +4388,66 @@
                                                                   "x86_64-pc-windows-msvc",
                                                                   "x86_64-unknown-linux-gnu"
                                                               ]
+                                            },
+                                            {
+                                                "name":  "hipMemGetInfo",
+                                                "normalized_signature":  "fn hipMemGetInfo[abi=C](free:size_t*:mut:out:nullable=unknown,total:size_t*:mut:out:nullable=unknown)-\u003ehipError_t",
+                                                "signature_hash":  "sha256:e79b50a81795ceed010362fd86e7627ef448800febfc3c3f918c2232d2aadf56",
+                                                "platforms":  [
+                                                                  "aarch64-unknown-linux-gnu",
+                                                                  "x86_64-pc-windows-msvc",
+                                                                  "x86_64-unknown-linux-gnu"
+                                                              ]
+                                            },
+                                            {
+                                                "name":  "hipMemcpyDtoD",
+                                                "normalized_signature":  "fn hipMemcpyDtoD[abi=C](dst:hipdeviceptr_t:mut:in:nullable=unknown,src:hipdeviceptr_t:mut:in:nullable=unknown,sizebytes:size_t:value:in:nullable=false)-\u003ehipError_t",
+                                                "signature_hash":  "sha256:bf2a6736c0e388b5cf8411700ff5f72a871c8e7007adf82bf9b3d447f6f77926",
+                                                "platforms":  [
+                                                                  "aarch64-unknown-linux-gnu",
+                                                                  "x86_64-pc-windows-msvc",
+                                                                  "x86_64-unknown-linux-gnu"
+                                                              ]
+                                            },
+                                            {
+                                                "name":  "hipStreamQuery",
+                                                "normalized_signature":  "fn hipStreamQuery[abi=C](stream:hipstream_t:mut:in:nullable=unknown)-\u003ehipError_t",
+                                                "signature_hash":  "sha256:30604da79100f267f7fddff930a6f89e86c05712a2d66448f8b0a4e1fcb8d919",
+                                                "platforms":  [
+                                                                  "aarch64-unknown-linux-gnu",
+                                                                  "x86_64-pc-windows-msvc",
+                                                                  "x86_64-unknown-linux-gnu"
+                                                              ]
+                                            },
+                                            {
+                                                "name":  "hipStreamWaitEvent",
+                                                "normalized_signature":  "fn hipStreamWaitEvent[abi=C](stream:hipstream_t:mut:in:nullable=unknown,event:hipevent_t:mut:in:nullable=unknown,flags:unsigned int:value:in:nullable=false)-\u003ehipError_t",
+                                                "signature_hash":  "sha256:4d71c9fc8c4044fe370aa6a66b73929fe98430341938af5ccd071ad2facfbef3",
+                                                "platforms":  [
+                                                                  "aarch64-unknown-linux-gnu",
+                                                                  "x86_64-pc-windows-msvc",
+                                                                  "x86_64-unknown-linux-gnu"
+                                                              ]
+                                            },
+                                            {
+                                                "name":  "hipEventQuery",
+                                                "normalized_signature":  "fn hipEventQuery[abi=C](event:hipevent_t:mut:in:nullable=unknown)-\u003ehipError_t",
+                                                "signature_hash":  "sha256:26c8dd67ae9d461611e19177345922a4a4a668bd332f23c3811e7b73c0487e2b",
+                                                "platforms":  [
+                                                                  "aarch64-unknown-linux-gnu",
+                                                                  "x86_64-pc-windows-msvc",
+                                                                  "x86_64-unknown-linux-gnu"
+                                                              ]
+                                            },
+                                            {
+                                                "name":  "hipEventElapsedTime",
+                                                "normalized_signature":  "fn hipEventElapsedTime[abi=C](ms:float*:mut:out:nullable=unknown,start:hipevent_t:mut:in:nullable=unknown,stop:hipevent_t:mut:in:nullable=unknown)-\u003ehipError_t",
+                                                "signature_hash":  "sha256:a64dfb3bbb84c2e8083ea73e4979659d04b4219e375f5f4850a2102436765b2c",
+                                                "platforms":  [
+                                                                  "aarch64-unknown-linux-gnu",
+                                                                  "x86_64-pc-windows-msvc",
+                                                                  "x86_64-unknown-linux-gnu"
+                                                              ]
                                             }
                                         ],
                           "transitive_types":  [
@@ -4813,6 +5173,60 @@
                                                 "name":  "hipMemcpyHtoD",
                                                 "normalized_signature":  "fn hipMemcpyHtoD[abi=C](dst:hipdeviceptr_t:mut:in:nullable=unknown,src:const void*:const:in:nullable=unknown,sizebytes:size_t:value:in:nullable=false)-\u003ehipError_t",
                                                 "signature_hash":  "sha256:723df21271bdca7810cef614dcde20639ed6610392f169a165f00e15f7dec103",
+                                                "platforms":  [
+                                                                  "aarch64-unknown-linux-gnu",
+                                                                  "x86_64-unknown-linux-gnu"
+                                                              ]
+                                            },
+                                            {
+                                                "name":  "hipMemGetInfo",
+                                                "normalized_signature":  "fn hipMemGetInfo[abi=C](free:size_t*:mut:out:nullable=unknown,total:size_t*:mut:out:nullable=unknown)-\u003ehipError_t",
+                                                "signature_hash":  "sha256:e79b50a81795ceed010362fd86e7627ef448800febfc3c3f918c2232d2aadf56",
+                                                "platforms":  [
+                                                                  "aarch64-unknown-linux-gnu",
+                                                                  "x86_64-unknown-linux-gnu"
+                                                              ]
+                                            },
+                                            {
+                                                "name":  "hipMemcpyDtoD",
+                                                "normalized_signature":  "fn hipMemcpyDtoD[abi=C](dst:hipdeviceptr_t:mut:in:nullable=unknown,src:hipdeviceptr_t:mut:in:nullable=unknown,sizebytes:size_t:value:in:nullable=false)-\u003ehipError_t",
+                                                "signature_hash":  "sha256:bf2a6736c0e388b5cf8411700ff5f72a871c8e7007adf82bf9b3d447f6f77926",
+                                                "platforms":  [
+                                                                  "aarch64-unknown-linux-gnu",
+                                                                  "x86_64-unknown-linux-gnu"
+                                                              ]
+                                            },
+                                            {
+                                                "name":  "hipStreamQuery",
+                                                "normalized_signature":  "fn hipStreamQuery[abi=C](stream:hipstream_t:mut:in:nullable=unknown)-\u003ehipError_t",
+                                                "signature_hash":  "sha256:30604da79100f267f7fddff930a6f89e86c05712a2d66448f8b0a4e1fcb8d919",
+                                                "platforms":  [
+                                                                  "aarch64-unknown-linux-gnu",
+                                                                  "x86_64-unknown-linux-gnu"
+                                                              ]
+                                            },
+                                            {
+                                                "name":  "hipStreamWaitEvent",
+                                                "normalized_signature":  "fn hipStreamWaitEvent[abi=C](stream:hipstream_t:mut:in:nullable=unknown,event:hipevent_t:mut:in:nullable=unknown,flags:unsigned int:value:in:nullable=false)-\u003ehipError_t",
+                                                "signature_hash":  "sha256:4d71c9fc8c4044fe370aa6a66b73929fe98430341938af5ccd071ad2facfbef3",
+                                                "platforms":  [
+                                                                  "aarch64-unknown-linux-gnu",
+                                                                  "x86_64-unknown-linux-gnu"
+                                                              ]
+                                            },
+                                            {
+                                                "name":  "hipEventQuery",
+                                                "normalized_signature":  "fn hipEventQuery[abi=C](event:hipevent_t:mut:in:nullable=unknown)-\u003ehipError_t",
+                                                "signature_hash":  "sha256:26c8dd67ae9d461611e19177345922a4a4a668bd332f23c3811e7b73c0487e2b",
+                                                "platforms":  [
+                                                                  "aarch64-unknown-linux-gnu",
+                                                                  "x86_64-unknown-linux-gnu"
+                                                              ]
+                                            },
+                                            {
+                                                "name":  "hipEventElapsedTime",
+                                                "normalized_signature":  "fn hipEventElapsedTime[abi=C](ms:float*:mut:out:nullable=unknown,start:hipevent_t:mut:in:nullable=unknown,stop:hipevent_t:mut:in:nullable=unknown)-\u003ehipError_t",
+                                                "signature_hash":  "sha256:a64dfb3bbb84c2e8083ea73e4979659d04b4219e375f5f4850a2102436765b2c",
                                                 "platforms":  [
                                                                   "aarch64-unknown-linux-gnu",
                                                                   "x86_64-unknown-linux-gnu"

@@ -460,6 +460,29 @@ fn map_hip_error(error: ocgpu_hip::Error) -> Error {
     }
 }
 
+fn optional<T>(function: Option<T>, operation: &'static str) -> Result<T> {
+    function.ok_or(Error::Api {
+        operation,
+        result: sys::OCGPU_ERROR_SYMBOL_UNAVAILABLE,
+    })
+}
+
+fn query_result(
+    backend: BackendKind,
+    operation: &'static str,
+    result: sys::ocgpuResult,
+) -> Result<bool> {
+    let not_ready = match backend {
+        BackendKind::Cuda => sys::OCGPU_CUDA_CUDA_ERROR_NOT_READY,
+        BackendKind::Hip => sys::OCGPU_HIP_hipErrorNotReady,
+    };
+    if result == not_ready {
+        Ok(false)
+    } else {
+        check(operation, result).map(|()| true)
+    }
+}
+
 #[derive(Clone, Copy)]
 struct CoreFns {
     init: sys::ocgpuInitFn,
@@ -488,6 +511,12 @@ struct CoreFns {
     module_unload: sys::ocgpuModuleUnloadFn,
     module_get_function: sys::ocgpuModuleGetFunctionFn,
     launch_kernel: sys::ocgpuLaunchKernelFn,
+    mem_get_info: Option<sys::ocgpuMemGetInfoFn>,
+    memcpy_dtod: Option<sys::ocgpuMemcpyDtoDFn>,
+    stream_query: Option<sys::ocgpuStreamQueryFn>,
+    stream_wait_event: Option<sys::ocgpuStreamWaitEventFn>,
+    event_query: Option<sys::ocgpuEventQueryFn>,
+    event_elapsed_time: Option<sys::ocgpuEventElapsedTimeFn>,
 }
 
 impl CoreFns {
@@ -527,6 +556,12 @@ impl CoreFns {
             module_unload: required!(ocgpuModuleUnload),
             module_get_function: required!(ocgpuModuleGetFunction),
             launch_kernel: required!(ocgpuLaunchKernel),
+            mem_get_info: table.ocgpuMemGetInfo,
+            memcpy_dtod: table.ocgpuMemcpyDtoD,
+            stream_query: table.ocgpuStreamQuery,
+            stream_wait_event: table.ocgpuStreamWaitEvent,
+            event_query: table.ocgpuEventQuery,
+            event_elapsed_time: table.ocgpuEventElapsedTime,
         })
     }
 }
@@ -1132,6 +1167,19 @@ impl<'driver, B: Backend> Context<'driver, B> {
         })
     }
 
+    /// Returns free and total device memory in bytes for this context.
+    /// Returns symbol-unavailable when the runtime profile lacks this extension.
+    pub fn memory_info(&self) -> Result<(usize, usize)> {
+        let call = optional(self.driver.core.mem_get_info, "ocgpuMemGetInfo")?;
+        self.make_current()?;
+        let (mut free, mut total) = (0, 0);
+        // SAFETY: outputs are writable and this context is current.
+        check("ocgpuMemGetInfo", unsafe {
+            call(&raw mut free, &raw mut total)
+        })?;
+        Ok((free, total))
+    }
+
     /// Allocates device memory owned by this context.
     pub fn allocate(&self, bytes: usize) -> Result<DeviceMemory<'_, 'driver, B>> {
         if bytes == 0 {
@@ -1285,6 +1333,31 @@ impl<B: Backend> DeviceMemory<'_, '_, B> {
         })
     }
 
+    /// Copies the complete source allocation into this allocation at offset zero.
+    /// Both allocations must belong to the same context.
+    pub fn copy_from_device(&self, source: &Self) -> Result<()> {
+        if !ptr::eq(self.context, source.context) {
+            return Err(Error::InvalidArgument(
+                "device allocations belong to different contexts",
+            ));
+        }
+        if source.bytes > self.bytes {
+            return Err(Error::InvalidArgument(
+                "device source exceeds destination allocation",
+            ));
+        }
+        if self.raw == source.raw {
+            return Ok(());
+        }
+        let call = optional(self.context.driver.core.memcpy_dtod, "ocgpuMemcpyDtoD")?;
+        self.context.make_current()?;
+        // SAFETY: both live non-overlapping allocations have the same current
+        // context and the destination bounds cover the entire source.
+        check("ocgpuMemcpyDtoD", unsafe {
+            call(self.raw, source.raw, source.bytes)
+        })
+    }
+
     /// Copies bytes from this allocation at offset zero into a host slice.
     pub fn copy_to(&self, destination: &mut [u8]) -> Result<()> {
         if destination.len() > self.bytes {
@@ -1333,6 +1406,32 @@ impl<B: Backend> Stream<'_, '_, B> {
         self.raw
     }
 
+    /// Reports whether all preceding work in this stream has completed.
+    pub fn query(&self) -> Result<bool> {
+        let call = optional(self.context.driver.core.stream_query, "ocgpuStreamQuery")?;
+        self.context.make_current()?;
+        // SAFETY: the stream is live and its context is current.
+        query_result(B::KIND, "ocgpuStreamQuery", unsafe { call(self.raw) })
+    }
+
+    /// Makes future stream work wait for the most recent record of this event.
+    pub fn wait_event(&self, event: &Event<'_, '_, B>) -> Result<()> {
+        if !ptr::eq(self.context, event.context) {
+            return Err(Error::InvalidArgument(
+                "event and stream belong to different contexts",
+            ));
+        }
+        let call = optional(
+            self.context.driver.core.stream_wait_event,
+            "ocgpuStreamWaitEvent",
+        )?;
+        self.context.make_current()?;
+        // SAFETY: both handles are live in this context; zero is the portable flag.
+        check("ocgpuStreamWaitEvent", unsafe {
+            call(self.raw, event.raw, 0)
+        })
+    }
+
     /// Waits for all preceding work in this stream.
     pub fn synchronize(&self) -> Result<()> {
         self.context.make_current()?;
@@ -1378,6 +1477,35 @@ impl<'context, 'driver, B: Backend> Event<'context, 'driver, B> {
         check("ocgpuEventRecord", unsafe {
             (self.context.driver.core.event_record)(self.raw, stream.raw)
         })
+    }
+
+    /// Reports whether the event has completed without waiting.
+    pub fn query(&self) -> Result<bool> {
+        let call = optional(self.context.driver.core.event_query, "ocgpuEventQuery")?;
+        self.context.make_current()?;
+        // SAFETY: the event is live and its context is current.
+        query_result(B::KIND, "ocgpuEventQuery", unsafe { call(self.raw) })
+    }
+
+    /// Returns elapsed milliseconds from this event to `end`.
+    /// Both events must have completed and have timing enabled.
+    pub fn elapsed_time(&self, end: &Self) -> Result<f32> {
+        if !ptr::eq(self.context, end.context) {
+            return Err(Error::InvalidArgument(
+                "events belong to different contexts",
+            ));
+        }
+        let call = optional(
+            self.context.driver.core.event_elapsed_time,
+            "ocgpuEventElapsedTime",
+        )?;
+        self.context.make_current()?;
+        let mut milliseconds = 0.0;
+        // SAFETY: output is writable and the live events belong to this context.
+        check("ocgpuEventElapsedTime", unsafe {
+            call(&raw mut milliseconds, self.raw, end.raw)
+        })?;
+        Ok(milliseconds)
     }
 
     /// Waits until the event has completed.
@@ -2036,6 +2164,8 @@ mod mock_backend_tests {
     static MODULE_DROPS: AtomicUsize = AtomicUsize::new(0);
     static LAUNCHES: AtomicUsize = AtomicUsize::new(0);
     static TEST_LOCK: Mutex<()> = Mutex::new(());
+    static QUERY_STATUS: std::sync::atomic::AtomicI32 = std::sync::atomic::AtomicI32::new(0);
+    static EXTENSION_CALLS: AtomicUsize = AtomicUsize::new(0);
 
     impl sealed::Sealed for Mock {}
 
@@ -2087,6 +2217,7 @@ mod mock_backend_tests {
                 ocgpuModuleUnload: Some(module_unload),
                 ocgpuModuleGetFunction: Some(module_get_function),
                 ocgpuLaunchKernel: Some(launch_kernel),
+                ..sys::ocgpuApi_v1::default()
             }
         }
     }
@@ -2460,6 +2591,150 @@ mod mock_backend_tests {
         let memory = context.allocate(4).expect("allocation");
         assert!(memory.copy_from(&[0; 5]).is_err());
         assert!(memory.copy_to(&mut [0; 5]).is_err());
+    }
+
+    unsafe extern "C" fn memory_info(free: *mut usize, total: *mut usize) -> sys::ocgpuResult {
+        // SAFETY: the safe wrapper supplies separate writable outputs.
+        unsafe {
+            free.write(128);
+            total.write(256);
+        }
+        sys::OCGPU_SUCCESS
+    }
+
+    unsafe extern "C" fn query_stream(_: sys::ocgpuStream) -> sys::ocgpuResult {
+        QUERY_STATUS.load(Ordering::SeqCst)
+    }
+
+    unsafe extern "C" fn query_event(_: sys::ocgpuEvent) -> sys::ocgpuResult {
+        QUERY_STATUS.load(Ordering::SeqCst)
+    }
+
+    unsafe extern "C" fn wait_event(
+        stream: sys::ocgpuStream,
+        event: sys::ocgpuEvent,
+        flags: u32,
+    ) -> sys::ocgpuResult {
+        if stream.is_null() || event.is_null() || flags != 0 {
+            return sys::OCGPU_ERROR_INVALID_ARGUMENT;
+        }
+        EXTENSION_CALLS.fetch_add(1, Ordering::SeqCst);
+        sys::OCGPU_SUCCESS
+    }
+
+    unsafe extern "C" fn elapsed_time(
+        milliseconds: *mut f32,
+        start: sys::ocgpuEvent,
+        end: sys::ocgpuEvent,
+    ) -> sys::ocgpuResult {
+        if start.is_null() || end.is_null() {
+            return sys::OCGPU_ERROR_INVALID_ARGUMENT;
+        }
+        // SAFETY: the safe wrapper supplies writable storage.
+        unsafe {
+            milliseconds.write(1.25);
+        }
+        sys::OCGPU_SUCCESS
+    }
+
+    unsafe extern "C" fn copy_device(
+        destination: sys::ocgpuDeviceptr,
+        source: sys::ocgpuDeviceptr,
+        bytes: usize,
+    ) -> sys::ocgpuResult {
+        if (destination, source, bytes) != (2, 3, 4) {
+            return sys::OCGPU_ERROR_INVALID_ARGUMENT;
+        }
+        EXTENSION_CALLS.fetch_add(1, Ordering::SeqCst);
+        sys::OCGPU_SUCCESS
+    }
+
+    #[test]
+    fn optional_extensions_preserve_status_bounds_and_context_identity() {
+        let _guard = TEST_LOCK.lock().expect("mock test lock");
+        let mut driver = Driver::<Mock>::load().expect("original core works without extensions");
+        driver.core.mem_get_info = Some(memory_info);
+        driver.core.memcpy_dtod = Some(copy_device);
+        driver.core.stream_query = Some(query_stream);
+        driver.core.event_query = Some(query_event);
+        driver.core.stream_wait_event = Some(wait_event);
+        driver.core.event_elapsed_time = Some(elapsed_time);
+        let device = driver.device(0).expect("device");
+        let context = device.create_context(0).expect("context");
+        let other_context = device.create_context(0).expect("other context");
+        let stream = context.create_stream(0).expect("stream");
+        let event = context.create_event(0).expect("event");
+        let other_event = other_context.create_event(0).expect("other event");
+        assert_eq!(context.memory_info().expect("memory info"), (128, 256));
+        QUERY_STATUS.store(0, Ordering::SeqCst);
+        assert!(stream.query().expect("complete stream"));
+        assert!(event.query().expect("complete event"));
+        QUERY_STATUS.store(sys::OCGPU_CUDA_CUDA_ERROR_NOT_READY, Ordering::SeqCst);
+        assert!(!stream.query().expect("pending stream"));
+        assert!(!event.query().expect("pending event"));
+        QUERY_STATUS.store(719, Ordering::SeqCst);
+        assert_eq!(stream.query().expect_err("driver failure").result(), 719);
+        assert_eq!(event.query().expect_err("driver failure").result(), 719);
+        assert_eq!(
+            event.elapsed_time(&event).expect("elapsed").to_bits(),
+            1.25_f32.to_bits()
+        );
+        EXTENSION_CALLS.store(0, Ordering::SeqCst);
+        stream.wait_event(&event).expect("same-context wait");
+        assert!(stream.wait_event(&other_event).is_err());
+        assert!(event.elapsed_time(&other_event).is_err());
+        let destination = super::DeviceMemory {
+            context: &context,
+            raw: 2,
+            bytes: 8,
+        };
+        let source = super::DeviceMemory {
+            context: &context,
+            raw: 3,
+            bytes: 4,
+        };
+        let foreign = super::DeviceMemory {
+            context: &other_context,
+            raw: 4,
+            bytes: 4,
+        };
+        destination.copy_from_device(&source).expect("bounded copy");
+        assert!(source.copy_from_device(&destination).is_err());
+        assert!(destination.copy_from_device(&foreign).is_err());
+        assert_eq!(EXTENSION_CALLS.load(Ordering::SeqCst), 2);
+    }
+
+    #[test]
+    fn missing_extensions_do_not_prevent_loading_the_original_core() {
+        let _guard = TEST_LOCK.lock().expect("mock test lock");
+        let driver = Driver::<Mock>::load().expect("old table remains usable");
+        let device = driver.device(0).expect("device");
+        let context = device.create_context(0).expect("context");
+        let stream = context.create_stream(0).expect("stream");
+        let event = context.create_event(0).expect("event");
+        let destination = super::DeviceMemory {
+            context: &context,
+            raw: 2,
+            bytes: 8,
+        };
+        let source = super::DeviceMemory {
+            context: &context,
+            raw: 3,
+            bytes: 4,
+        };
+        for result in [
+            context.memory_info().map(|_| ()),
+            stream.query().map(|_| ()),
+            event.query().map(|_| ()),
+            stream.wait_event(&event),
+            event.elapsed_time(&event).map(|_| ()),
+            destination.copy_from_device(&source),
+        ] {
+            assert_eq!(
+                result.expect_err("optional function unavailable").result(),
+                sys::OCGPU_ERROR_SYMBOL_UNAVAILABLE
+            );
+        }
     }
 
     #[test]

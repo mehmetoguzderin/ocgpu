@@ -253,11 +253,7 @@ fn classify_entry(
 }
 
 fn common_classifications(generated: &Value) -> BTreeMap<String, Classification> {
-    generated
-        .get("function")
-        .and_then(Value::as_array)
-        .into_iter()
-        .flatten()
+    common_functions(generated)
         .filter_map(|value| {
             let id = value.get("id")?.as_str()?.to_owned();
             let classification = match value.get("classification")?.as_str()? {
@@ -268,6 +264,18 @@ fn common_classifications(generated: &Value) -> BTreeMap<String, Classification>
             Some((id, classification))
         })
         .collect()
+}
+
+fn common_functions(generated: &Value) -> impl Iterator<Item = &Value> {
+    ["function", "common_extension"]
+        .into_iter()
+        .flat_map(|section| {
+            generated
+                .get(section)
+                .and_then(Value::as_array)
+                .into_iter()
+                .flatten()
+        })
 }
 
 fn empty_decision(inventory: &Inventory, entry: &Entry) -> CoverageDecision {
@@ -305,15 +313,21 @@ impl RawRecord {
 
 fn raw_records(generated: &Value) -> BTreeMap<OracleKey, RawRecord> {
     let mut output = BTreeMap::new();
+    let extensions = extension_common_ids(generated);
     for value in generated
         .get("raw_inventory")
         .and_then(Value::as_array)
         .into_iter()
         .flatten()
     {
-        let Some(record) = raw_record(value) else {
+        let Some(mut record) = raw_record(value) else {
             continue;
         };
+        if record.common_id.is_none() {
+            record.common_id = extensions
+                .get(&(record.backend.clone(), record.vendor_name.clone()))
+                .cloned();
+        }
         for variant in value
             .get("oracle_variants")
             .and_then(Value::as_array)
@@ -326,6 +340,30 @@ fn raw_records(generated: &Value) -> BTreeMap<OracleKey, RawRecord> {
         }
     }
     output
+}
+
+fn extension_common_ids(generated: &Value) -> BTreeMap<(String, String), String> {
+    let mut extensions = BTreeMap::new();
+    for function in generated
+        .get("common_extension")
+        .and_then(Value::as_array)
+        .into_iter()
+        .flatten()
+    {
+        let Some(id) = function.get("id").and_then(Value::as_str) else {
+            continue;
+        };
+        for backend in ["cuda", "hip"] {
+            if let Some(symbol) = function
+                .get(backend)
+                .and_then(|mapping| mapping.get("vendor_symbol"))
+                .and_then(Value::as_str)
+            {
+                extensions.insert((backend.to_owned(), symbol.to_owned()), id.to_owned());
+            }
+        }
+    }
+    extensions
 }
 
 fn raw_record(value: &Value) -> Option<RawRecord> {
@@ -365,12 +403,7 @@ struct DispatchRelations {
 
 fn dispatch_relations(generated: &Value) -> DispatchRelations {
     let mut relations = DispatchRelations::default();
-    for function in generated
-        .get("function")
-        .and_then(Value::as_array)
-        .into_iter()
-        .flatten()
-    {
+    for function in common_functions(generated) {
         let Some(common_id) = function.get("id").and_then(Value::as_str) else {
             continue;
         };
@@ -594,13 +627,19 @@ fn is_hardware_profile_common_id(id: &str) -> bool {
             | "memory.free"
             | "memory.copy_htod"
             | "memory.copy_dtoh"
+            | "memory.get_info"
+            | "memory.copy_dtod"
             | "stream.create"
             | "stream.destroy"
             | "stream.synchronize"
+            | "stream.query"
+            | "stream.wait_event"
             | "event.create"
             | "event.destroy"
             | "event.record"
             | "event.synchronize"
+            | "event.query"
+            | "event.elapsed_time"
             | "module.load_data"
             | "module.unload"
             | "module.get_function"
@@ -618,7 +657,10 @@ fn common_success_constant(backend: &str, source_name: &str) -> Option<&'static 
 
 #[cfg(test)]
 mod tests {
-    use super::{dispatch_relations, is_hardware_profile_common_id, parse_item_kind};
+    use super::{
+        common_classifications, dispatch_relations, is_hardware_profile_common_id, parse_item_kind,
+        raw_records,
+    };
     use crate::model::{Classification, ItemKind};
     use serde_json::json;
 
@@ -632,8 +674,49 @@ mod tests {
     #[test]
     fn bounded_hardware_profile_excludes_unexercised_queries() {
         assert!(is_hardware_profile_common_id("launch.kernel"));
+        assert!(is_hardware_profile_common_id("memory.copy_dtod"));
         assert!(!is_hardware_profile_common_id("device.get_attribute"));
         assert!(!is_hardware_profile_common_id("context.get_current"));
+    }
+
+    #[test]
+    fn extensions_join_existing_raw_slots_by_backend_and_oracle_identity() {
+        let generated = json!({
+            "common_extension": [{
+                "id": "memory.copy_dtod", "classification": "adapter",
+                "cuda": { "vendor_symbol": "cuMemcpyDtoD_v2" },
+                "hip": { "vendor_symbol": "hipMemcpyDtoD" }
+            }],
+            "raw_inventory": [{
+                "stable_id": 1, "backend": "hip", "vendor_name": "hipMemcpyDtoD",
+                "raw_name": "ocgpuHipMemcpyDtoD", "classification": "covered_raw_only",
+                "reason": "Reviewed exact source declaration", "emitted": true,
+                "oracle_variants": [{ "oracle_source": "hip-review", "oracle_kind": "function", "oracle_signature_hash": "exact-hash" }]
+            }, {
+                "stable_id": 2, "backend": "cuda", "vendor_name": "hipMemcpyDtoD",
+                "raw_name": "different_backend", "classification": "covered_raw_only",
+                "reason": "Same spelling on a different backend", "emitted": true,
+                "oracle_variants": [{ "oracle_source": "cuda-review", "oracle_kind": "function", "oracle_signature_hash": "other-hash" }]
+            }]
+        });
+        let records = raw_records(&generated);
+        let hip = &records[&(
+            "hip-review".to_owned(),
+            ItemKind::Function,
+            "exact-hash".to_owned(),
+        )];
+        assert_eq!(hip.common_id.as_deref(), Some("memory.copy_dtod"));
+        assert_eq!(hip.raw_name, "ocgpuHipMemcpyDtoD");
+        let cuda = &records[&(
+            "cuda-review".to_owned(),
+            ItemKind::Function,
+            "other-hash".to_owned(),
+        )];
+        assert!(cuda.common_id.is_none());
+        assert_eq!(
+            common_classifications(&generated)["memory.copy_dtod"],
+            Classification::CoveredAdapter
+        );
     }
 
     #[test]

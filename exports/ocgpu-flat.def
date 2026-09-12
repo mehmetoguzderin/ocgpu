@@ -587,6 +587,8 @@ EXPORTS
     ocgpuDriverGetVersion
     ocgpuEventCreate
     ocgpuEventDestroy
+    ocgpuEventElapsedTime
+    ocgpuEventQuery
     ocgpuEventRecord
     ocgpuEventSynchronize
     ocgpuGetApi
@@ -1131,6 +1133,8 @@ EXPORTS
     ocgpuLaunchKernel
     ocgpuMemAlloc
     ocgpuMemFree
+    ocgpuMemGetInfo
+    ocgpuMemcpyDtoD
     ocgpuMemcpyDtoH
     ocgpuMemcpyHtoD
     ocgpuModuleGetFunction
@@ -1140,4 +1144,6 @@ EXPORTS
     ocgpuRtcGetApi
     ocgpuStreamCreate
     ocgpuStreamDestroy
+    ocgpuStreamQuery
     ocgpuStreamSynchronize
+    ocgpuStreamWaitEvent

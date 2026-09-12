@@ -370,9 +370,7 @@ fn rtc_hardware_smoke(root: &Path) -> Result<(), Box<dyn Error>> {
     }
     let mode = env::var("OCGPU_RTC_SMOKE_BACKEND")
         .map_err(|_| "RTC hardware smoke requires explicit OCGPU_RTC_SMOKE_BACKEND")?;
-    if !matches!(mode.as_str(), "cuda" | "hip" | "both") {
-        return Err(format!("unsupported OCGPU_RTC_SMOKE_BACKEND mode {mode:?}").into());
-    }
+    let features = rtc_smoke_features(&mode)?;
     if env::var_os("OCGPU_RTC_COMPILE_ONLY").is_some()
         && env::var("OCGPU_RTC_COMPILE_ONLY").as_deref() != Ok("1")
     {
@@ -385,24 +383,32 @@ fn rtc_hardware_smoke(root: &Path) -> Result<(), Box<dyn Error>> {
     if matches!(mode.as_str(), "hip" | "both") {
         validate_rtc_architecture("OCGPU_HIPRTC_ARCH", "gfx", 3, 12)?;
         validate_optional_absolute_file("OCGPU_HIPRTC_LIBRARY")?;
+        let version = env::var("OCGPU_HIPRTC_CODE_OBJECT_VERSION");
+        match version.as_deref() {
+            Ok("4" | "5" | "6") | Err(env::VarError::NotPresent) => {}
+            _ => {
+                return Err(
+                    "OCGPU_HIPRTC_CODE_OBJECT_VERSION, when set, must equal 4, 5, or 6".into(),
+                );
+            }
+        }
     }
 
     // Cargo compilation stays outside the process watchdog. Runtime source
     // compilation and every driver/GPU operation occur only in the child.
-    cargo(
-        root,
-        &[
-            "test",
-            "-p",
-            "ocgpu",
-            "--test",
-            "rtc_hardware_smoke",
-            "--all-features",
-            "--no-run",
-        ],
-    )?;
-    let executable = integration_test_executable(root, "rtc_hardware_smoke")?;
+    // Build the selected compiler feature independently. Enabling both through
+    // defaults here would conceal broken single-compiler configurations.
+    let executable = integration_test_executable(root, "rtc_hardware_smoke", Some(features))?;
     run_bounded_hardware_child(root, &executable, "rtc-hardware-smoke")
+}
+
+fn rtc_smoke_features(mode: &str) -> Result<&'static str, Box<dyn Error>> {
+    match mode {
+        "cuda" => Ok("nvrtc,explicit-library-path"),
+        "hip" => Ok("hiprtc,explicit-library-path"),
+        "both" => Ok("nvrtc,hiprtc,explicit-library-path"),
+        _ => Err(format!("unsupported OCGPU_RTC_SMOKE_BACKEND mode {mode:?}").into()),
+    }
 }
 
 fn validate_rtc_architecture(
@@ -445,22 +451,28 @@ fn validate_optional_absolute_file(variable: &str) -> Result<(), Box<dyn Error>>
 }
 
 fn hardware_smoke_executable(root: &Path) -> Result<PathBuf, Box<dyn Error>> {
-    integration_test_executable(root, "hardware_smoke")
+    integration_test_executable(root, "hardware_smoke", None)
 }
 
-fn integration_test_executable(root: &Path, test: &str) -> Result<PathBuf, Box<dyn Error>> {
+fn integration_test_build_args<'a>(test: &'a str, features: Option<&'a str>) -> Vec<&'a str> {
+    let mut arguments = vec!["test", "-p", "ocgpu", "--test", test];
+    if let Some(features) = features {
+        arguments.extend(["--no-default-features", "--features", features]);
+    } else {
+        arguments.push("--all-features");
+    }
+    arguments.extend(["--no-run", "--message-format=json"]);
+    arguments
+}
+
+fn integration_test_executable(
+    root: &Path,
+    test: &str,
+    features: Option<&str>,
+) -> Result<PathBuf, Box<dyn Error>> {
     let output = Command::new("cargo")
         .current_dir(root)
-        .args([
-            "test",
-            "-p",
-            "ocgpu",
-            "--test",
-            test,
-            "--all-features",
-            "--no-run",
-            "--message-format=json",
-        ])
+        .args(integration_test_build_args(test, features))
         .stdin(Stdio::null())
         .stderr(Stdio::inherit())
         .output()?;
@@ -649,7 +661,30 @@ fn usage() -> &'static str {
 
 #[cfg(test)]
 mod tests {
-    use super::{decode_json_string, json_string_field};
+    use super::{
+        decode_json_string, integration_test_build_args, json_string_field, rtc_smoke_features,
+    };
+
+    #[test]
+    fn rtc_smoke_builds_each_backend_without_enabling_the_other_through_defaults() {
+        for (mode, expected) in [
+            ("cuda", "nvrtc,explicit-library-path"),
+            ("hip", "hiprtc,explicit-library-path"),
+            ("both", "nvrtc,hiprtc,explicit-library-path"),
+        ] {
+            let features = rtc_smoke_features(mode).expect("supported RTC mode");
+            let arguments = integration_test_build_args("rtc_hardware_smoke", Some(features));
+            assert!(arguments.contains(&"--no-default-features"));
+            assert!(!arguments.contains(&"--all-features"));
+            assert!(
+                arguments
+                    .windows(2)
+                    .any(|pair| pair == ["--features", expected])
+            );
+            assert!(arguments.contains(&"--no-run"));
+        }
+        assert!(rtc_smoke_features("all").is_err());
+    }
 
     #[test]
     fn cargo_json_path_decoder_handles_windows_escaping() {

@@ -62,11 +62,20 @@ impl Backend {
                 "nvrtc64_112_0.dll",
             ],
             #[cfg(target_os = "windows")]
+            // HIPRTC's Windows CMake OUTPUT_NAME pads the HIP major/minor:
+            // ROCm/clr 1949b1621a802ffb1492616adbae6154bfbe64ef,
+            // hipamd/src/hiprtc/CMakeLists.txt (HIP 5.7.1), lines 49-62.
+            // The pinned 5.7 ABI therefore also needs hiprtc0507.dll.
+            // ROCm Core SDK 10.0.0 ships HIPRTC 7.15 (hiprtc0715.dll), retaining
+            // HIP component versioning rather than the SDK release number.
             Self::Hiprtc => &[
+                "hiprtc0715.dll",
+                "hiprtc0714.dll",
                 "hiprtc0702.dll",
                 "hiprtc0604.dll",
                 "hiprtc0602.dll",
                 "hiprtc0601.dll",
+                "hiprtc0507.dll",
                 "hiprtc.dll",
             ],
             #[cfg(target_os = "linux")]
@@ -435,6 +444,12 @@ fn slot(backend: Backend) -> &'static OnceLock<Result<Library, LoadError>> {
 /// Dependencies remain subject to the loaded object's and ELF system loader's
 /// dependency-search policy. Installations outside these sources require the
 /// feature-gated, unsafe `load_from_absolute` override.
+///
+/// Windows reuses already-loaded DLLs when resolving imports by basename.
+/// When combining a HIP 5 display driver with `ROCm` Core SDK 10.0.0 HIPRTC,
+/// load the driver before compiling: the driver imports its own `amd_comgr.dll`,
+/// while HIPRTC can then load its newer sibling by absolute path. Compiling
+/// first can bind the older driver to the compiler's incompatible COMGR.
 pub fn load(backend: Backend) -> Result<&'static Library, LoadError> {
     result_ref(slot(backend).get_or_init(|| open_candidates(backend)))
 }
@@ -447,6 +462,8 @@ pub fn load(backend: Backend) -> Result<&'static Library, LoadError> {
 /// `LD_LIBRARY_PATH`; the absolute top-level target bypasses the caller's
 /// `DT_RPATH` and `DT_RUNPATH`. Dependencies of that target remain subject to
 /// the ELF loader's dependency-search policy and the trust contract below.
+/// Windows dependency reuse still applies; see [`load`] for mixed HIP runtime
+/// and compiler ordering.
 ///
 /// # Safety
 ///
@@ -1598,10 +1615,13 @@ mod tests {
         assert_eq!(
             Backend::Hiprtc.candidates(),
             &[
+                "hiprtc0715.dll",
+                "hiprtc0714.dll",
                 "hiprtc0702.dll",
                 "hiprtc0604.dll",
                 "hiprtc0602.dll",
                 "hiprtc0601.dll",
+                "hiprtc0507.dll",
                 "hiprtc.dll",
             ]
         );

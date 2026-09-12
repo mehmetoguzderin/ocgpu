@@ -4,6 +4,7 @@
 //! ABI, committed coverage data, and precompiled device modules.
 
 mod args;
+mod compilers;
 mod inspect;
 
 use args::{BackendChoice, Command, SymbolFilter};
@@ -21,6 +22,7 @@ ocgpu — SDK-free CUDA/HIP runtime diagnostics
 
 USAGE:
   ocgpu backends [--json]
+  ocgpu compilers [--backend cuda|hip|all] [--json]
   ocgpu devices [--backend cuda|hip|all] [--json]
   ocgpu doctor [--strict] [--json]
   ocgpu symbols --backend cuda|hip [--available|--missing|--all] [--json]
@@ -78,6 +80,7 @@ fn execute(command: Command) -> Result<ExitCode, CliError> {
             Ok(ExitCode::SUCCESS)
         }
         Command::Devices { backend, json } => devices(backend, json),
+        Command::Compilers { backend, json } => compilers::run(backend, json),
         Command::Doctor { strict, json } => doctor(strict, json),
         Command::Symbols {
             backend,

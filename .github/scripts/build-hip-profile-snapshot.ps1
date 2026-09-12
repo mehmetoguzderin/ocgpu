@@ -22,7 +22,7 @@ param(
 $ErrorActionPreference = 'Stop'
 $root = (Resolve-Path (Join-Path $PSScriptRoot '../..')).Path
 $ledger = Get-Content -LiteralPath (Join-Path $root 'oracle/vendor/hip/runtime-profiles.json') -Raw | ConvertFrom-Json
-$commonNames = @($ledger.common_functions.name) + @($ledger.common_adapters.name)
+$commonNames = @($ledger.common_functions.name) + @($ledger.common_adapters.name) + @($ledger.optional_functions.name)
 $typeNames = @(
     'hipError_t',
     'hipDevice_t',
@@ -124,8 +124,9 @@ foreach ($release in $ledger.reviewed_releases) {
                 }
             }
     )
-    if ($functions.Count -ne 27) {
-        throw "$($release.id) produced $($functions.Count) bootstrap/common functions, expected 27"
+    $expectedFunctionCount = 1 + $commonNames.Count
+    if ($functions.Count -ne $expectedFunctionCount) {
+        throw "$($release.id) produced $($functions.Count) bootstrap/common/optional functions, expected $expectedFunctionCount"
     }
     foreach ($function in $functions) {
         Assert-Sequence "$($release.id) function $($function.name) platforms" @($function.platforms) $source.Platforms

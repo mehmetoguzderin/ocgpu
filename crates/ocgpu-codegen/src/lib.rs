@@ -369,12 +369,29 @@ pub struct ApiManifest {
     /// Unified operations and their exact backend counterparts.
     #[serde(rename = "function")]
     pub functions: Vec<FunctionEntry>,
+    /// Optional common operations appended after the original required core.
+    /// Their backend mappings reuse existing raw slots without moving them.
+    #[serde(default, rename = "common_extension")]
+    pub common_extensions: Vec<FunctionEntry>,
     /// Versioned function tables.
     #[serde(rename = "table")]
     pub tables: Vec<TableEntry>,
     /// Exhaustive classification of every pinned Rust-oracle function.
     #[serde(default, rename = "raw_inventory")]
     pub raw_inventory: Vec<RawInventoryEntry>,
+}
+
+impl ApiManifest {
+    fn common_functions(&self) -> impl Iterator<Item = &FunctionEntry> {
+        self.functions.iter().chain(&self.common_extensions)
+    }
+
+    fn table_functions(&self, surface: &str) -> impl Iterator<Item = &FunctionEntry> {
+        let common = surface == "common";
+        self.functions
+            .iter()
+            .chain(self.common_extensions.iter().filter(move |_| common))
+    }
 }
 
 /// Version and provenance metadata.
@@ -919,10 +936,14 @@ struct HipRuntimeProfiles {
     reviewed_releases: Vec<HipReviewedRelease>,
     library_naming_evidence: Vec<HipLibraryNamingEvidence>,
     common_functions: Vec<HipProfileFunction>,
+    #[serde(default)]
+    optional_functions: Vec<HipProfileFunction>,
     common_adapters: Vec<HipCommonAdapter>,
     device_attributes: Vec<HipDeviceAttribute>,
     transitive_abi_facts: Vec<HipAbiFact>,
     semantic_reviews: Vec<HipSemanticReview>,
+    #[serde(default)]
+    optional_semantic_reviews: Vec<HipSemanticReview>,
 }
 
 #[derive(Deserialize)]
@@ -1670,7 +1691,7 @@ fn validate(manifest: &ApiManifest) -> Result<(), Error> {
     let mut logical_ids = BTreeSet::new();
     let mut common_names = BTreeSet::new();
     let mut raw_names = BTreeSet::new();
-    for entry in &manifest.functions {
+    for entry in manifest.common_functions() {
         unique_id(&mut stable_ids, entry.stable_id, &entry.id)?;
         if !logical_ids.insert(entry.id.as_str()) {
             return Err(Error::Validation(format!(
@@ -1699,6 +1720,37 @@ fn validate(manifest: &ApiManifest) -> Result<(), Error> {
         )?;
         validate_backend("cuda", entry, &entry.cuda, &mut raw_names)?;
         validate_backend("hip", entry, &entry.hip, &mut raw_names)?;
+    }
+    for extension in &manifest.common_extensions {
+        for (backend, mapping) in [("cuda", &extension.cuda), ("hip", &extension.hip)] {
+            let raw = manifest
+                .raw_inventory
+                .iter()
+                .find(|raw| raw.backend == backend && raw.vendor_name == mapping.vendor_symbol)
+                .ok_or_else(|| {
+                    Error::Validation(format!(
+                        "{} extension must reuse an existing raw symbol",
+                        extension.id
+                    ))
+                })?;
+            if !raw.emitted
+                || raw.common_id.is_some()
+                || raw.table_order.is_none()
+                || raw.raw_name.as_ref() != Some(&mapping.raw_name)
+                || mapping.dispatch_symbol.is_some()
+                || raw.abi_return_type.as_deref() != Some(mapping.return_type.as_str())
+                || normalized_signature(&mapping.return_type, &mapping.params)
+                    != normalized_signature(
+                        raw.abi_return_type.as_deref().unwrap_or(""),
+                        &raw.abi_params,
+                    )
+            {
+                return Err(Error::Validation(format!(
+                    "{} extension mapping must preserve its existing raw slot and exact declaration",
+                    extension.id
+                )));
+            }
+        }
     }
     for (symbol, parameter, expected_index) in [
         ("hipMemcpyHtoD", "destination", 0_usize),
@@ -2594,7 +2646,7 @@ fn raw_only_entries<'a>(
 
 fn table_field_count(manifest: &ApiManifest, surface: &str) -> usize {
     match surface {
-        "common" => manifest.functions.len(),
+        "common" => manifest.functions.len() + manifest.common_extensions.len(),
         "cuda" | "hip" => manifest.functions.len() + raw_only_entries(manifest, surface).count(),
         _ => 0,
     }
@@ -2791,7 +2843,7 @@ fn render_rust(manifest: &ApiManifest) -> Result<String, Error> {
         }
     }
 
-    for entry in &manifest.functions {
+    for entry in manifest.common_functions() {
         render_fn_alias(
             &mut output,
             &format!("{}Fn", entry.common_name),
@@ -3003,7 +3055,7 @@ fn render_table(
          \t/// Runtime-reported driver version.\n    pub driver_version: i32,\n\
          \t/// Reserved and always zero.\n    pub reserved0: u32,\n",
     );
-    for entry in &manifest.functions {
+    for entry in manifest.table_functions(&table.surface) {
         let (field, return_type, params) = match table.surface.as_str() {
             "common" => (&entry.common_name, &entry.return_type, &entry.params),
             "cuda" => (
@@ -3143,7 +3195,7 @@ fn render_layout_test(manifest: &ApiManifest) -> Result<String, Error> {
             )
             .expect("String write");
         }
-        for entry in &manifest.functions {
+        for entry in manifest.table_functions(&table.surface) {
             let field = match table.surface.as_str() {
                 "common" => &entry.common_name,
                 "cuda" => &entry.cuda.raw_name,
@@ -3462,7 +3514,7 @@ fn table_field_names(manifest: &ApiManifest, surface: &str) -> Result<Vec<String
     .into_iter()
     .map(str::to_owned)
     .collect::<Vec<_>>();
-    for entry in &manifest.functions {
+    for entry in manifest.table_functions(surface) {
         fields.push(match surface {
             "common" => entry.common_name.clone(),
             "cuda" => entry.cuda.raw_name.clone(),
@@ -4029,7 +4081,7 @@ fn render_flat_header(manifest: &ApiManifest) -> String {
         manifest.manifest.raw_missing_void,
         manifest.manifest.raw_missing_aggregate,
     );
-    for function in &manifest.functions {
+    for function in manifest.common_functions() {
         let mut params = vec![("backend", "ocgpuBackend")];
         params.extend(
             function
@@ -4197,8 +4249,7 @@ fn flat_export_names(manifest: &ApiManifest) -> Vec<String> {
         .collect::<Vec<_>>();
     names.extend(
         manifest
-            .functions
-            .iter()
+            .common_functions()
             .map(|entry| entry.common_name.clone()),
     );
     for backend in ["cuda", "hip"] {
@@ -4258,7 +4309,7 @@ fn flat_rust_imports(manifest: &ApiManifest) -> Vec<String> {
             }
         }
     };
-    for function in &manifest.functions {
+    for function in manifest.common_functions() {
         collect(&function.return_type);
         for param in &function.params {
             collect(&param.type_name);
@@ -4387,7 +4438,7 @@ fn render_export_shims(manifest: &ApiManifest) -> String {
         manifest.manifest.raw_panic_result
     )
     .expect("writing to String cannot fail");
-    for function in &manifest.functions {
+    for function in manifest.common_functions() {
         render_common_flat_shim(&mut output, function);
     }
     for backend in ["cuda", "hip"] {
@@ -4710,6 +4761,37 @@ mod tests {
     #[test]
     fn table_layout_hash_changes_when_a_field_is_appended() {
         assert_ne!(table_layout_hash(26), table_layout_hash(27));
+    }
+
+    #[test]
+    fn common_extensions_preserve_every_existing_raw_slot() {
+        let manifest = canonical_manifest();
+        let mut original = manifest.clone();
+        original.common_extensions.clear();
+        for surface in ["cuda", "hip"] {
+            assert_eq!(
+                table_field_names(&manifest, surface).unwrap(),
+                table_field_names(&original, surface).unwrap()
+            );
+            assert_eq!(
+                table_field_count(&manifest, surface),
+                table_field_count(&original, surface)
+            );
+        }
+        let old_common = table_field_names(&original, "common").unwrap();
+        let new_common = table_field_names(&manifest, "common").unwrap();
+        assert_eq!(&new_common[..old_common.len()], old_common.as_slice());
+        assert_eq!(new_common.len(), old_common.len() + 6);
+        let mut invalid = manifest.clone();
+        invalid.common_extensions[0].hip.params[0].type_name = "*mut u32".to_owned();
+        let mapping = &mut invalid.common_extensions[0].hip;
+        mapping.signature_hash = format_hash(signature_hash(&mapping.return_type, &mapping.params));
+        assert!(
+            validate(&invalid)
+                .unwrap_err()
+                .to_string()
+                .contains("preserve its existing raw slot")
+        );
     }
 
     #[test]

@@ -233,6 +233,10 @@ fn validate_hip_runtime_profile_ledger(
         .get("common_adapters")
         .and_then(JsonValue::as_array)
         .map_or(&[][..], Vec::as_slice);
+    let optional = root
+        .get("optional_functions")
+        .and_then(JsonValue::as_array)
+        .map_or(&[][..], Vec::as_slice);
     let attributes = root
         .get("device_attributes")
         .and_then(JsonValue::as_array)
@@ -308,9 +312,26 @@ fn validate_hip_runtime_profile_ledger(
         .get("semantic_reviews")
         .and_then(JsonValue::as_array)
         .map_or(&[][..], Vec::as_slice);
+    let optional_reviews = root
+        .get("optional_semantic_reviews")
+        .and_then(JsonValue::as_array)
+        .map_or(&[][..], Vec::as_slice);
+    let optional_names = optional
+        .iter()
+        .filter_map(|entry| entry.get("name").and_then(JsonValue::as_str))
+        .collect::<BTreeSet<_>>();
+    if optional_names.len() != optional.len() || !optional_names.is_disjoint(&function_names) {
+        errors.push(
+            "HIP optional functions must be unique and disjoint from the required core".to_owned(),
+        );
+    }
+    let all_function_names = function_names
+        .union(&optional_names)
+        .copied()
+        .collect::<BTreeSet<_>>();
     let mut semantic_operations = BTreeSet::new();
     let mut duplicate_semantic_operation = false;
-    for review in semantic_reviews {
+    for review in semantic_reviews.iter().chain(optional_reviews) {
         let operations = review
             .get("operations")
             .and_then(JsonValue::as_array)
@@ -333,10 +354,10 @@ fn validate_hip_runtime_profile_ledger(
     }
     if semantic_reviews.len() != 7
         || duplicate_semantic_operation
-        || semantic_operations != function_names
+        || semantic_operations != all_function_names
     {
         errors.push(
-            "HIP semantic review operation union must equal all 26 common operations exactly"
+            "HIP semantic review operation union must equal the required and optional common operations exactly"
                 .to_owned(),
         );
     }
@@ -371,7 +392,7 @@ fn validate_hip_runtime_profile_ledger(
             }
         }
     }
-    let mut declaration_function_names = function_names
+    let mut declaration_function_names = all_function_names
         .iter()
         .map(|name| (*name).to_owned())
         .collect::<BTreeSet<_>>();
@@ -585,7 +606,7 @@ fn validate_hip_runtime_declarations(
             .filter_map(|entry| entry.get("name").and_then(JsonValue::as_str))
             .map(str::to_owned)
             .collect::<BTreeSet<_>>();
-        if functions.len() != 27 || &function_names != expected_functions {
+        if functions.len() != expected_functions.len() || &function_names != expected_functions {
             errors.push(format!("{id} compact function declaration set is stale"));
         }
         for entry in functions {

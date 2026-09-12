@@ -8911,7 +8911,7 @@ fn layout_ocgpu_hip_stream_mem_op_write_value_params_t_220000b0() {
 #[test]
 #[allow(clippy::too_many_lines)]
 fn layout_ocgpu_api_v1() {
-    assert_eq!(size_of::<ocgpuApi_v1>(), 232);
+    assert_eq!(size_of::<ocgpuApi_v1>(), 280);
     assert_eq!(align_of::<ocgpuApi_v1>(), 8);
     let mut hash = feed(FNV_OFFSET, size_of::<ocgpuApi_v1>());
     hash = feed(hash, align_of::<ocgpuApi_v1>());
@@ -8947,7 +8947,13 @@ fn layout_ocgpu_api_v1() {
     hash = feed(hash, offset_of!(ocgpuApi_v1, ocgpuModuleUnload));
     hash = feed(hash, offset_of!(ocgpuApi_v1, ocgpuModuleGetFunction));
     hash = feed(hash, offset_of!(ocgpuApi_v1, ocgpuLaunchKernel));
-    assert_eq!(hash, 0x61f2_be28_db23_ce39);
+    hash = feed(hash, offset_of!(ocgpuApi_v1, ocgpuMemGetInfo));
+    hash = feed(hash, offset_of!(ocgpuApi_v1, ocgpuMemcpyDtoD));
+    hash = feed(hash, offset_of!(ocgpuApi_v1, ocgpuStreamQuery));
+    hash = feed(hash, offset_of!(ocgpuApi_v1, ocgpuStreamWaitEvent));
+    hash = feed(hash, offset_of!(ocgpuApi_v1, ocgpuEventQuery));
+    hash = feed(hash, offset_of!(ocgpuApi_v1, ocgpuEventElapsedTime));
+    assert_eq!(hash, 0xaa37_060a_c62c_2589);
 }
 
 #[test]

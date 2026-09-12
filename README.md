@@ -51,6 +51,7 @@ backend:
 
 ```sh
 cargo run -p ocgpu-cli -- backends
+cargo run -p ocgpu-cli -- compilers --backend all --json
 cargo run -p ocgpu-cli -- devices --backend all
 cargo run -p ocgpu-cli -- doctor --json
 ```
@@ -169,21 +170,41 @@ NVRTC is not part of `nvcuda.dll`/`libcuda.so.1`; a Windows deployment normally
 needs the matching `nvrtc64_*_0.dll` and `nvrtc-builtins64_*.dll` pair. Windows
 HIPRTC is likewise not supplied by `amdhip64.dll` and needs a compatible
 HIPRTC shared library and its runtime dependency closure. Windows discovery
-uses the reviewed names `hiprtc0702.dll`, `hiprtc0604.dll`, `hiprtc0602.dll`,
-`hiprtc0601.dll`, then the HIP 5.7 `hiprtc.dll` fallback; it never wildcards a
+uses the reviewed names `hiprtc0715.dll`, `hiprtc0714.dll`, `hiprtc0702.dll`, `hiprtc0604.dll`, `hiprtc0602.dll`,
+`hiprtc0601.dll`, `hiprtc0507.dll`, then the unversioned `hiprtc.dll` fallback; it never wildcards a
 vendor directory. These files can be deployed application-locally under their
 vendor terms; no SDK headers, import
 libraries, or compiler executables are used by `ocgpu`. The loader does not
 download or install them and does not silently search an SDK or the current
 working directory.
 
-On the audited development laptop, the CUDA 12.4 Toolkit directory supplies an
-NVRTC DLL pair, but the driver directories do not. No HIPRTC DLL is installed;
-`amdhip64.dll` supplies HIP execution but not the HIPRTC API. Consequently,
-CUDA RTC can be exercised there only by explicitly selecting the trusted pair,
-and HIPRTC availability must not be claimed until a compatible runtime-only
-component is supplied. This does not affect the already independent HIP driver
-execution path.
+Use `ocgpu compilers --backend cuda|hip|all --json` to inspect each runtime
+compiler independently without creating a driver context. It reports the
+selected library, version, or load error. Default discovery deliberately does
+not search SDK directories, so an unavailable result does not establish that
+the compiler is absent from the machine. The opt-in hardware harness accepts
+explicit compiler paths; see `docs/developer-guide.md` for separate and
+simultaneous validation.
+
+Local validation with NVRTC 12.4 and HIPRTC from the ROCm 10 tarball passed
+separately and concurrently, including CUDA and HIP GPU execution. The tarball
+uses HIP component name `hiprtc0715.dll`, whose version query reports 9.0.
+On this Windows HIP 5 host, execution loads the HIP driver before compilation
+to preserve its COMGR dependency and requests code-object V4. See
+[runtime validation](docs/runtime-validation.md) for the files and reproduction steps.
+
+The common driver table also has six optional extensions: `ocgpuMemGetInfo`,
+`ocgpuMemcpyDtoD`, `ocgpuStreamQuery`, `ocgpuStreamWaitEvent`, `ocgpuEventQuery`,
+and `ocgpuEventElapsedTime`. They preserve the existing table prefix and raw
+CUDA/HIP slots. Rust exposes them through context memory queries, device copies,
+and stream/event methods; unavailable extensions return a symbol-unavailable
+error. The required 26-call driver core remains independently usable.
+
+For vendor-specific compilation, `Compiler<Nvrtc>::supported_architectures`
+queries supported targets, `Program<Nvrtc>::native_output` retrieves CUBIN,
+LTO IR, OptiX IR, or NVVM, and `Program<Hiprtc>::bitcode` retrieves relocatable
+bitcode. Each checks optional export availability and bounds output allocation;
+the selected compile options determine which output is available.
 
 32-bit targets, vendor-static linking, and automatic driver or runtime-compiler
 installation remain outside ABI v1.

@@ -61,7 +61,7 @@ Runtime compilers are separate native components rather than driver exports:
 | Capability | Linux deployment | Windows deployment |
 |---|---|---|
 | NVRTC | compatible `libnvrtc.so` family and its runtime dependencies | matching `nvrtc64_*_0.dll` and `nvrtc-builtins64_*.dll` |
-| HIPRTC | compatible `libhiprtc.so` family and its runtime dependencies | reviewed `hiprtc0702.dll`, `hiprtc0604.dll`, `hiprtc0602.dll`, `hiprtc0601.dll`, or HIP 5.7 `hiprtc.dll`, plus runtime dependencies |
+| HIPRTC | compatible `libhiprtc.so` family and its runtime dependencies | reviewed `hiprtc0715.dll`, `hiprtc0714.dll`, `hiprtc0702.dll`, `hiprtc0604.dll`, `hiprtc0602.dll`, `hiprtc0601.dll`, `hiprtc0507.dll`, or unversioned `hiprtc.dll`, plus runtime dependencies |
 
 Neither component is linked into the shared or static `ocgpu` library. SDK
 headers, import libraries, static RTC archives, and vendor compiler executables
@@ -80,13 +80,13 @@ path, or a writable current directory. On Windows, `nvcuda.dll` has no NVRTC
 exports and `amdhip64.dll` has no HIPRTC API; selecting either driver DLL as a
 compiler is an error rather than a fallback.
 
-The audited laptop has an NVRTC 12.4 DLL pair only in its installed CUDA Toolkit
-directory. Its System32 driver directory has `nvcuda.dll` but no NVRTC library,
-and it has `amdhip64.dll` but no HIPRTC library. The machine therefore proves
-HIP driver execution independently of HIPRTC availability. Supplying a
-compatible, application-local HIPRTC runtime component is required before a
-HIPRTC compile result can honestly be reported; do not substitute direct COMGR,
-OpenCL, an external compiler, or a newer mismatched HIPRTC library.
+`ocgpu compilers --backend cuda|hip|all --json` reports compiler availability
+independently of driver availability, including the loaded path and version or
+the load error. It does not initialize a driver, create programs, or execute
+device code. An unavailable result describes secure default discovery only;
+libraries elsewhere on the machine can be selected explicitly by the Rust API
+or opt-in hardware harness. Record actual compilation and execution results
+separately for each compiler and for simultaneous operation.
 
 Inspect a candidate without loading a GPU runtime or executing device code:
 
@@ -237,8 +237,9 @@ true no-op launch are supported. Use `coexistence` when a trusted, hash-pinned,
 architecture-matched no-op fixture is unavailable. Unsupported HIP runtime
 profiles still fail closed before context creation with their loader diagnostic.
 
-An execution test allocates exactly 64 bytes per selected backend, verifies one
-host/device round trip, and enqueues one one-block/one-thread entry-point launch.
+An execution test allocates two 64-byte buffers per selected backend, verifies
+host/device and device/device copies, and enqueues one one-block/one-thread
+entry-point launch. Both allocations are released before launching.
 A start event is recorded before the launch and a completion event after it; the
 completion event, stream, and owned context are synchronized before resources are
 released.
@@ -250,16 +251,35 @@ must not carry an `ocgpu` hardware label.
 
 RTC hardware validation is subject to the same rule and runs inside the
 watchdog-supervised test child, not as an unsupervised build step. It compiles
-one fixed, repository-reviewed, headerless source string once per selected
-backend; dispatch input cannot replace the source or add arbitrary compiler
+fixed, repository-reviewed source and injected in-memory headers per selected
+backend, including an intentionally invalid source for diagnostics; dispatch
+input cannot replace the source or add arbitrary compiler
 options. Source, option, diagnostic-log, and generated-image lengths are
 checked before allocation or use. The generated entry point has one block, one
 thread, no loop, no dynamic shared memory, and no device-management operation.
+Each RTC execution run uses two 64-byte allocations for host/device and
+device/device copy validation, with at most 128 bytes allocated per backend.
+It also checks memory information, stream/event completion, event waits, and
+elapsed timing through the six common extensions.
 On the Windows HIP 5 integrated path it remains a true no-op: the existing
 machine evidence permits bounded copies and a no-op launch but does not justify
 a memory-writing HIP kernel. CUDA and HIP RTC work may run concurrently only
-under the distinct dual-execution acknowledgement, with independent programs,
-contexts, streams, events, and bounded workers.
+when explicitly selected with `OCGPU_RTC_SMOKE_BACKEND=both`, with independent
+programs, contexts, streams, events, and bounded workers. The Actions workflow
+also requires its distinct dual-execution acknowledgement. Compile-only `both`
+uses concurrent workers too: both programs remain live through compilation and
+code retrieval, with bounded rendezvous points that expose cross-backend state
+interference.
+
+For mixed Windows HIP 5 and ROCm 10 deployments, load the HIP driver before
+HIPRTC compilation. The driver imports `amd_comgr.dll` by basename; Windows can
+otherwise bind it to HIPRTC's already-loaded, incompatible newer COMGR. HIPRTC
+can load its own sibling COMGR by absolute path after the driver is initialized.
+The execution harness applies this ordering; compile-only mode still needs no
+driver. `OCGPU_HIPRTC_CODE_OBJECT_VERSION=4`, `5`, or `6` optionally selects the
+HIP compiler output version and checks the resulting ELF ABI. The local HIP 5
+execution uses V4; the installed ROCm 10 compiler defaults to V6. See
+[runtime validation](runtime-validation.md) for observed versions and checksums.
 
 Single-backend workflow jobs run `doctor --json` without `--strict`, because
 strict doctor requires every compiled backend. Dual-runner jobs use strict

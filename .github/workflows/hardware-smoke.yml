@@ -194,8 +194,14 @@ jobs:
           OCGPU_RTC_SMOKE_BACKEND: hip
           OCGPU_HIPRTC_LIBRARY: ${{ vars.OCGPU_HIPRTC_LIBRARY_LINUX }}
           OCGPU_HIPRTC_ARCH: ${{ vars.OCGPU_HIPRTC_ARCH_LINUX }}
+          OCGPU_HIPRTC_CODE_OBJECT_VERSION: ${{ vars.OCGPU_HIPRTC_CODE_OBJECT_VERSION_LINUX }}
           OCGPU_RTC_COMPILE_ONLY: "1"
-        run: cargo run -p xtask -- rtc-hardware-smoke
+        shell: pwsh
+        run: |
+          if ([string]::IsNullOrEmpty($env:OCGPU_HIPRTC_CODE_OBJECT_VERSION)) {
+            Remove-Item Env:OCGPU_HIPRTC_CODE_OBJECT_VERSION -ErrorAction SilentlyContinue
+          }
+          cargo run -p xtask -- rtc-hardware-smoke
       - name: Run opt-in HIPRTC compile and HIP launch
         if: inputs.run_rtc_smoke
         env:
@@ -203,8 +209,12 @@ jobs:
           OCGPU_RTC_SMOKE_BACKEND: hip
           OCGPU_HIPRTC_LIBRARY: ${{ vars.OCGPU_HIPRTC_LIBRARY_LINUX }}
           OCGPU_HIPRTC_ARCH: ${{ vars.OCGPU_HIPRTC_ARCH_LINUX }}
+          OCGPU_HIPRTC_CODE_OBJECT_VERSION: ${{ vars.OCGPU_HIPRTC_CODE_OBJECT_VERSION_LINUX }}
         shell: pwsh
         run: |
+          if ([string]::IsNullOrEmpty($env:OCGPU_HIPRTC_CODE_OBJECT_VERSION)) {
+            Remove-Item Env:OCGPU_HIPRTC_CODE_OBJECT_VERSION -ErrorAction SilentlyContinue
+          }
           Remove-Item Env:OCGPU_RTC_COMPILE_ONLY -ErrorAction SilentlyContinue
           cargo run -p xtask -- rtc-hardware-smoke
       - run: cargo run -p ocgpu-cli -- doctor --json
@@ -254,8 +264,14 @@ jobs:
           OCGPU_RTC_SMOKE_BACKEND: hip
           OCGPU_HIPRTC_LIBRARY: ${{ vars.OCGPU_HIPRTC_LIBRARY_WINDOWS }}
           OCGPU_HIPRTC_ARCH: ${{ vars.OCGPU_HIPRTC_ARCH_WINDOWS }}
+          OCGPU_HIPRTC_CODE_OBJECT_VERSION: ${{ vars.OCGPU_HIPRTC_CODE_OBJECT_VERSION_WINDOWS }}
           OCGPU_RTC_COMPILE_ONLY: "1"
-        run: cargo run -p xtask -- rtc-hardware-smoke
+        shell: pwsh
+        run: |
+          if ([string]::IsNullOrEmpty($env:OCGPU_HIPRTC_CODE_OBJECT_VERSION)) {
+            Remove-Item Env:OCGPU_HIPRTC_CODE_OBJECT_VERSION -ErrorAction SilentlyContinue
+          }
+          cargo run -p xtask -- rtc-hardware-smoke
       - name: Run opt-in HIPRTC compile and HIP launch
         if: inputs.run_rtc_smoke
         env:
@@ -263,8 +279,12 @@ jobs:
           OCGPU_RTC_SMOKE_BACKEND: hip
           OCGPU_HIPRTC_LIBRARY: ${{ vars.OCGPU_HIPRTC_LIBRARY_WINDOWS }}
           OCGPU_HIPRTC_ARCH: ${{ vars.OCGPU_HIPRTC_ARCH_WINDOWS }}
+          OCGPU_HIPRTC_CODE_OBJECT_VERSION: ${{ vars.OCGPU_HIPRTC_CODE_OBJECT_VERSION_WINDOWS }}
         shell: pwsh
         run: |
+          if ([string]::IsNullOrEmpty($env:OCGPU_HIPRTC_CODE_OBJECT_VERSION)) {
+            Remove-Item Env:OCGPU_HIPRTC_CODE_OBJECT_VERSION -ErrorAction SilentlyContinue
+          }
           Remove-Item Env:OCGPU_RTC_COMPILE_ONLY -ErrorAction SilentlyContinue
           cargo run -p xtask -- rtc-hardware-smoke
       - run: cargo run -p ocgpu-cli -- doctor --json
@@ -318,8 +338,14 @@ jobs:
           OCGPU_NVRTC_ARCH: ${{ vars.OCGPU_NVRTC_ARCH_LINUX }}
           OCGPU_HIPRTC_LIBRARY: ${{ vars.OCGPU_HIPRTC_LIBRARY_LINUX }}
           OCGPU_HIPRTC_ARCH: ${{ vars.OCGPU_HIPRTC_ARCH_LINUX }}
+          OCGPU_HIPRTC_CODE_OBJECT_VERSION: ${{ vars.OCGPU_HIPRTC_CODE_OBJECT_VERSION_LINUX }}
           OCGPU_RTC_COMPILE_ONLY: "1"
-        run: cargo run -p xtask -- rtc-hardware-smoke
+        shell: pwsh
+        run: |
+          if ([string]::IsNullOrEmpty($env:OCGPU_HIPRTC_CODE_OBJECT_VERSION)) {
+            Remove-Item Env:OCGPU_HIPRTC_CODE_OBJECT_VERSION -ErrorAction SilentlyContinue
+          }
+          cargo run -p xtask -- rtc-hardware-smoke
       - name: Run opt-in concurrent NVRTC and HIPRTC compile/launch smoke
         if: inputs.run_rtc_smoke && inputs.backend == 'all'
         env:
@@ -329,8 +355,12 @@ jobs:
           OCGPU_NVRTC_ARCH: ${{ vars.OCGPU_NVRTC_ARCH_LINUX }}
           OCGPU_HIPRTC_LIBRARY: ${{ vars.OCGPU_HIPRTC_LIBRARY_LINUX }}
           OCGPU_HIPRTC_ARCH: ${{ vars.OCGPU_HIPRTC_ARCH_LINUX }}
+          OCGPU_HIPRTC_CODE_OBJECT_VERSION: ${{ vars.OCGPU_HIPRTC_CODE_OBJECT_VERSION_LINUX }}
         shell: pwsh
         run: |
+          if ([string]::IsNullOrEmpty($env:OCGPU_HIPRTC_CODE_OBJECT_VERSION)) {
+            Remove-Item Env:OCGPU_HIPRTC_CODE_OBJECT_VERSION -ErrorAction SilentlyContinue
+          }
           Remove-Item Env:OCGPU_RTC_COMPILE_ONLY -ErrorAction SilentlyContinue
           cargo run -p xtask -- rtc-hardware-smoke
       - run: cargo run -p ocgpu-cli -- doctor --strict --json
@@ -386,8 +416,14 @@ jobs:
           OCGPU_NVRTC_ARCH: ${{ vars.OCGPU_NVRTC_ARCH_WINDOWS }}
           OCGPU_HIPRTC_LIBRARY: ${{ vars.OCGPU_HIPRTC_LIBRARY_WINDOWS }}
           OCGPU_HIPRTC_ARCH: ${{ vars.OCGPU_HIPRTC_ARCH_WINDOWS }}
+          OCGPU_HIPRTC_CODE_OBJECT_VERSION: ${{ vars.OCGPU_HIPRTC_CODE_OBJECT_VERSION_WINDOWS }}
           OCGPU_RTC_COMPILE_ONLY: "1"
-        run: cargo run -p xtask -- rtc-hardware-smoke
+        shell: pwsh
+        run: |
+          if ([string]::IsNullOrEmpty($env:OCGPU_HIPRTC_CODE_OBJECT_VERSION)) {
+            Remove-Item Env:OCGPU_HIPRTC_CODE_OBJECT_VERSION -ErrorAction SilentlyContinue
+          }
+          cargo run -p xtask -- rtc-hardware-smoke
       - name: Run opt-in concurrent NVRTC and HIPRTC compile/launch smoke
         if: inputs.run_rtc_smoke && inputs.backend == 'all'
         env:
@@ -397,8 +433,12 @@ jobs:
           OCGPU_NVRTC_ARCH: ${{ vars.OCGPU_NVRTC_ARCH_WINDOWS }}
           OCGPU_HIPRTC_LIBRARY: ${{ vars.OCGPU_HIPRTC_LIBRARY_WINDOWS }}
           OCGPU_HIPRTC_ARCH: ${{ vars.OCGPU_HIPRTC_ARCH_WINDOWS }}
+          OCGPU_HIPRTC_CODE_OBJECT_VERSION: ${{ vars.OCGPU_HIPRTC_CODE_OBJECT_VERSION_WINDOWS }}
         shell: pwsh
         run: |
+          if ([string]::IsNullOrEmpty($env:OCGPU_HIPRTC_CODE_OBJECT_VERSION)) {
+            Remove-Item Env:OCGPU_HIPRTC_CODE_OBJECT_VERSION -ErrorAction SilentlyContinue
+          }
           Remove-Item Env:OCGPU_RTC_COMPILE_ONLY -ErrorAction SilentlyContinue
           cargo run -p xtask -- rtc-hardware-smoke
       - run: cargo run -p ocgpu-cli -- doctor --strict --json

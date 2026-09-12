@@ -13075,6 +13075,31 @@ pub type ocgpuLaunchKernelFn = unsafe extern "C" fn(
     extra: *mut *mut c_void,
 ) -> ocgpuResult;
 
+/// Nullable function-table entry; signature fnv1a64:727f6b2456e4e6e3.
+pub type ocgpuMemGetInfoFn =
+    unsafe extern "C" fn(free_bytes: *mut usize, total_bytes: *mut usize) -> ocgpuResult;
+
+/// Nullable function-table entry; signature fnv1a64:ac6175e132d75b39.
+pub type ocgpuMemcpyDtoDFn = unsafe extern "C" fn(
+    destination: ocgpuDeviceptr,
+    source: ocgpuDeviceptr,
+    bytes: usize,
+) -> ocgpuResult;
+
+/// Nullable function-table entry; signature fnv1a64:25559358e5f7d617.
+pub type ocgpuStreamQueryFn = unsafe extern "C" fn(stream: ocgpuStream) -> ocgpuResult;
+
+/// Nullable function-table entry; signature fnv1a64:827f091f27d0c31d.
+pub type ocgpuStreamWaitEventFn =
+    unsafe extern "C" fn(stream: ocgpuStream, event: ocgpuEvent, flags: u32) -> ocgpuResult;
+
+/// Nullable function-table entry; signature fnv1a64:d6682c161f1925a7.
+pub type ocgpuEventQueryFn = unsafe extern "C" fn(event: ocgpuEvent) -> ocgpuResult;
+
+/// Nullable function-table entry; signature fnv1a64:b34a96cd0b344566.
+pub type ocgpuEventElapsedTimeFn =
+    unsafe extern "C" fn(milliseconds: *mut f32, start: ocgpuEvent, end: ocgpuEvent) -> ocgpuResult;
+
 /// Nullable function-table entry; signature fnv1a64:f90a7539de9e55cd.
 pub type ocgpuCuInitFn = unsafe extern "C" fn(flags: u32) -> ocgpuCUresult;
 
@@ -20229,7 +20254,7 @@ pub type ocgpuHipChooseDeviceFn = unsafe extern "C" fn(
 pub type ocgpuHipGetDevicePropertiesFn =
     unsafe extern "C" fn(prop: *mut ocgpuHipDeviceProp_tR0600, deviceId: i32) -> ocgpuHipError_t;
 
-/// Append-only ABI table (layout fnv1a64:61f2be28db23ce39).
+/// Append-only ABI table (layout fnv1a64:aa37060ac62c2589).
 #[repr(C)]
 #[derive(Clone, Copy, Default)]
 pub struct ocgpuApi_v1 {
@@ -20376,10 +20401,44 @@ pub struct ocgpuApi_v1 {
             extra: *mut *mut c_void,
         ) -> ocgpuResult,
     >,
+    /// Nullable when unavailable.
+    #[allow(clippy::type_complexity)]
+    pub ocgpuMemGetInfo: Option<
+        unsafe extern "C" fn(free_bytes: *mut usize, total_bytes: *mut usize) -> ocgpuResult,
+    >,
+    /// Nullable when unavailable.
+    #[allow(clippy::type_complexity)]
+    pub ocgpuMemcpyDtoD: Option<
+        unsafe extern "C" fn(
+            destination: ocgpuDeviceptr,
+            source: ocgpuDeviceptr,
+            bytes: usize,
+        ) -> ocgpuResult,
+    >,
+    /// Nullable when unavailable.
+    #[allow(clippy::type_complexity)]
+    pub ocgpuStreamQuery: Option<unsafe extern "C" fn(stream: ocgpuStream) -> ocgpuResult>,
+    /// Nullable when unavailable.
+    #[allow(clippy::type_complexity)]
+    pub ocgpuStreamWaitEvent: Option<
+        unsafe extern "C" fn(stream: ocgpuStream, event: ocgpuEvent, flags: u32) -> ocgpuResult,
+    >,
+    /// Nullable when unavailable.
+    #[allow(clippy::type_complexity)]
+    pub ocgpuEventQuery: Option<unsafe extern "C" fn(event: ocgpuEvent) -> ocgpuResult>,
+    /// Nullable when unavailable.
+    #[allow(clippy::type_complexity)]
+    pub ocgpuEventElapsedTime: Option<
+        unsafe extern "C" fn(
+            milliseconds: *mut f32,
+            start: ocgpuEvent,
+            end: ocgpuEvent,
+        ) -> ocgpuResult,
+    >,
 }
 
 /// Expected 64-bit layout fingerprint.
-pub const OCGPU_API_V1_LAYOUT_HASH: u64 = 0x61f2_be28_db23_ce39;
+pub const OCGPU_API_V1_LAYOUT_HASH: u64 = 0xaa37_060a_c62c_2589;
 
 /// Append-only ABI table (layout fnv1a64:08d86ba43015b0cb).
 #[repr(C)]

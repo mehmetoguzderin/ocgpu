@@ -88,6 +88,23 @@ then remove `OCGPU_RTC_COMPILE_ONLY` and invoke the same command once for the
 bounded launch. Do not invoke the test executable directly, loop it, add a
 benchmark, or replace the no-op HIP 5 kernel with a memory-writing kernel.
 
+Run the staged pair for each of `cuda`, `hip`, and `both`. The xtask builds
+`cuda` with only `nvrtc,explicit-library-path`, `hip` with only
+`hiprtc,explicit-library-path`, and `both` with both compiler features, using
+`--no-default-features` in every case. Both modes of `both` use concurrent
+workers and keep the independent programs alive through compilation and code
+retrieval; execution adds a rendezvous before launching on both devices. The
+fixed fixture checks nested injected headers, a preprocessor option,
+name lowering, repeated output retrieval, and invalid-source diagnostics.
+
+`OCGPU_HIPRTC_CODE_OBJECT_VERSION` optionally selects `4`, `5`, or `6`; the
+harness passes `-mcode-object-version=N` only to HIPRTC and checks the resulting
+ELF ABI. The validated local HIP 5 deployment uses `4`. Its execution mode loads
+the HIP driver before compilation so Windows binds the driver's COMGR import
+before HIPRTC loads its newer sibling DLL. Compiler-only mode remains independent
+of drivers. See [local runtime validation](runtime-validation.md) for the ROCm
+tarball installation and complete PowerShell commands.
+
 For the optional flat C ABI, build cargo-c with `--features flat-c-exports` and
 define `OCGPU_ENABLE_FLAT_C_EXPORTS` in the consumer before including
 `ocgpu/ocgpu.h`. Unified leaves take the backend as their first argument; raw

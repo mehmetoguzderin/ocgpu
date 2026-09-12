@@ -72,7 +72,7 @@
 /**
  * Expected 64-bit layout fingerprint.
  */
-#define OCGPU_API_V1_LAYOUT_HASH 7057912648727514681
+#define OCGPU_API_V1_LAYOUT_HASH 12265278753511056777ull
 
 /**
  * Stable integer constant.
@@ -16114,7 +16114,7 @@ typedef struct ocgpuFunction_st ocgpuFunction_st;
 typedef struct ocgpuFunction_st *ocgpuFunction;
 
 /**
- * Append-only ABI table (layout fnv1a64:61f2be28db23ce39).
+ * Append-only ABI table (layout fnv1a64:aa37060ac62c2589).
  */
 typedef struct ocgpuApi_v1 {
   /**
@@ -16259,6 +16259,30 @@ typedef struct ocgpuApi_v1 {
                                    ocgpuStream stream,
                                    void **kernel_params,
                                    void **extra);
+  /**
+   * Nullable when unavailable.
+   */
+  ocgpuResult (OCGPU_CALL *ocgpuMemGetInfo)(size_t *free_bytes, size_t *total_bytes);
+  /**
+   * Nullable when unavailable.
+   */
+  ocgpuResult (OCGPU_CALL *ocgpuMemcpyDtoD)(ocgpuDeviceptr destination, ocgpuDeviceptr source, size_t bytes);
+  /**
+   * Nullable when unavailable.
+   */
+  ocgpuResult (OCGPU_CALL *ocgpuStreamQuery)(ocgpuStream stream);
+  /**
+   * Nullable when unavailable.
+   */
+  ocgpuResult (OCGPU_CALL *ocgpuStreamWaitEvent)(ocgpuStream stream, ocgpuEvent event, uint32_t flags);
+  /**
+   * Nullable when unavailable.
+   */
+  ocgpuResult (OCGPU_CALL *ocgpuEventQuery)(ocgpuEvent event);
+  /**
+   * Nullable when unavailable.
+   */
+  ocgpuResult (OCGPU_CALL *ocgpuEventElapsedTime)(float *milliseconds, ocgpuEvent start, ocgpuEvent end);
 } ocgpuApi_v1;
 
 /**
@@ -26986,6 +27010,12 @@ OCGPU_API ocgpuResult OCGPU_CALL ocgpuModuleLoadData(ocgpuBackend backend, ocgpu
 OCGPU_API ocgpuResult OCGPU_CALL ocgpuModuleUnload(ocgpuBackend backend, ocgpuModule module);
 OCGPU_API ocgpuResult OCGPU_CALL ocgpuModuleGetFunction(ocgpuBackend backend, ocgpuFunction * function, ocgpuModule module, const char * name);
 OCGPU_API ocgpuResult OCGPU_CALL ocgpuLaunchKernel(ocgpuBackend backend, ocgpuFunction function, uint32_t grid_x, uint32_t grid_y, uint32_t grid_z, uint32_t block_x, uint32_t block_y, uint32_t block_z, uint32_t shared_mem_bytes, ocgpuStream stream, void * * kernel_params, void * * extra);
+OCGPU_API ocgpuResult OCGPU_CALL ocgpuMemGetInfo(ocgpuBackend backend, size_t * free_bytes, size_t * total_bytes);
+OCGPU_API ocgpuResult OCGPU_CALL ocgpuMemcpyDtoD(ocgpuBackend backend, ocgpuDeviceptr destination, ocgpuDeviceptr source, size_t bytes);
+OCGPU_API ocgpuResult OCGPU_CALL ocgpuStreamQuery(ocgpuBackend backend, ocgpuStream stream);
+OCGPU_API ocgpuResult OCGPU_CALL ocgpuStreamWaitEvent(ocgpuBackend backend, ocgpuStream stream, ocgpuEvent event, uint32_t flags);
+OCGPU_API ocgpuResult OCGPU_CALL ocgpuEventQuery(ocgpuBackend backend, ocgpuEvent event);
+OCGPU_API ocgpuResult OCGPU_CALL ocgpuEventElapsedTime(ocgpuBackend backend, float * milliseconds, ocgpuEvent start, ocgpuEvent end);
 OCGPU_API ocgpuCUresult OCGPU_CALL ocgpuCuInit(uint32_t flags);
 OCGPU_API ocgpuCUresult OCGPU_CALL ocgpuCuDriverGetVersion(int32_t * driver_version);
 OCGPU_API ocgpuCUresult OCGPU_CALL ocgpuCuDeviceGetCount(int32_t * count);

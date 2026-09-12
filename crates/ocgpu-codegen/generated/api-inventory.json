@@ -214388,13 +214388,891 @@
       }
     }
   ],
+  "common_extension": [
+    {
+      "id": "memory.get_info",
+      "stable_id": 67174405,
+      "group": "memory",
+      "common_name": "ocgpuMemGetInfo",
+      "classification": "exact",
+      "classification_reason": "Both backends report free and total bytes available to the current device context.",
+      "return_type": "ocgpuResult",
+      "params": [
+        {
+          "name": "free_bytes",
+          "type": "*mut usize",
+          "direction": "out",
+          "nullable": false,
+          "semantic_status": "reviewed_manifest",
+          "semantic_provenance": "Both backends report free and total bytes available to the current device context."
+        },
+        {
+          "name": "total_bytes",
+          "type": "*mut usize",
+          "direction": "out",
+          "nullable": false,
+          "semantic_status": "reviewed_manifest",
+          "semantic_provenance": "Both backends report free and total bytes available to the current device context."
+        }
+      ],
+      "signature_hash": "fnv1a64:727f6b2456e4e6e3",
+      "ownership": "Handles and storage are borrowed for the call. Device copies require valid non-overlapping ranges; the caller owns synchronization and lifetimes.",
+      "nullability": "Pointer nullability is defined by parameter annotations and validated before backend dispatch.",
+      "callback_behavior": "none",
+      "thread_safety": "Safe for concurrent calls when the caller synchronizes mutable handles and storage.",
+      "layout_provenance": "ocgpu ABI v1 integer, pointer, and calling-convention policy",
+      "documentation_provenance": "Reviewed pinned vendor declarations: cuMemGetInfo_v2 and hipMemGetInfo. Optional common extension; existing raw table slots and HIP profile gates are preserved.",
+      "cuda": {
+        "raw_name": "ocgpuCuMemGetInfo_v2",
+        "vendor_symbol": "cuMemGetInfo_v2",
+        "aliases": [],
+        "versioned_alternatives": [],
+        "return_type": "ocgpuCUresult",
+        "params": [
+          {
+            "name": "free",
+            "type": "*mut usize",
+            "direction": "out",
+            "nullable": null,
+            "semantic_status": "reviewed_override",
+            "semantic_provenance": "oracle identical-ABI evidence [cuda-vendor-13.3-13030:sha256:acdb7a587b9f1c0240a0ee7511ce0e51401dbae840d7ac468925400d61930beb]; Propagated only across the same vendor spelling and an identical normalized ABI type graph; target-version authority is explicit and conflicting source facts are rejected. (cudarc-0.19.9)"
+          },
+          {
+            "name": "total",
+            "type": "*mut usize",
+            "direction": "out",
+            "nullable": null,
+            "semantic_status": "reviewed_override",
+            "semantic_provenance": "oracle identical-ABI evidence [cuda-vendor-13.3-13030:sha256:acdb7a587b9f1c0240a0ee7511ce0e51401dbae840d7ac468925400d61930beb]; Propagated only across the same vendor spelling and an identical normalized ABI type graph; target-version authority is explicit and conflicting source facts are rejected. (cudarc-0.19.9)"
+          }
+        ],
+        "signature_hash": "fnv1a64:e06bdcebe4c6dfab",
+        "classification": "covered_exact",
+        "classification_reason": "The raw table preserves the documented vendor ABI without semantic adaptation.",
+        "introduced": "3.2",
+        "deprecated": "",
+        "variant": "versioned",
+        "per_thread_default_stream": false,
+        "proc_address_flags": 1,
+        "fallback_order": [
+          "cuMemGetInfo_v2"
+        ],
+        "linux": {
+          "available": true,
+          "baseline": "CUDA 13.3 Update 1 / API 13030",
+          "proc_version": 3020,
+          "symbols": [
+            "cuMemGetInfo_v2"
+          ],
+          "reason": "Use only when the existing raw slot is available under its reviewed platform and runtime profile."
+        },
+        "windows": {
+          "available": true,
+          "baseline": "CUDA 13.3 Update 1 / API 13030",
+          "proc_version": 3020,
+          "symbols": [
+            "cuMemGetInfo_v2"
+          ],
+          "reason": "Use only when the existing raw slot is available under its reviewed platform and runtime profile."
+        }
+      },
+      "hip": {
+        "raw_name": "ocgpuHipMemGetInfo",
+        "vendor_symbol": "hipMemGetInfo",
+        "aliases": [],
+        "versioned_alternatives": [],
+        "return_type": "ocgpuHipError_t",
+        "params": [
+          {
+            "name": "free",
+            "type": "*mut usize",
+            "direction": "out",
+            "nullable": null,
+            "semantic_status": "reviewed_override",
+            "semantic_provenance": "oracle identical-ABI evidence [hip-general-7.14.60850:sha256:e79b50a81795ceed010362fd86e7627ef448800febfc3c3f918c2232d2aadf56, hip-windows-7.2.0:sha256:e79b50a81795ceed010362fd86e7627ef448800febfc3c3f918c2232d2aadf56]; Propagated only across the same vendor spelling and an identical normalized ABI type graph; target-version authority is explicit and conflicting source facts are rejected. (rocmrc-0.5.0)"
+          },
+          {
+            "name": "total",
+            "type": "*mut usize",
+            "direction": "out",
+            "nullable": null,
+            "semantic_status": "reviewed_override",
+            "semantic_provenance": "oracle identical-ABI evidence [hip-general-7.14.60850:sha256:e79b50a81795ceed010362fd86e7627ef448800febfc3c3f918c2232d2aadf56, hip-windows-7.2.0:sha256:e79b50a81795ceed010362fd86e7627ef448800febfc3c3f918c2232d2aadf56]; Propagated only across the same vendor spelling and an identical normalized ABI type graph; target-version authority is explicit and conflicting source facts are rejected. (rocmrc-0.5.0)"
+          }
+        ],
+        "signature_hash": "fnv1a64:6e667f4651c2f58e",
+        "classification": "covered_exact",
+        "classification_reason": "The raw table preserves the documented vendor ABI without semantic adaptation.",
+        "introduced": "1.0",
+        "deprecated": "",
+        "variant": "default",
+        "per_thread_default_stream": false,
+        "proc_address_flags": 0,
+        "fallback_order": [
+          "hipMemGetInfo"
+        ],
+        "linux": {
+          "available": true,
+          "baseline": "HIP 7.14.60850 / ROCm 7.14.0",
+          "proc_version": 0,
+          "symbols": [
+            "hipMemGetInfo"
+          ],
+          "reason": "Use only when the existing raw slot is available under its reviewed platform and runtime profile."
+        },
+        "windows": {
+          "available": true,
+          "baseline": "HIP SDK for Windows 7.2.0",
+          "proc_version": 0,
+          "symbols": [
+            "hipMemGetInfo"
+          ],
+          "reason": "Use only when the existing raw slot is available under its reviewed platform and runtime profile."
+        }
+      }
+    },
+    {
+      "id": "memory.copy_dtod",
+      "stable_id": 67174406,
+      "group": "memory",
+      "common_name": "ocgpuMemcpyDtoD",
+      "classification": "adapter",
+      "classification_reason": "Copies a device byte range in the current context; HIP device pointer integers are converted losslessly to native pointers.",
+      "return_type": "ocgpuResult",
+      "params": [
+        {
+          "name": "destination",
+          "type": "ocgpuDeviceptr",
+          "direction": "in",
+          "nullable": false,
+          "semantic_status": "reviewed_manifest",
+          "semantic_provenance": "Copies a device byte range in the current context; HIP device pointer integers are converted losslessly to native pointers."
+        },
+        {
+          "name": "source",
+          "type": "ocgpuDeviceptr",
+          "direction": "in",
+          "nullable": false,
+          "semantic_status": "reviewed_manifest",
+          "semantic_provenance": "Copies a device byte range in the current context; HIP device pointer integers are converted losslessly to native pointers."
+        },
+        {
+          "name": "bytes",
+          "type": "usize",
+          "direction": "in",
+          "nullable": false,
+          "semantic_status": "reviewed_manifest",
+          "semantic_provenance": "Copies a device byte range in the current context; HIP device pointer integers are converted losslessly to native pointers."
+        }
+      ],
+      "signature_hash": "fnv1a64:ac6175e132d75b39",
+      "ownership": "Handles and storage are borrowed for the call. Device copies require valid non-overlapping ranges; the caller owns synchronization and lifetimes.",
+      "nullability": "Pointer nullability is defined by parameter annotations and validated before backend dispatch.",
+      "callback_behavior": "none",
+      "thread_safety": "Safe for concurrent calls when the caller synchronizes mutable handles and storage.",
+      "layout_provenance": "ocgpu ABI v1 integer, pointer, and calling-convention policy",
+      "documentation_provenance": "Reviewed pinned vendor declarations: cuMemcpyDtoD_v2 and hipMemcpyDtoD. Optional common extension; existing raw table slots and HIP profile gates are preserved.",
+      "cuda": {
+        "raw_name": "ocgpuCuMemcpyDtoD_v2",
+        "vendor_symbol": "cuMemcpyDtoD_v2",
+        "aliases": [],
+        "versioned_alternatives": [],
+        "return_type": "ocgpuCUresult",
+        "params": [
+          {
+            "name": "dstDevice",
+            "type": "ocgpuCUdeviceptr",
+            "direction": "in",
+            "nullable": false,
+            "semantic_status": "declaration_fact",
+            "semantic_provenance": "cudarc-0.19.9: crates.io:cudarc@0.19.9/src/driver/sys/mod.rs"
+          },
+          {
+            "name": "srcDevice",
+            "type": "ocgpuCUdeviceptr",
+            "direction": "in",
+            "nullable": false,
+            "semantic_status": "declaration_fact",
+            "semantic_provenance": "cudarc-0.19.9: crates.io:cudarc@0.19.9/src/driver/sys/mod.rs"
+          },
+          {
+            "name": "ByteCount",
+            "type": "usize",
+            "direction": "in",
+            "nullable": false,
+            "semantic_status": "declaration_fact",
+            "semantic_provenance": "cudarc-0.19.9: crates.io:cudarc@0.19.9/src/driver/sys/mod.rs"
+          }
+        ],
+        "signature_hash": "fnv1a64:217aaf6957c4b3d1",
+        "classification": "covered_exact",
+        "classification_reason": "The raw table preserves the documented vendor ABI without semantic adaptation.",
+        "introduced": "3.2",
+        "deprecated": "",
+        "variant": "versioned",
+        "per_thread_default_stream": false,
+        "proc_address_flags": 1,
+        "fallback_order": [
+          "cuMemcpyDtoD_v2"
+        ],
+        "linux": {
+          "available": true,
+          "baseline": "CUDA 13.3 Update 1 / API 13030",
+          "proc_version": 3020,
+          "symbols": [
+            "cuMemcpyDtoD_v2"
+          ],
+          "reason": "Use only when the existing raw slot is available under its reviewed platform and runtime profile."
+        },
+        "windows": {
+          "available": true,
+          "baseline": "CUDA 13.3 Update 1 / API 13030",
+          "proc_version": 3020,
+          "symbols": [
+            "cuMemcpyDtoD_v2"
+          ],
+          "reason": "Use only when the existing raw slot is available under its reviewed platform and runtime profile."
+        }
+      },
+      "hip": {
+        "raw_name": "ocgpuHipMemcpyDtoD",
+        "vendor_symbol": "hipMemcpyDtoD",
+        "aliases": [],
+        "versioned_alternatives": [],
+        "return_type": "ocgpuHipError_t",
+        "params": [
+          {
+            "name": "dst",
+            "type": "ocgpuHipDeviceptr_t",
+            "direction": "in",
+            "nullable": null,
+            "semantic_status": "declaration_fact",
+            "semantic_provenance": "rocmrc-0.5.0: crates.io:rocmrc@0.5.0/src/hip/sys/mod.rs"
+          },
+          {
+            "name": "src",
+            "type": "ocgpuHipDeviceptr_t",
+            "direction": "in",
+            "nullable": null,
+            "semantic_status": "declaration_fact",
+            "semantic_provenance": "rocmrc-0.5.0: crates.io:rocmrc@0.5.0/src/hip/sys/mod.rs"
+          },
+          {
+            "name": "sizeBytes",
+            "type": "usize",
+            "direction": "in",
+            "nullable": false,
+            "semantic_status": "declaration_fact",
+            "semantic_provenance": "rocmrc-0.5.0: crates.io:rocmrc@0.5.0/src/hip/sys/mod.rs"
+          }
+        ],
+        "signature_hash": "fnv1a64:2699c41e6cbc9328",
+        "classification": "covered_adapter",
+        "classification_reason": "The raw table preserves the documented vendor ABI without semantic adaptation.",
+        "introduced": "1.0",
+        "deprecated": "",
+        "variant": "default",
+        "per_thread_default_stream": false,
+        "proc_address_flags": 0,
+        "fallback_order": [
+          "hipMemcpyDtoD"
+        ],
+        "linux": {
+          "available": true,
+          "baseline": "HIP 7.14.60850 / ROCm 7.14.0",
+          "proc_version": 0,
+          "symbols": [
+            "hipMemcpyDtoD"
+          ],
+          "reason": "Use only when the existing raw slot is available under its reviewed platform and runtime profile."
+        },
+        "windows": {
+          "available": true,
+          "baseline": "HIP SDK for Windows 7.2.0",
+          "proc_version": 0,
+          "symbols": [
+            "hipMemcpyDtoD"
+          ],
+          "reason": "Use only when the existing raw slot is available under its reviewed platform and runtime profile."
+        }
+      }
+    },
+    {
+      "id": "stream.query",
+      "stable_id": 83951620,
+      "group": "stream",
+      "common_name": "ocgpuStreamQuery",
+      "classification": "exact",
+      "classification_reason": "Both backends return success when preceding stream work has completed and preserve native not-ready status otherwise.",
+      "return_type": "ocgpuResult",
+      "params": [
+        {
+          "name": "stream",
+          "type": "ocgpuStream",
+          "direction": "in",
+          "nullable": false,
+          "semantic_status": "reviewed_manifest",
+          "semantic_provenance": "Both backends return success when preceding stream work has completed and preserve native not-ready status otherwise."
+        }
+      ],
+      "signature_hash": "fnv1a64:25559358e5f7d617",
+      "ownership": "Handles and storage are borrowed for the call. Device copies require valid non-overlapping ranges; the caller owns synchronization and lifetimes.",
+      "nullability": "Pointer nullability is defined by parameter annotations and validated before backend dispatch.",
+      "callback_behavior": "none",
+      "thread_safety": "Safe for concurrent calls when the caller synchronizes mutable handles and storage.",
+      "layout_provenance": "ocgpu ABI v1 integer, pointer, and calling-convention policy",
+      "documentation_provenance": "Reviewed pinned vendor declarations: cuStreamQuery and hipStreamQuery. Optional common extension; existing raw table slots and HIP profile gates are preserved.",
+      "cuda": {
+        "raw_name": "ocgpuCuStreamQuery",
+        "vendor_symbol": "cuStreamQuery",
+        "aliases": [],
+        "versioned_alternatives": [],
+        "return_type": "ocgpuCUresult",
+        "params": [
+          {
+            "name": "hStream",
+            "type": "ocgpuCUstream",
+            "direction": "in",
+            "nullable": null,
+            "semantic_status": "reviewed_override",
+            "semantic_provenance": "oracle identical-ABI evidence [cuda-vendor-13.3-13030:sha256:915ad587c40b534b37cbd764c6171afa90216768a61db2b9b1a4b729a2a66790, cudarc-0.19.9:sha256:56db4b5b5ed78c7d33426b21e3e906eabf765f536f2717ca33696ee1bead6e87]; Propagated only across the same vendor spelling and an identical normalized ABI type graph; target-version authority is explicit and conflicting source facts are rejected. (cudarc-0.19.9)"
+          }
+        ],
+        "signature_hash": "fnv1a64:2e438cc1305b17fb",
+        "classification": "covered_exact",
+        "classification_reason": "The raw table preserves the documented vendor ABI without semantic adaptation.",
+        "introduced": "2.0",
+        "deprecated": "",
+        "variant": "default",
+        "per_thread_default_stream": false,
+        "proc_address_flags": 1,
+        "fallback_order": [
+          "cuStreamQuery"
+        ],
+        "linux": {
+          "available": true,
+          "baseline": "CUDA 13.3 Update 1 / API 13030",
+          "proc_version": 2000,
+          "symbols": [
+            "cuStreamQuery"
+          ],
+          "reason": "Use only when the existing raw slot is available under its reviewed platform and runtime profile."
+        },
+        "windows": {
+          "available": true,
+          "baseline": "CUDA 13.3 Update 1 / API 13030",
+          "proc_version": 2000,
+          "symbols": [
+            "cuStreamQuery"
+          ],
+          "reason": "Use only when the existing raw slot is available under its reviewed platform and runtime profile."
+        }
+      },
+      "hip": {
+        "raw_name": "ocgpuHipStreamQuery",
+        "vendor_symbol": "hipStreamQuery",
+        "aliases": [],
+        "versioned_alternatives": [],
+        "return_type": "ocgpuHipError_t",
+        "params": [
+          {
+            "name": "stream",
+            "type": "ocgpuHipStream_t",
+            "direction": "in",
+            "nullable": null,
+            "semantic_status": "reviewed_override",
+            "semantic_provenance": "oracle identical-ABI evidence [hip-general-7.14.60850:sha256:30604da79100f267f7fddff930a6f89e86c05712a2d66448f8b0a4e1fcb8d919, hip-windows-7.2.0:sha256:30604da79100f267f7fddff930a6f89e86c05712a2d66448f8b0a4e1fcb8d919, rocmrc-0.5.0:sha256:30604da79100f267f7fddff930a6f89e86c05712a2d66448f8b0a4e1fcb8d919]; Propagated only across the same vendor spelling and an identical normalized ABI type graph; target-version authority is explicit and conflicting source facts are rejected. (rocmrc-0.5.0)"
+          }
+        ],
+        "signature_hash": "fnv1a64:7e5fcfc700e369b2",
+        "classification": "covered_exact",
+        "classification_reason": "The raw table preserves the documented vendor ABI without semantic adaptation.",
+        "introduced": "1.0",
+        "deprecated": "",
+        "variant": "default",
+        "per_thread_default_stream": false,
+        "proc_address_flags": 0,
+        "fallback_order": [
+          "hipStreamQuery"
+        ],
+        "linux": {
+          "available": true,
+          "baseline": "HIP 7.14.60850 / ROCm 7.14.0",
+          "proc_version": 0,
+          "symbols": [
+            "hipStreamQuery"
+          ],
+          "reason": "Use only when the existing raw slot is available under its reviewed platform and runtime profile."
+        },
+        "windows": {
+          "available": true,
+          "baseline": "HIP SDK for Windows 7.2.0",
+          "proc_version": 0,
+          "symbols": [
+            "hipStreamQuery"
+          ],
+          "reason": "Use only when the existing raw slot is available under its reviewed platform and runtime profile."
+        }
+      }
+    },
+    {
+      "id": "stream.wait_event",
+      "stable_id": 83951621,
+      "group": "stream",
+      "common_name": "ocgpuStreamWaitEvent",
+      "classification": "exact",
+      "classification_reason": "Enqueues a stream dependency on the most recent event record with flags zero.",
+      "return_type": "ocgpuResult",
+      "params": [
+        {
+          "name": "stream",
+          "type": "ocgpuStream",
+          "direction": "in",
+          "nullable": false,
+          "semantic_status": "reviewed_manifest",
+          "semantic_provenance": "Enqueues a stream dependency on the most recent event record with flags zero."
+        },
+        {
+          "name": "event",
+          "type": "ocgpuEvent",
+          "direction": "in",
+          "nullable": false,
+          "semantic_status": "reviewed_manifest",
+          "semantic_provenance": "Enqueues a stream dependency on the most recent event record with flags zero."
+        },
+        {
+          "name": "flags",
+          "type": "u32",
+          "direction": "in",
+          "nullable": false,
+          "semantic_status": "reviewed_manifest",
+          "semantic_provenance": "Enqueues a stream dependency on the most recent event record with flags zero."
+        }
+      ],
+      "signature_hash": "fnv1a64:827f091f27d0c31d",
+      "ownership": "Handles and storage are borrowed for the call. Device copies require valid non-overlapping ranges; the caller owns synchronization and lifetimes.",
+      "nullability": "Pointer nullability is defined by parameter annotations and validated before backend dispatch.",
+      "callback_behavior": "none",
+      "thread_safety": "Safe for concurrent calls when the caller synchronizes mutable handles and storage.",
+      "layout_provenance": "ocgpu ABI v1 integer, pointer, and calling-convention policy",
+      "documentation_provenance": "Reviewed pinned vendor declarations: cuStreamWaitEvent and hipStreamWaitEvent. Optional common extension; existing raw table slots and HIP profile gates are preserved.",
+      "cuda": {
+        "raw_name": "ocgpuCuStreamWaitEvent",
+        "vendor_symbol": "cuStreamWaitEvent",
+        "aliases": [],
+        "versioned_alternatives": [],
+        "return_type": "ocgpuCUresult",
+        "params": [
+          {
+            "name": "hStream",
+            "type": "ocgpuCUstream",
+            "direction": "in",
+            "nullable": null,
+            "semantic_status": "reviewed_override",
+            "semantic_provenance": "oracle identical-ABI evidence [cuda-vendor-13.3-13030:sha256:9b01d906b5a8f6b93c5b8fe5ed4cd221caa19bf5baa9f07407ad6aae01b7db55, cudarc-0.19.9:sha256:55bcc5c61eb190672f1de492ba54aba6966f02ad9c64b37ab19c31660c97dfb8]; Propagated only across the same vendor spelling and an identical normalized ABI type graph; target-version authority is explicit and conflicting source facts are rejected. (cudarc-0.19.9)"
+          },
+          {
+            "name": "hEvent",
+            "type": "ocgpuCUevent",
+            "direction": "in",
+            "nullable": null,
+            "semantic_status": "reviewed_override",
+            "semantic_provenance": "oracle identical-ABI evidence [cuda-vendor-13.3-13030:sha256:9b01d906b5a8f6b93c5b8fe5ed4cd221caa19bf5baa9f07407ad6aae01b7db55, cudarc-0.19.9:sha256:55bcc5c61eb190672f1de492ba54aba6966f02ad9c64b37ab19c31660c97dfb8]; Propagated only across the same vendor spelling and an identical normalized ABI type graph; target-version authority is explicit and conflicting source facts are rejected. (cudarc-0.19.9)"
+          },
+          {
+            "name": "Flags",
+            "type": "u32",
+            "direction": "in",
+            "nullable": false,
+            "semantic_status": "declaration_fact",
+            "semantic_provenance": "cudarc-0.19.9: crates.io:cudarc@0.19.9/src/driver/sys/mod.rs"
+          }
+        ],
+        "signature_hash": "fnv1a64:bbe98e490ff81e85",
+        "classification": "covered_exact",
+        "classification_reason": "The raw table preserves the documented vendor ABI without semantic adaptation.",
+        "introduced": "3.2",
+        "deprecated": "",
+        "variant": "default",
+        "per_thread_default_stream": false,
+        "proc_address_flags": 1,
+        "fallback_order": [
+          "cuStreamWaitEvent"
+        ],
+        "linux": {
+          "available": true,
+          "baseline": "CUDA 13.3 Update 1 / API 13030",
+          "proc_version": 3020,
+          "symbols": [
+            "cuStreamWaitEvent"
+          ],
+          "reason": "Use only when the existing raw slot is available under its reviewed platform and runtime profile."
+        },
+        "windows": {
+          "available": true,
+          "baseline": "CUDA 13.3 Update 1 / API 13030",
+          "proc_version": 3020,
+          "symbols": [
+            "cuStreamWaitEvent"
+          ],
+          "reason": "Use only when the existing raw slot is available under its reviewed platform and runtime profile."
+        }
+      },
+      "hip": {
+        "raw_name": "ocgpuHipStreamWaitEvent",
+        "vendor_symbol": "hipStreamWaitEvent",
+        "aliases": [],
+        "versioned_alternatives": [],
+        "return_type": "ocgpuHipError_t",
+        "params": [
+          {
+            "name": "stream",
+            "type": "ocgpuHipStream_t",
+            "direction": "in",
+            "nullable": null,
+            "semantic_status": "reviewed_override",
+            "semantic_provenance": "oracle identical-ABI evidence [hip-general-7.14.60850:sha256:4d71c9fc8c4044fe370aa6a66b73929fe98430341938af5ccd071ad2facfbef3, hip-windows-7.2.0:sha256:4d71c9fc8c4044fe370aa6a66b73929fe98430341938af5ccd071ad2facfbef3, rocmrc-0.5.0:sha256:fb4fbc154d05e1d201f98c7584c2e3245916845ca8483e956a260693d75b0a95]; Propagated only across the same vendor spelling and an identical normalized ABI type graph; target-version authority is explicit and conflicting source facts are rejected. (rocmrc-0.5.0)"
+          },
+          {
+            "name": "event",
+            "type": "ocgpuHipEvent_t",
+            "direction": "in",
+            "nullable": null,
+            "semantic_status": "reviewed_override",
+            "semantic_provenance": "oracle identical-ABI evidence [hip-general-7.14.60850:sha256:4d71c9fc8c4044fe370aa6a66b73929fe98430341938af5ccd071ad2facfbef3, hip-windows-7.2.0:sha256:4d71c9fc8c4044fe370aa6a66b73929fe98430341938af5ccd071ad2facfbef3, rocmrc-0.5.0:sha256:fb4fbc154d05e1d201f98c7584c2e3245916845ca8483e956a260693d75b0a95]; Propagated only across the same vendor spelling and an identical normalized ABI type graph; target-version authority is explicit and conflicting source facts are rejected. (rocmrc-0.5.0)"
+          },
+          {
+            "name": "flags",
+            "type": "u32",
+            "direction": "in",
+            "nullable": false,
+            "semantic_status": "declaration_fact",
+            "semantic_provenance": "rocmrc-0.5.0: crates.io:rocmrc@0.5.0/src/hip/sys/mod.rs"
+          }
+        ],
+        "signature_hash": "fnv1a64:4b19be7fc861d328",
+        "classification": "covered_exact",
+        "classification_reason": "The raw table preserves the documented vendor ABI without semantic adaptation.",
+        "introduced": "1.0",
+        "deprecated": "",
+        "variant": "default",
+        "per_thread_default_stream": false,
+        "proc_address_flags": 0,
+        "fallback_order": [
+          "hipStreamWaitEvent"
+        ],
+        "linux": {
+          "available": true,
+          "baseline": "HIP 7.14.60850 / ROCm 7.14.0",
+          "proc_version": 0,
+          "symbols": [
+            "hipStreamWaitEvent"
+          ],
+          "reason": "Use only when the existing raw slot is available under its reviewed platform and runtime profile."
+        },
+        "windows": {
+          "available": true,
+          "baseline": "HIP SDK for Windows 7.2.0",
+          "proc_version": 0,
+          "symbols": [
+            "hipStreamWaitEvent"
+          ],
+          "reason": "Use only when the existing raw slot is available under its reviewed platform and runtime profile."
+        }
+      }
+    },
+    {
+      "id": "event.query",
+      "stable_id": 100728837,
+      "group": "event",
+      "common_name": "ocgpuEventQuery",
+      "classification": "exact",
+      "classification_reason": "Both backends report event completion without waiting and preserve native not-ready status.",
+      "return_type": "ocgpuResult",
+      "params": [
+        {
+          "name": "event",
+          "type": "ocgpuEvent",
+          "direction": "in",
+          "nullable": false,
+          "semantic_status": "reviewed_manifest",
+          "semantic_provenance": "Both backends report event completion without waiting and preserve native not-ready status."
+        }
+      ],
+      "signature_hash": "fnv1a64:d6682c161f1925a7",
+      "ownership": "Handles and storage are borrowed for the call. Device copies require valid non-overlapping ranges; the caller owns synchronization and lifetimes.",
+      "nullability": "Pointer nullability is defined by parameter annotations and validated before backend dispatch.",
+      "callback_behavior": "none",
+      "thread_safety": "Safe for concurrent calls when the caller synchronizes mutable handles and storage.",
+      "layout_provenance": "ocgpu ABI v1 integer, pointer, and calling-convention policy",
+      "documentation_provenance": "Reviewed pinned vendor declarations: cuEventQuery and hipEventQuery. Optional common extension; existing raw table slots and HIP profile gates are preserved.",
+      "cuda": {
+        "raw_name": "ocgpuCuEventQuery",
+        "vendor_symbol": "cuEventQuery",
+        "aliases": [],
+        "versioned_alternatives": [],
+        "return_type": "ocgpuCUresult",
+        "params": [
+          {
+            "name": "hEvent",
+            "type": "ocgpuCUevent",
+            "direction": "in",
+            "nullable": null,
+            "semantic_status": "reviewed_override",
+            "semantic_provenance": "oracle identical-ABI evidence [cuda-vendor-13.3-13030:sha256:2213d904ab132af95ee7b0b4a984125b275290dbd3f1829e68f58e430cb82448, cudarc-0.19.9:sha256:aad3d81dbbb5df6da0bbcaa6dffeb8462e732ecca35cf5168bbae6b9b3d94f8e]; Propagated only across the same vendor spelling and an identical normalized ABI type graph; target-version authority is explicit and conflicting source facts are rejected. (cudarc-0.19.9)"
+          }
+        ],
+        "signature_hash": "fnv1a64:50cdf57d1b9a6783",
+        "classification": "covered_exact",
+        "classification_reason": "The raw table preserves the documented vendor ABI without semantic adaptation.",
+        "introduced": "2.0",
+        "deprecated": "",
+        "variant": "default",
+        "per_thread_default_stream": false,
+        "proc_address_flags": 1,
+        "fallback_order": [
+          "cuEventQuery"
+        ],
+        "linux": {
+          "available": true,
+          "baseline": "CUDA 13.3 Update 1 / API 13030",
+          "proc_version": 2000,
+          "symbols": [
+            "cuEventQuery"
+          ],
+          "reason": "Use only when the existing raw slot is available under its reviewed platform and runtime profile."
+        },
+        "windows": {
+          "available": true,
+          "baseline": "CUDA 13.3 Update 1 / API 13030",
+          "proc_version": 2000,
+          "symbols": [
+            "cuEventQuery"
+          ],
+          "reason": "Use only when the existing raw slot is available under its reviewed platform and runtime profile."
+        }
+      },
+      "hip": {
+        "raw_name": "ocgpuHipEventQuery",
+        "vendor_symbol": "hipEventQuery",
+        "aliases": [],
+        "versioned_alternatives": [],
+        "return_type": "ocgpuHipError_t",
+        "params": [
+          {
+            "name": "event",
+            "type": "ocgpuHipEvent_t",
+            "direction": "in",
+            "nullable": null,
+            "semantic_status": "reviewed_override",
+            "semantic_provenance": "oracle identical-ABI evidence [hip-general-7.14.60850:sha256:26c8dd67ae9d461611e19177345922a4a4a668bd332f23c3811e7b73c0487e2b, hip-windows-7.2.0:sha256:26c8dd67ae9d461611e19177345922a4a4a668bd332f23c3811e7b73c0487e2b, rocmrc-0.5.0:sha256:26c8dd67ae9d461611e19177345922a4a4a668bd332f23c3811e7b73c0487e2b]; Propagated only across the same vendor spelling and an identical normalized ABI type graph; target-version authority is explicit and conflicting source facts are rejected. (rocmrc-0.5.0)"
+          }
+        ],
+        "signature_hash": "fnv1a64:076f3def7d53ae82",
+        "classification": "covered_exact",
+        "classification_reason": "The raw table preserves the documented vendor ABI without semantic adaptation.",
+        "introduced": "1.0",
+        "deprecated": "",
+        "variant": "default",
+        "per_thread_default_stream": false,
+        "proc_address_flags": 0,
+        "fallback_order": [
+          "hipEventQuery"
+        ],
+        "linux": {
+          "available": true,
+          "baseline": "HIP 7.14.60850 / ROCm 7.14.0",
+          "proc_version": 0,
+          "symbols": [
+            "hipEventQuery"
+          ],
+          "reason": "Use only when the existing raw slot is available under its reviewed platform and runtime profile."
+        },
+        "windows": {
+          "available": true,
+          "baseline": "HIP SDK for Windows 7.2.0",
+          "proc_version": 0,
+          "symbols": [
+            "hipEventQuery"
+          ],
+          "reason": "Use only when the existing raw slot is available under its reviewed platform and runtime profile."
+        }
+      }
+    },
+    {
+      "id": "event.elapsed_time",
+      "stable_id": 100728838,
+      "group": "event",
+      "common_name": "ocgpuEventElapsedTime",
+      "classification": "exact",
+      "classification_reason": "Writes elapsed milliseconds between completed timing-enabled events on the same device.",
+      "return_type": "ocgpuResult",
+      "params": [
+        {
+          "name": "milliseconds",
+          "type": "*mut f32",
+          "direction": "out",
+          "nullable": false,
+          "semantic_status": "reviewed_manifest",
+          "semantic_provenance": "Writes elapsed milliseconds between completed timing-enabled events on the same device."
+        },
+        {
+          "name": "start",
+          "type": "ocgpuEvent",
+          "direction": "in",
+          "nullable": false,
+          "semantic_status": "reviewed_manifest",
+          "semantic_provenance": "Writes elapsed milliseconds between completed timing-enabled events on the same device."
+        },
+        {
+          "name": "end",
+          "type": "ocgpuEvent",
+          "direction": "in",
+          "nullable": false,
+          "semantic_status": "reviewed_manifest",
+          "semantic_provenance": "Writes elapsed milliseconds between completed timing-enabled events on the same device."
+        }
+      ],
+      "signature_hash": "fnv1a64:b34a96cd0b344566",
+      "ownership": "Handles and storage are borrowed for the call. Device copies require valid non-overlapping ranges; the caller owns synchronization and lifetimes.",
+      "nullability": "Pointer nullability is defined by parameter annotations and validated before backend dispatch.",
+      "callback_behavior": "none",
+      "thread_safety": "Safe for concurrent calls when the caller synchronizes mutable handles and storage.",
+      "layout_provenance": "ocgpu ABI v1 integer, pointer, and calling-convention policy",
+      "documentation_provenance": "Reviewed pinned vendor declarations: cuEventElapsedTime and hipEventElapsedTime. Optional common extension; existing raw table slots and HIP profile gates are preserved.",
+      "cuda": {
+        "raw_name": "ocgpuCuEventElapsedTime",
+        "vendor_symbol": "cuEventElapsedTime",
+        "aliases": [],
+        "versioned_alternatives": [],
+        "return_type": "ocgpuCUresult",
+        "params": [
+          {
+            "name": "pMilliseconds",
+            "type": "*mut f32",
+            "direction": "unknown",
+            "nullable": null,
+            "semantic_status": "reviewed_override",
+            "semantic_provenance": "crates.io:cudarc@0.19.9/src/driver/sys/mod.rs; normalized declaration sha256:45d003f649dbac8a06bcc6e288ee4a0c30e21d4b4815fb1abf2d154887b02346; The exact normalized declaration and extracted annotation/comment graph state no ordinary-pointer nullability contract; this is a final source-unspecified fact, not a non-null default. (cudarc-0.19.9)"
+          },
+          {
+            "name": "hStart",
+            "type": "ocgpuCUevent",
+            "direction": "in",
+            "nullable": null,
+            "semantic_status": "reviewed_override",
+            "semantic_provenance": "crates.io:cudarc@0.19.9/src/driver/sys/mod.rs; normalized declaration sha256:45d003f649dbac8a06bcc6e288ee4a0c30e21d4b4815fb1abf2d154887b02346; The exact normalized declaration and extracted annotation/comment graph state no ordinary-pointer nullability contract; this is a final source-unspecified fact, not a non-null default. (cudarc-0.19.9)"
+          },
+          {
+            "name": "hEnd",
+            "type": "ocgpuCUevent",
+            "direction": "in",
+            "nullable": null,
+            "semantic_status": "reviewed_override",
+            "semantic_provenance": "crates.io:cudarc@0.19.9/src/driver/sys/mod.rs; normalized declaration sha256:45d003f649dbac8a06bcc6e288ee4a0c30e21d4b4815fb1abf2d154887b02346; The exact normalized declaration and extracted annotation/comment graph state no ordinary-pointer nullability contract; this is a final source-unspecified fact, not a non-null default. (cudarc-0.19.9)"
+          }
+        ],
+        "signature_hash": "fnv1a64:e057ca68e15c1f02",
+        "classification": "covered_exact",
+        "classification_reason": "The raw table preserves the documented vendor ABI without semantic adaptation.",
+        "introduced": "2.0",
+        "deprecated": "",
+        "variant": "default",
+        "per_thread_default_stream": false,
+        "proc_address_flags": 1,
+        "fallback_order": [
+          "cuEventElapsedTime"
+        ],
+        "linux": {
+          "available": true,
+          "baseline": "CUDA 13.3 Update 1 / API 13030",
+          "proc_version": 2000,
+          "symbols": [
+            "cuEventElapsedTime"
+          ],
+          "reason": "Use only when the existing raw slot is available under its reviewed platform and runtime profile."
+        },
+        "windows": {
+          "available": true,
+          "baseline": "CUDA 13.3 Update 1 / API 13030",
+          "proc_version": 2000,
+          "symbols": [
+            "cuEventElapsedTime"
+          ],
+          "reason": "Use only when the existing raw slot is available under its reviewed platform and runtime profile."
+        }
+      },
+      "hip": {
+        "raw_name": "ocgpuHipEventElapsedTime",
+        "vendor_symbol": "hipEventElapsedTime",
+        "aliases": [],
+        "versioned_alternatives": [],
+        "return_type": "ocgpuHipError_t",
+        "params": [
+          {
+            "name": "ms",
+            "type": "*mut f32",
+            "direction": "unknown",
+            "nullable": null,
+            "semantic_status": "reviewed_override",
+            "semantic_provenance": "crates.io:rocmrc@0.5.0/src/hip/sys/mod.rs; normalized declaration sha256:804478cb5be10b9e4d13fa2247c1eac0bd87a53f4d17d0f8d47c486e48f2cd03; The exact normalized declaration and extracted annotation/comment graph state no ordinary-pointer nullability contract; this is a final source-unspecified fact, not a non-null default. (rocmrc-0.5.0)"
+          },
+          {
+            "name": "start",
+            "type": "ocgpuHipEvent_t",
+            "direction": "in",
+            "nullable": null,
+            "semantic_status": "reviewed_override",
+            "semantic_provenance": "crates.io:rocmrc@0.5.0/src/hip/sys/mod.rs; normalized declaration sha256:804478cb5be10b9e4d13fa2247c1eac0bd87a53f4d17d0f8d47c486e48f2cd03; The exact normalized declaration and extracted annotation/comment graph state no ordinary-pointer nullability contract; this is a final source-unspecified fact, not a non-null default. (rocmrc-0.5.0)"
+          },
+          {
+            "name": "stop",
+            "type": "ocgpuHipEvent_t",
+            "direction": "in",
+            "nullable": null,
+            "semantic_status": "reviewed_override",
+            "semantic_provenance": "crates.io:rocmrc@0.5.0/src/hip/sys/mod.rs; normalized declaration sha256:804478cb5be10b9e4d13fa2247c1eac0bd87a53f4d17d0f8d47c486e48f2cd03; The exact normalized declaration and extracted annotation/comment graph state no ordinary-pointer nullability contract; this is a final source-unspecified fact, not a non-null default. (rocmrc-0.5.0)"
+          }
+        ],
+        "signature_hash": "fnv1a64:810db1a66181659b",
+        "classification": "covered_exact",
+        "classification_reason": "The raw table preserves the documented vendor ABI without semantic adaptation.",
+        "introduced": "1.0",
+        "deprecated": "",
+        "variant": "default",
+        "per_thread_default_stream": false,
+        "proc_address_flags": 0,
+        "fallback_order": [
+          "hipEventElapsedTime"
+        ],
+        "linux": {
+          "available": true,
+          "baseline": "HIP 7.14.60850 / ROCm 7.14.0",
+          "proc_version": 0,
+          "symbols": [
+            "hipEventElapsedTime"
+          ],
+          "reason": "Use only when the existing raw slot is available under its reviewed platform and runtime profile."
+        },
+        "windows": {
+          "available": true,
+          "baseline": "HIP SDK for Windows 7.2.0",
+          "proc_version": 0,
+          "symbols": [
+            "hipEventElapsedTime"
+          ],
+          "reason": "Use only when the existing raw slot is available under its reviewed platform and runtime profile."
+        }
+      }
+    }
+  ],
   "table": [
     {
       "name": "ocgpuApi_v1",
       "surface": "common",
-      "size_64": 232,
+      "size_64": 280,
       "align_64": 8,
-      "layout_hash": "fnv1a64:61f2be28db23ce39",
+      "layout_hash": "fnv1a64:aa37060ac62c2589",
       "layout_provenance": "ocgpu ABI v1 append-only table policy; offsets derive from canonical function order"
     },
     {

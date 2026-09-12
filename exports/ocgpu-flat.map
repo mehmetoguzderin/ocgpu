@@ -588,6 +588,8 @@ OCGPU_1.0 {
         ocgpuDriverGetVersion;
         ocgpuEventCreate;
         ocgpuEventDestroy;
+        ocgpuEventElapsedTime;
+        ocgpuEventQuery;
         ocgpuEventRecord;
         ocgpuEventSynchronize;
         ocgpuGetApi;
@@ -1132,6 +1134,8 @@ OCGPU_1.0 {
         ocgpuLaunchKernel;
         ocgpuMemAlloc;
         ocgpuMemFree;
+        ocgpuMemGetInfo;
+        ocgpuMemcpyDtoD;
         ocgpuMemcpyDtoH;
         ocgpuMemcpyHtoD;
         ocgpuModuleGetFunction;
@@ -1141,7 +1145,9 @@ OCGPU_1.0 {
         ocgpuRtcGetApi;
         ocgpuStreamCreate;
         ocgpuStreamDestroy;
+        ocgpuStreamQuery;
         ocgpuStreamSynchronize;
+        ocgpuStreamWaitEvent;
     local:
         *;
 };

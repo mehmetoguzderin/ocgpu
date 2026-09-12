@@ -39,6 +39,8 @@ pub const MAX_HEADERS: usize = 64;
 pub const MAX_LOG_BYTES: usize = 1024 * 1024;
 /// Default maximum loadable-code allocation (16 MiB).
 pub const MAX_CODE_BYTES: usize = 16 * 1024 * 1024;
+/// Default maximum NVRTC supported-architecture count.
+pub const MAX_SUPPORTED_ARCHITECTURES: usize = 1024;
 
 /// Resource policy for the safe typed API.
 ///
@@ -249,6 +251,20 @@ pub enum Error {
         /// Complete list of missing vendor symbol names.
         symbols: Vec<&'static str>,
     },
+    /// An optional vendor entry required by the requested operation is absent.
+    MissingOptionalSymbol {
+        /// Runtime compiler being queried.
+        compiler: CompilerKind,
+        /// Exact vendor symbol that was not exported.
+        symbol: &'static str,
+    },
+    /// A successful vendor call returned an invalid count.
+    InvalidOutputCount {
+        /// Operation that returned the invalid count.
+        operation: &'static str,
+        /// Unmodified vendor count.
+        count: i32,
+    },
     /// A public execution-backend value does not select CUDA or HIP.
     InvalidBackend {
         /// Rejected ABI value.
@@ -314,7 +330,8 @@ impl Error {
             Self::Loader(LoadError::BackendUnavailable { .. }) => OCGPU_ERROR_BACKEND_NOT_FOUND,
             Self::Loader(LoadError::UnsupportedPlatform { .. }) => OCGPU_ERROR_NOT_SUPPORTED,
             Self::Loader(LoadError::SymbolUnavailable { .. })
-            | Self::MissingRequiredSymbols { .. } => OCGPU_ERROR_SYMBOL_UNAVAILABLE,
+            | Self::MissingRequiredSymbols { .. }
+            | Self::MissingOptionalSymbol { .. } => OCGPU_ERROR_SYMBOL_UNAVAILABLE,
             Self::Loader(
                 LoadError::InvalidExplicitPath { .. }
                 | LoadError::AlreadyInitialized { .. }
@@ -327,9 +344,10 @@ impl Error {
             | Self::InvalidState { .. } => OCGPU_ERROR_INVALID_ARGUMENT,
             Self::Rtc(failure) => failure.result,
             Self::Compile(failure) => failure.rtc.result,
-            Self::AllocationFailed { .. } | Self::NullOutput { .. } | Self::Loader(_) => {
-                OCGPU_ERROR_INTERNAL
-            }
+            Self::AllocationFailed { .. }
+            | Self::InvalidOutputCount { .. }
+            | Self::NullOutput { .. }
+            | Self::Loader(_) => OCGPU_ERROR_INTERNAL,
         }
     }
 }
@@ -343,6 +361,15 @@ impl fmt::Display for Error {
                 "{compiler} is missing mandatory symbols: {}",
                 symbols.join(", ")
             ),
+            Self::MissingOptionalSymbol { compiler, symbol } => {
+                write!(
+                    formatter,
+                    "{compiler} does not export optional symbol {symbol}"
+                )
+            }
+            Self::InvalidOutputCount { operation, count } => {
+                write!(formatter, "{operation} returned invalid count {count}")
+            }
             Self::InvalidBackend { backend } => {
                 write!(formatter, "invalid RTC execution backend {backend}")
             }
@@ -586,6 +613,49 @@ impl<B: RtcBackend> fmt::Debug for Compiler<B> {
 }
 
 impl Compiler<Nvrtc> {
+    /// Returns NVRTC's supported GPU architecture numbers in vendor order.
+    ///
+    /// These are compiler targets, independent of the GPUs installed locally.
+    pub fn supported_architectures(self) -> Result<Vec<i32>, Error> {
+        self.supported_architectures_with_limit(MAX_SUPPORTED_ARCHITECTURES)
+    }
+
+    /// Queries supported GPU architecture numbers with a caller-selected count bound.
+    pub fn supported_architectures_with_limit(self, limit: usize) -> Result<Vec<i32>, Error> {
+        let count_function = self.optional_symbol(
+            self.raw_table.ocgpuNvrtcGetNumSupportedArchs,
+            "nvrtcGetNumSupportedArchs",
+        )?;
+        let get_function = self.optional_symbol(
+            self.raw_table.ocgpuNvrtcGetSupportedArchs,
+            "nvrtcGetSupportedArchs",
+        )?;
+        let mut count = 0;
+        // SAFETY: the count output remains writable throughout the vendor call.
+        let result = unsafe { count_function(&raw mut count) };
+        self.check_result("GetNumSupportedArchs", result)?;
+        let count = usize::try_from(count).map_err(|_| Error::InvalidOutputCount {
+            operation: "GetNumSupportedArchs",
+            count,
+        })?;
+        check_count("supported architectures", count, limit)?;
+        if count == 0 {
+            return Ok(Vec::new());
+        }
+        let mut architectures = Vec::new();
+        architectures
+            .try_reserve_exact(count)
+            .map_err(|_| Error::AllocationFailed {
+                kind: "supported architectures",
+                bytes: count.saturating_mul(size_of::<i32>()),
+            })?;
+        architectures.resize(count, 0);
+        // SAFETY: the allocation fits the count from this same immutable compiler.
+        let result = unsafe { get_function(architectures.as_mut_ptr()) };
+        self.check_result("GetSupportedArchs", result)?;
+        Ok(architectures)
+    }
+
     /// Loads NVRTC from secure platform candidates and validates the common API.
     pub fn load() -> Result<Self, Error> {
         let library = ocgpu_loader::load(LoaderBackend::Nvrtc)?;
@@ -664,7 +734,11 @@ impl<B: RtcBackend> Compiler<B> {
         self.raw_table
     }
 
-    /// Queries the runtime-compiler version through the direct common pointer.
+    /// Queries the version reported by the runtime compiler.
+    ///
+    /// This preserves the vendor's value. HIPRTC shipped in `ROCm` Core SDK
+    /// 10.0.0 reports `(9, 0)` even though its HIP package and Windows DLL name
+    /// use 7.15; this value does not identify the HIP package or driver ABI.
     pub fn version(self) -> Result<(i32, i32), Error> {
         let mut major = 0;
         let mut minor = 0;
@@ -809,6 +883,13 @@ impl<B: RtcBackend> Compiler<B> {
             Err(Error::Rtc(self.failure(operation, result)))
         }
     }
+
+    fn optional_symbol<T>(self, function: Option<T>, symbol: &'static str) -> Result<T, Error> {
+        function.ok_or(Error::MissingOptionalSymbol {
+            compiler: self.kind(),
+            symbol,
+        })
+    }
 }
 
 /// Owned runtime-compilation program.
@@ -832,6 +913,86 @@ impl<B: RtcBackend> fmt::Debug for Program<B> {
             .field("compile_attempted", &self.compile_attempted)
             .field("compiled", &self.compiled)
             .finish_non_exhaustive()
+    }
+}
+
+/// Optional native NVRTC compilation output.
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+pub enum NvrtcOutput {
+    /// Native CUDA binary, produced when compiling for an actual `sm_XX` target.
+    Cubin,
+    /// Link-time optimization IR, produced with `-dlto`.
+    LtoIr,
+    /// `OptiX` IR, produced with `--optix-ir` on supporting compiler versions.
+    OptixIr,
+    /// Legacy NVVM IR getter, deprecated by NVRTC in favor of LTO IR.
+    Nvvm,
+}
+
+impl Program<Nvrtc> {
+    /// Copies optional native output using the program's code-allocation bound.
+    ///
+    /// The selected compiler options determine whether this output is produced.
+    /// A vendor-reported zero size yields an empty vector.
+    pub fn native_output(&self, output: NvrtcOutput) -> Result<Vec<u8>, Error> {
+        self.native_output_with_limit(output, self.limits.max_code_bytes)
+    }
+
+    /// Copies optional native output with a caller-selected allocation bound.
+    pub fn native_output_with_limit(
+        &self,
+        output: NvrtcOutput,
+        limit: usize,
+    ) -> Result<Vec<u8>, Error> {
+        let raw = self.compiler.raw_table;
+        let (kind, size, get) = match output {
+            NvrtcOutput::Cubin => (
+                "CUDA binary",
+                ("nvrtcGetCUBINSize", raw.ocgpuNvrtcGetCUBINSize),
+                ("nvrtcGetCUBIN", raw.ocgpuNvrtcGetCUBIN),
+            ),
+            NvrtcOutput::LtoIr => (
+                "LTO IR",
+                ("nvrtcGetLTOIRSize", raw.ocgpuNvrtcGetLTOIRSize),
+                ("nvrtcGetLTOIR", raw.ocgpuNvrtcGetLTOIR),
+            ),
+            NvrtcOutput::OptixIr => (
+                "OptiX IR",
+                ("nvrtcGetOptiXIRSize", raw.ocgpuNvrtcGetOptiXIRSize),
+                ("nvrtcGetOptiXIR", raw.ocgpuNvrtcGetOptiXIR),
+            ),
+            NvrtcOutput::Nvvm => (
+                "NVVM IR",
+                ("nvrtcGetNVVMSize", raw.ocgpuNvrtcGetNVVMSize),
+                ("nvrtcGetNVVM", raw.ocgpuNvrtcGetNVVM),
+            ),
+        };
+        self.read_optional_output(kind, size, get, limit)
+    }
+}
+
+impl Program<Hiprtc> {
+    /// Copies HIPRTC bitcode produced with `-fgpu-rdc` using the program's bound.
+    ///
+    /// Bitcode requires linking before it can be loaded as a HIP module.
+    pub fn bitcode(&self) -> Result<Vec<u8>, Error> {
+        self.bitcode_with_limit(self.limits.max_code_bytes)
+    }
+
+    /// Copies HIPRTC bitcode with a caller-selected allocation bound.
+    pub fn bitcode_with_limit(&self, limit: usize) -> Result<Vec<u8>, Error> {
+        self.read_optional_output(
+            "HIP bitcode",
+            (
+                "hiprtcGetBitcodeSize",
+                self.compiler.raw_table.ocgpuHiprtcGetBitcodeSize,
+            ),
+            (
+                "hiprtcGetBitcode",
+                self.compiler.raw_table.ocgpuHiprtcGetBitcode,
+            ),
+            limit,
+        )
     }
 }
 
@@ -1019,6 +1180,24 @@ impl<B: RtcBackend> Program<B> {
         this.compiler.check_result("DestroyProgram", result)
     }
 
+    fn read_optional_output(
+        &self,
+        kind: &'static str,
+        size: (&'static str, Option<GetSizeFn>),
+        get: (&'static str, Option<GetBytesFn>),
+        limit: usize,
+    ) -> Result<Vec<u8>, Error> {
+        if !self.compiled {
+            return Err(Error::InvalidState {
+                operation: get.0,
+                required: "successfully compiled",
+            });
+        }
+        let size_function = self.compiler.optional_symbol(size.1, size.0)?;
+        let get_function = self.compiler.optional_symbol(get.1, get.0)?;
+        self.read_bounded(kind, size.0, size_function, get.0, get_function, limit)
+    }
+
     fn read_bounded(
         &self,
         kind: &'static str,
@@ -1192,7 +1371,9 @@ fn build_hiprtc_state_from<P: SymbolProvider>(
     resolve_hiprtc_raw(provider, &mut raw)?;
     // Nine common types match HIPRTC exactly. HIPRTC 5.7 spells the outer
     // CreateProgram/CompileProgram arrays mutable despite documenting them as
-    // input-only, so those two slots use exact-signature shims below.
+    // input-only, so those two slots use exact-signature shims below. The 7.15
+    // header makes the arrays const; their pointer representation and calling
+    // convention remain compatible with the pinned 5.7 raw declaration.
     let mut common = ocgpuRtcApi_v1 {
         struct_size: table_size::<ocgpuRtcApi_v1>()?,
         abi_version: OCGPU_ABI_VERSION_1,
@@ -1273,7 +1454,8 @@ unsafe fn hiprtc_create_program_from_state(
     };
     // SAFETY: HIPRTC 5.7.1 declares the outer arrays mutable but documents
     // both as `[in]`; only that qualification changes, and every pointer/count
-    // is forwarded unchanged to the exact raw declaration.
+    // is forwarded unchanged to the exact raw declaration. HIPRTC 7.15 makes
+    // the outer arrays const without changing this machine ABI.
     unsafe {
         function(
             program,
@@ -1309,7 +1491,8 @@ unsafe fn hiprtc_compile_program_from_state(
         return OCGPU_HIPRTC_ERROR_INTERNAL_ERROR;
     };
     // SAFETY: HIPRTC 5.7.1 documents `options` as `[in]`; only its outer const
-    // qualification changes before the exact raw call.
+    // qualification changes before the exact raw call. HIPRTC 7.15 restores
+    // that const qualification without changing the machine ABI.
     unsafe { function(program, option_count, options.cast_mut()) }
 }
 
@@ -1490,6 +1673,55 @@ mod tests {
     static HIP_INCLUDE_NAMES_POINTER: AtomicUsize = AtomicUsize::new(0);
     static HIP_OPTION_COUNT: AtomicI32 = AtomicI32::new(0);
     static HIP_OPTIONS_POINTER: AtomicUsize = AtomicUsize::new(0);
+    static OPTIONAL_CALLS: AtomicU32 = AtomicU32::new(0);
+    static OPTIONAL_SIZE: AtomicUsize = AtomicUsize::new(4);
+    static ARCHITECTURE_COUNT: AtomicI32 = AtomicI32::new(3);
+
+    macro_rules! mock_native_output {
+        ($size:ident, $get:ident, $bit:expr, $bytes:literal) => {
+            unsafe extern "C" fn $size(
+                _program: ocgpuRtcProgram,
+                bytes: *mut usize,
+            ) -> ocgpuRtcResult {
+                OPTIONAL_CALLS.fetch_or(1 << $bit, Ordering::SeqCst);
+                // SAFETY: the safe wrapper supplies a writable size output.
+                unsafe { *bytes = OPTIONAL_SIZE.load(Ordering::SeqCst) };
+                OCGPU_RTC_SUCCESS
+            }
+
+            unsafe extern "C" fn $get(
+                _program: ocgpuRtcProgram,
+                output: *mut c_char,
+            ) -> ocgpuRtcResult {
+                OPTIONAL_CALLS.fetch_or(1 << ($bit + 1), Ordering::SeqCst);
+                // SAFETY: tests permit copying only after a four-byte size query.
+                unsafe {
+                    std::ptr::copy_nonoverlapping($bytes.as_ptr(), output.cast(), $bytes.len());
+                }
+                OCGPU_RTC_SUCCESS
+            }
+        };
+    }
+
+    mock_native_output!(mock_cubin_size, mock_cubin, 0, b"BIN\0");
+    mock_native_output!(mock_lto_size, mock_lto, 2, b"LTO\0");
+    mock_native_output!(mock_optix_size, mock_optix, 4, b"OPT\0");
+    mock_native_output!(mock_nvvm_size, mock_nvvm, 6, b"NVM\0");
+    mock_native_output!(mock_bitcode_size, mock_bitcode, 8, b"BIT\0");
+
+    unsafe extern "C" fn mock_architecture_count(count: *mut i32) -> ocgpuRtcResult {
+        OPTIONAL_CALLS.fetch_or(1 << 10, Ordering::SeqCst);
+        // SAFETY: the safe wrapper supplies a writable count output.
+        unsafe { *count = ARCHITECTURE_COUNT.load(Ordering::SeqCst) };
+        OCGPU_RTC_SUCCESS
+    }
+
+    unsafe extern "C" fn mock_architectures(architectures: *mut i32) -> ocgpuRtcResult {
+        OPTIONAL_CALLS.fetch_or(1 << 11, Ordering::SeqCst);
+        // SAFETY: tests permit copying only after the three-element count query.
+        unsafe { std::ptr::copy_nonoverlapping([70, 80, 90].as_ptr(), architectures, 3) };
+        OCGPU_RTC_SUCCESS
+    }
 
     unsafe extern "C" fn mock_get_error_string(_result: ocgpuRtcResult) -> *const c_char {
         CALLS.fetch_or(CALL_ERROR_STRING, Ordering::SeqCst);
@@ -1722,18 +1954,43 @@ mod tests {
     }
 
     fn mock_compiler() -> Compiler<Nvrtc> {
-        let common_table = Box::leak(Box::new(mock_common_table()));
+        mock_compiler_with_raw(ocgpuNvrtcApi_v1::default())
+    }
+
+    fn mock_compiler_with_raw<B: RtcBackend>(raw: B::RawApi) -> Compiler<B> {
+        let mut common = mock_common_table();
+        common.backend = B::KIND.ocgpu_backend();
+        common.flags = match B::KIND {
+            CompilerKind::Nvrtc => OCGPU_RTC_API_FLAG_CODE_IS_PTX,
+            CompilerKind::Hiprtc => OCGPU_RTC_API_FLAG_CODE_IS_HIP_CODE_OBJECT,
+        };
+        let common_table = Box::leak(Box::new(common));
         let core = Box::leak(Box::new(
-            CoreFns::from_table(CompilerKind::Nvrtc, common_table)
-                .expect("mock common table is complete"),
+            CoreFns::from_table(B::KIND, common_table).expect("mock common table is complete"),
         ));
-        let raw_table = Box::leak(Box::new(ocgpuNvrtcApi_v1::default()));
+        let raw_table = Box::leak(Box::new(raw));
         Compiler {
             core,
             common_table,
             raw_table,
             loaded_path: Path::new("mock-nvrtc"),
             marker: PhantomData,
+        }
+    }
+
+    fn mock_nvrtc_optional_raw() -> ocgpuNvrtcApi_v1 {
+        ocgpuNvrtcApi_v1 {
+            ocgpuNvrtcGetNumSupportedArchs: Some(mock_architecture_count),
+            ocgpuNvrtcGetSupportedArchs: Some(mock_architectures),
+            ocgpuNvrtcGetCUBINSize: Some(mock_cubin_size),
+            ocgpuNvrtcGetCUBIN: Some(mock_cubin),
+            ocgpuNvrtcGetLTOIRSize: Some(mock_lto_size),
+            ocgpuNvrtcGetLTOIR: Some(mock_lto),
+            ocgpuNvrtcGetOptiXIRSize: Some(mock_optix_size),
+            ocgpuNvrtcGetOptiXIR: Some(mock_optix),
+            ocgpuNvrtcGetNVVMSize: Some(mock_nvvm_size),
+            ocgpuNvrtcGetNVVM: Some(mock_nvvm),
+            ..ocgpuNvrtcApi_v1::default()
         }
     }
 
@@ -1749,6 +2006,205 @@ mod tests {
         HIP_INCLUDE_NAMES_POINTER.store(0, Ordering::SeqCst);
         HIP_OPTION_COUNT.store(0, Ordering::SeqCst);
         HIP_OPTIONS_POINTER.store(0, Ordering::SeqCst);
+        OPTIONAL_CALLS.store(0, Ordering::SeqCst);
+        OPTIONAL_SIZE.store(4, Ordering::SeqCst);
+        ARCHITECTURE_COUNT.store(3, Ordering::SeqCst);
+    }
+
+    #[test]
+    fn optional_outputs_remain_bound_to_their_compiler_and_format() {
+        let _guard = TEST_LOCK
+            .lock()
+            .unwrap_or_else(std::sync::PoisonError::into_inner);
+        reset_mocks();
+        let nvrtc: Compiler<Nvrtc> = mock_compiler_with_raw(mock_nvrtc_optional_raw());
+        let hiprtc: Compiler<Hiprtc> = mock_compiler_with_raw(ocgpuHiprtcApi_v1 {
+            ocgpuHiprtcGetBitcodeSize: Some(mock_bitcode_size),
+            ocgpuHiprtcGetBitcode: Some(mock_bitcode),
+            ..ocgpuHiprtcApi_v1::default()
+        });
+        let mut nv_program = nvrtc
+            .create_program(c"nv source", None, &[])
+            .expect("NVRTC create");
+        let mut hip_program = hiprtc
+            .create_program(c"hip source", None, &[])
+            .expect("HIPRTC create");
+        assert_eq!(nv_program.compiler().kind(), CompilerKind::Nvrtc);
+        assert_eq!(hip_program.compiler().kind(), CompilerKind::Hiprtc);
+        assert!(matches!(
+            hip_program.bitcode(),
+            Err(Error::InvalidState { .. })
+        ));
+        assert!(matches!(
+            nv_program.native_output(NvrtcOutput::Cubin),
+            Err(Error::InvalidState { .. })
+        ));
+        assert_eq!(OPTIONAL_CALLS.load(Ordering::SeqCst), 0);
+
+        nv_program.compile(&[]).expect("NVRTC compile");
+        hip_program.compile(&[]).expect("HIPRTC compile");
+        for (output, expected) in [
+            (NvrtcOutput::Cubin, b"BIN\0"),
+            (NvrtcOutput::LtoIr, b"LTO\0"),
+            (NvrtcOutput::OptixIr, b"OPT\0"),
+            (NvrtcOutput::Nvvm, b"NVM\0"),
+        ] {
+            assert_eq!(
+                nv_program.native_output(output).expect("NVRTC output"),
+                expected
+            );
+            assert_eq!(
+                hip_program.bitcode().expect("interleaved HIPRTC bitcode"),
+                b"BIT\0"
+            );
+        }
+        assert_eq!(
+            nvrtc.supported_architectures().expect("architectures"),
+            [70, 80, 90]
+        );
+        assert_eq!(OPTIONAL_CALLS.load(Ordering::SeqCst), (1 << 12) - 1);
+    }
+
+    #[test]
+    fn optional_output_sizes_are_checked_before_copying() {
+        let _guard = TEST_LOCK
+            .lock()
+            .unwrap_or_else(std::sync::PoisonError::into_inner);
+        reset_mocks();
+        let compiler: Compiler<Nvrtc> = mock_compiler_with_raw(mock_nvrtc_optional_raw());
+        let mut program = compiler
+            .create_program(c"source", None, &[])
+            .expect("create");
+        program.compile(&[]).expect("compile");
+        assert!(matches!(
+            program.native_output_with_limit(NvrtcOutput::Cubin, 3),
+            Err(Error::OutputTooLarge {
+                kind: "CUDA binary",
+                bytes: 4,
+                limit: 3
+            })
+        ));
+        assert_eq!(OPTIONAL_CALLS.load(Ordering::SeqCst), 1);
+        OPTIONAL_SIZE.store(0, Ordering::SeqCst);
+        assert!(
+            program
+                .native_output(NvrtcOutput::Cubin)
+                .expect("empty CUBIN")
+                .is_empty()
+        );
+        assert_eq!(OPTIONAL_CALLS.load(Ordering::SeqCst), 1);
+        COMPILE_RESULT.store(OCGPU_RTC_ERROR_COMPILATION, Ordering::SeqCst);
+        assert!(program.compile(&[]).is_err());
+        assert!(matches!(
+            program.native_output(NvrtcOutput::Cubin),
+            Err(Error::InvalidState { .. })
+        ));
+        assert_eq!(OPTIONAL_CALLS.load(Ordering::SeqCst), 1);
+    }
+
+    #[test]
+    fn optional_missing_symbols_do_not_disable_common_compilation() {
+        let _guard = TEST_LOCK
+            .lock()
+            .unwrap_or_else(std::sync::PoisonError::into_inner);
+        reset_mocks();
+        for missing_size in [true, false] {
+            let mut raw = mock_nvrtc_optional_raw();
+            let symbol = if missing_size {
+                raw.ocgpuNvrtcGetCUBINSize = None;
+                "nvrtcGetCUBINSize"
+            } else {
+                raw.ocgpuNvrtcGetCUBIN = None;
+                "nvrtcGetCUBIN"
+            };
+            let compiler: Compiler<Nvrtc> = mock_compiler_with_raw(raw);
+            let mut program = compiler
+                .create_program(c"source", None, &[])
+                .expect("create");
+            program
+                .compile(&[])
+                .expect("compile without optional export");
+            assert_eq!(program.code().expect("PTX remains available"), MOCK_CODE);
+            let error = program
+                .native_output(NvrtcOutput::Cubin)
+                .expect_err("missing export");
+            assert_eq!(
+                error,
+                Error::MissingOptionalSymbol {
+                    compiler: CompilerKind::Nvrtc,
+                    symbol
+                }
+            );
+            assert_eq!(error.as_ocgpu_result(), OCGPU_ERROR_SYMBOL_UNAVAILABLE);
+        }
+        let compiler: Compiler<Hiprtc> = mock_compiler_with_raw(ocgpuHiprtcApi_v1::default());
+        let mut program = compiler
+            .create_program(c"source", None, &[])
+            .expect("HIPRTC create");
+        program
+            .compile(&[])
+            .expect("HIPRTC compile without bitcode");
+        assert_eq!(
+            program.bitcode().expect_err("missing HIPRTC bitcode"),
+            Error::MissingOptionalSymbol {
+                compiler: CompilerKind::Hiprtc,
+                symbol: "hiprtcGetBitcodeSize",
+            }
+        );
+        assert_eq!(OPTIONAL_CALLS.load(Ordering::SeqCst), 0);
+    }
+
+    #[test]
+    fn architecture_count_and_optional_symbols_are_validated_before_copying() {
+        let _guard = TEST_LOCK
+            .lock()
+            .unwrap_or_else(std::sync::PoisonError::into_inner);
+        reset_mocks();
+        let compiler: Compiler<Nvrtc> = mock_compiler_with_raw(mock_nvrtc_optional_raw());
+        assert!(matches!(
+            compiler.supported_architectures_with_limit(2),
+            Err(Error::TooManyItems {
+                kind: "supported architectures",
+                count: 3,
+                limit: 2
+            })
+        ));
+        ARCHITECTURE_COUNT.store(-1, Ordering::SeqCst);
+        assert!(matches!(
+            compiler.supported_architectures(),
+            Err(Error::InvalidOutputCount {
+                operation: "GetNumSupportedArchs",
+                count: -1
+            })
+        ));
+        ARCHITECTURE_COUNT.store(0, Ordering::SeqCst);
+        assert!(
+            compiler
+                .supported_architectures()
+                .expect("zero architectures")
+                .is_empty()
+        );
+        assert_eq!(OPTIONAL_CALLS.load(Ordering::SeqCst), 1 << 10);
+        for missing_count in [true, false] {
+            let mut raw = mock_nvrtc_optional_raw();
+            let symbol = if missing_count {
+                raw.ocgpuNvrtcGetNumSupportedArchs = None;
+                "nvrtcGetNumSupportedArchs"
+            } else {
+                raw.ocgpuNvrtcGetSupportedArchs = None;
+                "nvrtcGetSupportedArchs"
+            };
+            let compiler: Compiler<Nvrtc> = mock_compiler_with_raw(raw);
+            assert_eq!(
+                compiler
+                    .supported_architectures()
+                    .expect_err("missing query"),
+                Error::MissingOptionalSymbol {
+                    compiler: CompilerKind::Nvrtc,
+                    symbol
+                }
+            );
+        }
     }
 
     #[test]
@@ -1766,6 +2222,68 @@ mod tests {
             .expect("complete table must validate");
         assert_eq!(core.version as usize, mock_version as *const () as usize);
         assert_eq!(core.get_code as usize, mock_get_code as *const () as usize);
+    }
+
+    #[test]
+    fn each_required_vendor_export_is_validated_independently() {
+        let _guard = TEST_LOCK
+            .lock()
+            .unwrap_or_else(std::sync::PoisonError::into_inner);
+        reset_mocks();
+        for symbol in [
+            "nvrtcGetErrorString",
+            "nvrtcVersion",
+            "nvrtcCreateProgram",
+            "nvrtcDestroyProgram",
+            "nvrtcCompileProgram",
+            "nvrtcGetProgramLogSize",
+            "nvrtcGetProgramLog",
+            "nvrtcAddNameExpression",
+            "nvrtcGetLoweredName",
+            "nvrtcGetPTXSize",
+            "nvrtcGetPTX",
+        ] {
+            let Err(error) = build_nvrtc_state_from(
+                &MockProvider::missing(symbol.as_bytes()),
+                Path::new("incomplete-nvrtc"),
+            ) else {
+                panic!("NVRTC common profile must reject missing {symbol}")
+            };
+            assert_eq!(
+                error,
+                Error::MissingRequiredSymbols {
+                    compiler: CompilerKind::Nvrtc,
+                    symbols: vec![symbol],
+                }
+            );
+        }
+        for symbol in [
+            "hiprtcGetErrorString",
+            "hiprtcVersion",
+            "hiprtcCreateProgram",
+            "hiprtcDestroyProgram",
+            "hiprtcCompileProgram",
+            "hiprtcGetProgramLogSize",
+            "hiprtcGetProgramLog",
+            "hiprtcAddNameExpression",
+            "hiprtcGetLoweredName",
+            "hiprtcGetCodeSize",
+            "hiprtcGetCode",
+        ] {
+            let Err(error) = build_hiprtc_state_from(
+                &MockProvider::missing(symbol.as_bytes()),
+                Path::new("incomplete-hiprtc"),
+            ) else {
+                panic!("HIPRTC common profile must reject missing {symbol}")
+            };
+            assert_eq!(
+                error,
+                Error::MissingRequiredSymbols {
+                    compiler: CompilerKind::Hiprtc,
+                    symbols: vec![symbol],
+                }
+            );
+        }
     }
 
     #[test]

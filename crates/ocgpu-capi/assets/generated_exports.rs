@@ -895,6 +895,166 @@ pub unsafe extern "C" fn ocgpuLaunchKernel(
     }
 }
 
+/// Convenience unified leaf export. The first argument selects the backend for this call.
+///
+/// # Safety
+/// All pointer arguments must satisfy the operation's canonical ABI contract.
+#[cfg(feature = "flat-c-exports")]
+#[unsafe(no_mangle)]
+pub unsafe extern "C" fn ocgpuMemGetInfo(
+    backend: ocgpuBackend,
+    free_bytes: *mut usize,
+    total_bytes: *mut usize,
+) -> ocgpuResult {
+    let __ocgpu_backend = match backend {
+        OCGPU_BACKEND_CUDA => ocgpu_core::BackendKind::Cuda,
+        OCGPU_BACKEND_HIP => ocgpu_core::BackendKind::Hip,
+        _ => return OCGPU_ERROR_INVALID_ARGUMENT,
+    };
+    let __ocgpu_table = match ocgpu_core::negotiated_common_table(__ocgpu_backend) {
+        Ok(table) => table,
+        Err(error) => return error.result(),
+    };
+    let Some(__ocgpu_dispatch) = __ocgpu_table.ocgpuMemGetInfo else {
+        return OCGPU_ERROR_SYMBOL_UNAVAILABLE;
+    };
+    // SAFETY: The caller upholds this leaf export's documented ABI contract.
+    unsafe { __ocgpu_dispatch(free_bytes, total_bytes) }
+}
+
+/// Convenience unified leaf export. The first argument selects the backend for this call.
+///
+/// # Safety
+/// All pointer arguments must satisfy the operation's canonical ABI contract.
+#[cfg(feature = "flat-c-exports")]
+#[unsafe(no_mangle)]
+pub unsafe extern "C" fn ocgpuMemcpyDtoD(
+    backend: ocgpuBackend,
+    destination: ocgpuDeviceptr,
+    source: ocgpuDeviceptr,
+    bytes: usize,
+) -> ocgpuResult {
+    let __ocgpu_backend = match backend {
+        OCGPU_BACKEND_CUDA => ocgpu_core::BackendKind::Cuda,
+        OCGPU_BACKEND_HIP => ocgpu_core::BackendKind::Hip,
+        _ => return OCGPU_ERROR_INVALID_ARGUMENT,
+    };
+    let __ocgpu_table = match ocgpu_core::negotiated_common_table(__ocgpu_backend) {
+        Ok(table) => table,
+        Err(error) => return error.result(),
+    };
+    let Some(__ocgpu_dispatch) = __ocgpu_table.ocgpuMemcpyDtoD else {
+        return OCGPU_ERROR_SYMBOL_UNAVAILABLE;
+    };
+    // SAFETY: The caller upholds this leaf export's documented ABI contract.
+    unsafe { __ocgpu_dispatch(destination, source, bytes) }
+}
+
+/// Convenience unified leaf export. The first argument selects the backend for this call.
+///
+/// # Safety
+/// All pointer arguments must satisfy the operation's canonical ABI contract.
+#[cfg(feature = "flat-c-exports")]
+#[unsafe(no_mangle)]
+pub unsafe extern "C" fn ocgpuStreamQuery(
+    backend: ocgpuBackend,
+    stream: ocgpuStream,
+) -> ocgpuResult {
+    let __ocgpu_backend = match backend {
+        OCGPU_BACKEND_CUDA => ocgpu_core::BackendKind::Cuda,
+        OCGPU_BACKEND_HIP => ocgpu_core::BackendKind::Hip,
+        _ => return OCGPU_ERROR_INVALID_ARGUMENT,
+    };
+    let __ocgpu_table = match ocgpu_core::negotiated_common_table(__ocgpu_backend) {
+        Ok(table) => table,
+        Err(error) => return error.result(),
+    };
+    let Some(__ocgpu_dispatch) = __ocgpu_table.ocgpuStreamQuery else {
+        return OCGPU_ERROR_SYMBOL_UNAVAILABLE;
+    };
+    // SAFETY: The caller upholds this leaf export's documented ABI contract.
+    unsafe { __ocgpu_dispatch(stream) }
+}
+
+/// Convenience unified leaf export. The first argument selects the backend for this call.
+///
+/// # Safety
+/// All pointer arguments must satisfy the operation's canonical ABI contract.
+#[cfg(feature = "flat-c-exports")]
+#[unsafe(no_mangle)]
+pub unsafe extern "C" fn ocgpuStreamWaitEvent(
+    backend: ocgpuBackend,
+    stream: ocgpuStream,
+    event: ocgpuEvent,
+    flags: u32,
+) -> ocgpuResult {
+    let __ocgpu_backend = match backend {
+        OCGPU_BACKEND_CUDA => ocgpu_core::BackendKind::Cuda,
+        OCGPU_BACKEND_HIP => ocgpu_core::BackendKind::Hip,
+        _ => return OCGPU_ERROR_INVALID_ARGUMENT,
+    };
+    let __ocgpu_table = match ocgpu_core::negotiated_common_table(__ocgpu_backend) {
+        Ok(table) => table,
+        Err(error) => return error.result(),
+    };
+    let Some(__ocgpu_dispatch) = __ocgpu_table.ocgpuStreamWaitEvent else {
+        return OCGPU_ERROR_SYMBOL_UNAVAILABLE;
+    };
+    // SAFETY: The caller upholds this leaf export's documented ABI contract.
+    unsafe { __ocgpu_dispatch(stream, event, flags) }
+}
+
+/// Convenience unified leaf export. The first argument selects the backend for this call.
+///
+/// # Safety
+/// All pointer arguments must satisfy the operation's canonical ABI contract.
+#[cfg(feature = "flat-c-exports")]
+#[unsafe(no_mangle)]
+pub unsafe extern "C" fn ocgpuEventQuery(backend: ocgpuBackend, event: ocgpuEvent) -> ocgpuResult {
+    let __ocgpu_backend = match backend {
+        OCGPU_BACKEND_CUDA => ocgpu_core::BackendKind::Cuda,
+        OCGPU_BACKEND_HIP => ocgpu_core::BackendKind::Hip,
+        _ => return OCGPU_ERROR_INVALID_ARGUMENT,
+    };
+    let __ocgpu_table = match ocgpu_core::negotiated_common_table(__ocgpu_backend) {
+        Ok(table) => table,
+        Err(error) => return error.result(),
+    };
+    let Some(__ocgpu_dispatch) = __ocgpu_table.ocgpuEventQuery else {
+        return OCGPU_ERROR_SYMBOL_UNAVAILABLE;
+    };
+    // SAFETY: The caller upholds this leaf export's documented ABI contract.
+    unsafe { __ocgpu_dispatch(event) }
+}
+
+/// Convenience unified leaf export. The first argument selects the backend for this call.
+///
+/// # Safety
+/// All pointer arguments must satisfy the operation's canonical ABI contract.
+#[cfg(feature = "flat-c-exports")]
+#[unsafe(no_mangle)]
+pub unsafe extern "C" fn ocgpuEventElapsedTime(
+    backend: ocgpuBackend,
+    milliseconds: *mut f32,
+    start: ocgpuEvent,
+    end: ocgpuEvent,
+) -> ocgpuResult {
+    let __ocgpu_backend = match backend {
+        OCGPU_BACKEND_CUDA => ocgpu_core::BackendKind::Cuda,
+        OCGPU_BACKEND_HIP => ocgpu_core::BackendKind::Hip,
+        _ => return OCGPU_ERROR_INVALID_ARGUMENT,
+    };
+    let __ocgpu_table = match ocgpu_core::negotiated_common_table(__ocgpu_backend) {
+        Ok(table) => table,
+        Err(error) => return error.result(),
+    };
+    let Some(__ocgpu_dispatch) = __ocgpu_table.ocgpuEventElapsedTime else {
+        return OCGPU_ERROR_SYMBOL_UNAVAILABLE;
+    };
+    // SAFETY: The caller upholds this leaf export's documented ABI contract.
+    unsafe { __ocgpu_dispatch(milliseconds, start, end) }
+}
+
 /// Backend-native flat leaf export with the exact generated raw-table signature.
 /// Missing symbols use the manifest's deterministic sentinel policy.
 ///

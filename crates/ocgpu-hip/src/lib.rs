@@ -23,8 +23,8 @@ mod raw_symbols {
 mod generated_profiles;
 
 use generated_profiles::{
-    HIP_BOOTSTRAP_SYMBOLS, HIP_RUNTIME_PROFILES, HipPlatformRuntimeProfile,
-    HipRuntimeProfileDescriptor,
+    HIP_BOOTSTRAP_SYMBOLS, HIP_OPTIONAL_PROFILE_SYMBOLS, HIP_RUNTIME_PROFILES,
+    HipPlatformRuntimeProfile, HipRuntimeProfileDescriptor,
 };
 use raw_symbols::{
     HIP_RAW_INVENTORY, HIP_RAW_SYMBOLS, RawInventoryDescriptor, RawSymbolDescriptor,
@@ -305,6 +305,21 @@ unsafe extern "C" fn common_native_memcpy_dtoh(
     // opaque pointer returned by `hipMalloc`; the remaining arguments match.
     unsafe { target(destination, source as *mut c_void, bytes) }
 }
+static NATIVE_MEMCPY_DTOD_TARGET: OnceLock<ocgpu_abi::ocgpuHipMemcpyDtoDFn> = OnceLock::new();
+
+unsafe extern "C" fn common_native_memcpy_dtod(
+    destination: ocgpuDeviceptr,
+    source: ocgpuDeviceptr,
+    bytes: usize,
+) -> ocgpuResult {
+    let Some(target) = NATIVE_MEMCPY_DTOD_TARGET.get() else {
+        return ocgpu_abi::OCGPU_ERROR_INTERNAL;
+    };
+    // SAFETY: both integers preserve HIP's opaque allocation pointers losslessly;
+    // the caller supplies valid non-overlapping device ranges for this copy.
+    unsafe { target(destination as *mut c_void, source as *mut c_void, bytes) }
+}
+
 /// `hipStreamCreateWithFlags` ABI.
 pub type StreamCreateFn = unsafe extern "C" fn(*mut ocgpuStream, u32) -> ocgpuResult;
 /// `hipStreamDestroy` ABI.
@@ -736,6 +751,47 @@ impl UnvalidatedApi {
             ocgpuModuleUnload: self.module_unload,
             ocgpuModuleGetFunction: self.module_get_function,
             ocgpuLaunchKernel: self.launch_kernel,
+            ocgpuMemGetInfo: self.raw_table.ocgpuHipMemGetInfo,
+            ocgpuMemcpyDtoD: self.raw_table.ocgpuHipMemcpyDtoD.map(|target| {
+                NATIVE_MEMCPY_DTOD_TARGET.get_or_init(|| target);
+                common_native_memcpy_dtod as ocgpu_abi::ocgpuMemcpyDtoDFn
+            }),
+            ocgpuStreamQuery: self.raw_table.ocgpuHipStreamQuery.map(|target| {
+                // SAFETY: the reviewed signature differs only in opaque handle tags.
+                unsafe {
+                    std::mem::transmute::<
+                        ocgpu_abi::ocgpuHipStreamQueryFn,
+                        ocgpu_abi::ocgpuStreamQueryFn,
+                    >(target)
+                }
+            }),
+            ocgpuStreamWaitEvent: self.raw_table.ocgpuHipStreamWaitEvent.map(|target| {
+                // SAFETY: the reviewed signature differs only in opaque handle tags.
+                unsafe {
+                    std::mem::transmute::<
+                        ocgpu_abi::ocgpuHipStreamWaitEventFn,
+                        ocgpu_abi::ocgpuStreamWaitEventFn,
+                    >(target)
+                }
+            }),
+            ocgpuEventQuery: self.raw_table.ocgpuHipEventQuery.map(|target| {
+                // SAFETY: the reviewed signature differs only in opaque handle tags.
+                unsafe {
+                    std::mem::transmute::<
+                        ocgpu_abi::ocgpuHipEventQueryFn,
+                        ocgpu_abi::ocgpuEventQueryFn,
+                    >(target)
+                }
+            }),
+            ocgpuEventElapsedTime: self.raw_table.ocgpuHipEventElapsedTime.map(|target| {
+                // SAFETY: the reviewed signature differs only in opaque handle tags.
+                unsafe {
+                    std::mem::transmute::<
+                        ocgpu_abi::ocgpuHipEventElapsedTimeFn,
+                        ocgpu_abi::ocgpuEventElapsedTimeFn,
+                    >(target)
+                }
+            }),
         }
     }
 }
@@ -1523,10 +1579,12 @@ fn resolve_inventory_descriptor<S: SymbolSource>(
     if !platform_is_applicable(descriptor.platform_mask) {
         return Ok(platform_unavailable_report(descriptor.canonical, false));
     }
-    if !full_raw_inventory {
+    if !full_raw_inventory && !HIP_OPTIONAL_PROFILE_SYMBOLS.contains(&descriptor.canonical) {
         return Ok(profile_unavailable_report(descriptor.canonical, false));
     }
-    let descriptor_version = descriptor_proc_version(descriptor);
+    let descriptor_version = full_raw_inventory
+        .then(|| descriptor_proc_version(descriptor))
+        .flatten();
     let resolved = resolve(
         source,
         SymbolSpec {
@@ -2053,6 +2111,20 @@ mod tests {
         HIP_SUCCESS
     }
 
+    unsafe extern "C" fn mock_memcpy_dtod(
+        destination: *mut c_void,
+        source: *mut c_void,
+        bytes: usize,
+    ) -> i32 {
+        if (destination as usize, source as usize, bytes)
+            == (MOCK_DEVICE_POINTER, MOCK_DEVICE_POINTER + 64, 32)
+        {
+            HIP_SUCCESS
+        } else {
+            1
+        }
+    }
+
     unsafe extern "C" fn mock_runtime_version(output: *mut i32) -> i32 {
         // SAFETY: the mock ABI requires callers to supply writable output storage.
         if let Some(output) = unsafe { output.as_mut() } {
@@ -2162,6 +2234,7 @@ mod tests {
                 "hipFree" => mock_free as *const () as *mut c_void,
                 "hipMemcpyHtoD" => mock_memcpy_htod as *const () as *mut c_void,
                 "hipMemcpyDtoH" => mock_memcpy_dtoh as *const () as *mut c_void,
+                "hipMemcpyDtoD" => mock_memcpy_dtod as *const () as *mut c_void,
                 _ => mock_function as *const () as *mut c_void,
             };
             NonNull::new(address).expect("function addresses are non-null")
@@ -2212,6 +2285,7 @@ mod tests {
 
     struct ProfileSource {
         runtime: MockRuntime,
+        missing: Option<&'static str>,
         proc_queries: Cell<usize>,
         direct_queries: Cell<usize>,
     }
@@ -2220,6 +2294,7 @@ mod tests {
         fn new(runtime: MockRuntime) -> Self {
             Self {
                 runtime,
+                missing: None,
                 proc_queries: Cell::new(0),
                 direct_queries: Cell::new(0),
             }
@@ -2263,6 +2338,9 @@ mod tests {
 
         fn direct_lookup(&self, name: &str) -> Option<NonNull<c_void>> {
             self.direct_queries.set(self.direct_queries.get() + 1);
+            if self.missing == Some(name) {
+                return None;
+            }
             Some(if name == "hipRuntimeGetVersion" {
                 self.runtime_address()
             } else if name == "hipMemcpyHtoD" && !matches!(self.runtime, MockRuntime::Hip7) {
@@ -2345,7 +2423,10 @@ mod tests {
             assert!(!raw.diagnostics.proc_address_support);
             assert_eq!(raw.raw_table_ref().flags, expected_profile.api_flags());
             assert_eq!(source.proc_queries.get(), 0);
-            assert_eq!(source.direct_queries.get(), 27);
+            assert_eq!(
+                source.direct_queries.get(),
+                27 + super::HIP_OPTIONAL_PROFILE_SYMBOLS.len()
+            );
             let validated = validate(raw).expect("reviewed legacy common core must validate");
             assert_eq!(validated.common_table().flags, expected_profile.api_flags());
             let common_memcpy = validated
@@ -2386,12 +2467,13 @@ mod tests {
                 let raw_exact =
                     super::profile_raw_exact_symbol(expected_profile, descriptor.canonical);
                 let adapter = super::common_adapter_symbol(expected_profile, descriptor.canonical);
+                let optional = super::HIP_OPTIONAL_PROFILE_SYMBOLS.contains(&descriptor.canonical);
                 if !super::platform_is_applicable(descriptor.platform_mask) {
                     assert_eq!(report.resolution, ResolutionKind::PlatformUnavailable);
                 } else if adapter {
                     assert_eq!(report.resolution, ResolutionKind::DirectAdapter);
                     assert!(report.available);
-                } else if bootstrap || (common && raw_exact) {
+                } else if bootstrap || (common && raw_exact) || optional {
                     assert_eq!(report.resolution, ResolutionKind::Direct);
                     assert!(report.available);
                 } else {
@@ -2403,7 +2485,7 @@ mod tests {
                     // nullable function-pointer field in this exact raw table.
                     let address = unsafe { table_slot_address(raw.raw_table_ref(), offset) };
                     if super::platform_is_applicable(descriptor.platform_mask)
-                        && (bootstrap || raw_exact)
+                        && (bootstrap || raw_exact || optional)
                     {
                         assert!(address.is_some(), "{} remained null", descriptor.canonical);
                     } else {
@@ -2415,6 +2497,38 @@ mod tests {
                     }
                 }
             }
+        }
+    }
+
+    #[test]
+    fn each_optional_extension_can_be_missing_on_legacy_profiles() {
+        macro_rules! check_missing {
+            ($runtime:expr, $symbol:literal, $field:ident) => {{
+                let mut source = ProfileSource::new($runtime);
+                source.missing = Some($symbol);
+                let raw = Box::leak(Box::new(
+                    build_from_source(&source, "optional-hip".into()).expect("optional lookup"),
+                ));
+                let api =
+                    validate(raw).expect("optional symbols cannot invalidate the required core");
+                assert!(api.common_table().$field.is_none());
+                let report = api
+                    .diagnostics()
+                    .symbol($symbol)
+                    .expect("optional diagnostic");
+                assert!(!report.required);
+                assert!(!report.available);
+                assert_eq!(report.resolution, ResolutionKind::Missing);
+                assert_eq!(source.proc_queries.get(), 0);
+            }};
+        }
+        for runtime in [MockRuntime::Hip5, MockRuntime::Hip6] {
+            check_missing!(runtime, "hipMemGetInfo", ocgpuMemGetInfo);
+            check_missing!(runtime, "hipMemcpyDtoD", ocgpuMemcpyDtoD);
+            check_missing!(runtime, "hipStreamQuery", ocgpuStreamQuery);
+            check_missing!(runtime, "hipStreamWaitEvent", ocgpuStreamWaitEvent);
+            check_missing!(runtime, "hipEventQuery", ocgpuEventQuery);
+            check_missing!(runtime, "hipEventElapsedTime", ocgpuEventElapsedTime);
         }
     }
 
@@ -2442,11 +2556,15 @@ mod tests {
         validate(raw).expect("reviewed HIP7 common subset must validate");
         assert!(raw.diagnostics.proc_address_support);
         assert_eq!(source.proc_queries.get(), 0);
-        assert_eq!(source.direct_queries.get(), 26);
+        assert_eq!(
+            source.direct_queries.get(),
+            26 + super::HIP_OPTIONAL_PROFILE_SYMBOLS.len()
+        );
         for report in &raw.diagnostics.symbols {
             if !report.applicable {
                 assert_eq!(report.resolution, ResolutionKind::PlatformUnavailable);
-            } else if report.canonical_name == "hipRuntimeGetVersion"
+            } else if super::HIP_OPTIONAL_PROFILE_SYMBOLS.contains(&report.canonical_name)
+                || report.canonical_name == "hipRuntimeGetVersion"
                 || super::profile_raw_exact_symbol(
                     super::RuntimeProfile::Hip7,
                     report.canonical_name,
@@ -2849,6 +2967,20 @@ mod tests {
         // SAFETY: the raw mock accepts exact `hipMalloc` output storage.
         assert_eq!(unsafe { raw_malloc(&raw mut native_ptr, 64) }, HIP_SUCCESS);
         assert_eq!(native_ptr as usize, MOCK_DEVICE_POINTER);
+        let common_copy = common
+            .ocgpuMemcpyDtoD
+            .expect("optional device copy adapter");
+        // SAFETY: this exact mock verifies opaque pointer values and byte count,
+        // does not dereference them, and returns its native result unchanged.
+        assert_eq!(
+            unsafe { common_copy(MOCK_DEVICE_POINTER, MOCK_DEVICE_POINTER + 64, 32) },
+            HIP_SUCCESS
+        );
+        // SAFETY: invalid count is intentionally forwarded to the exact mock.
+        assert_eq!(
+            unsafe { common_copy(MOCK_DEVICE_POINTER, MOCK_DEVICE_POINTER + 64, 31) },
+            1
+        );
     }
 
     #[test]
