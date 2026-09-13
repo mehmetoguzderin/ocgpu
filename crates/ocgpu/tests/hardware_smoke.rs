@@ -513,7 +513,10 @@ fn load_hip_fixture() -> HipFixture {
         expected_sha256.len() == 64 && expected_sha256.bytes().all(|byte| byte.is_ascii_hexdigit()),
         "OCGPU_HIP_SMOKE_SHA256 must be exactly 64 hexadecimal digits"
     );
-    let actual_sha256 = format!("{:X}", Sha256::digest(&bytes));
+    let actual_sha256 = Sha256::digest(&bytes)
+        .iter()
+        .map(|byte| format!("{:02X}", byte))
+        .collect::<String>();
     assert_eq!(
         actual_sha256,
         expected_sha256.to_ascii_uppercase(),
