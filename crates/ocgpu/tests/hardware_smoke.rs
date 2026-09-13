@@ -515,8 +515,11 @@ fn load_hip_fixture() -> HipFixture {
     );
     let actual_sha256 = Sha256::digest(&bytes)
         .iter()
-        .map(|byte| format!("{:02X}", byte))
-        .collect::<String>();
+        .fold(String::new(), |mut acc, byte| {
+            use std::fmt::Write as _;
+            write!(acc, "{byte:02X}").expect("writing to String is infallible");
+            acc
+        });
     assert_eq!(
         actual_sha256,
         expected_sha256.to_ascii_uppercase(),
